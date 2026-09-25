@@ -3,7 +3,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/device_token.dart';
 import '../auth/auth_controller.dart';
+import 'billing_section.dart';
 import 'device_tokens_controller.dart';
+import 'notification_prefs_section.dart';
+import 'profile_section.dart';
 
 class SettingsScreen extends ConsumerWidget {
   const SettingsScreen({super.key});
@@ -12,7 +15,15 @@ class SettingsScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
       appBar: AppBar(title: const Text('Settings')),
-      body: ListView(children: const <Widget>[_DevicesSection()]),
+      body: ListView(
+        key: const ValueKey<String>('settings-list'),
+        children: const <Widget>[
+          ProfileSection(),
+          NotificationPrefsSection(),
+          BillingSection(),
+          _DevicesSection(),
+        ],
+      ),
     );
   }
 }

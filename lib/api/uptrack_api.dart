@@ -1,12 +1,15 @@
 import 'package:dio/dio.dart';
 
 import 'client.dart';
+import 'models/billing_subscription.dart';
 import 'models/check.dart';
 import 'models/current_user.dart';
 import 'models/device_token.dart';
 import 'models/incident.dart';
 import 'models/monitor.dart';
 import 'models/monitor_analytics.dart';
+import 'models/notification_preferences.dart';
+import 'models/status_page.dart';
 
 /// Paths used by the mobile API client (mirrored in the contract test).
 const String kGetMePath = '/api/auth/me';
@@ -18,6 +21,17 @@ const String kLogoutPath = '/api/auth/logout';
 const String kDeviceTokensPath = '/api/auth/device-tokens';
 const String kPushDevicesPath = '/api/push/devices';
 const String kIncidentsPath = '/api/incidents';
+const String kNotificationPreferencesPath =
+    '/api/users/me/notification-preferences';
+const String kBillingSubscriptionPath = '/api/billing/subscription';
+
+/// OpenAPI path template for the public status page (mirrored in the
+/// contract test). The runtime call interpolates the slug via
+/// [statusPagePath].
+const String kStatusPagePath = '/api/status/{slug}';
+
+/// Concrete path for `GET /api/status/{slug}`.
+String statusPagePath(String slug) => '/api/status/$slug';
 
 /// OpenAPI path templates for the monitor detail flows (mirrored in the
 /// contract test). Runtime calls interpolate the concrete id via the
@@ -362,6 +376,86 @@ class UptrackApi {
       );
     }
     return MonitorAnalytics.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `GET /api/users/me/notification-preferences` — the caller's prefs
+  /// (server returns defaults when nothing was ever saved).
+  Future<NotificationPreferences> getNotificationPreferences() async {
+    const String path = kNotificationPreferencesPath;
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(path);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return NotificationPreferences.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `PATCH /api/users/me/notification-preferences` — merge [patch]
+  /// (see [NotificationPreferences.toPatchJson]) over the stored prefs.
+  Future<NotificationPreferences> updateNotificationPreferences(
+    Map<String, Object?> patch,
+  ) async {
+    const String path = kNotificationPreferencesPath;
+    final Response<Map<String, dynamic>> res = await _dio
+        .patch<Map<String, dynamic>>(path, data: patch);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return NotificationPreferences.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `GET /api/billing/subscription` — read-only plan + subscription state.
+  Future<BillingSubscriptionInfo> getBillingSubscription() async {
+    const String path = kBillingSubscriptionPath;
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(path);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return BillingSubscriptionInfo.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `GET /api/status/{slug}` — public status page (no auth required).
+  ///
+  /// The OpenAPI spec declares no password parameter for this endpoint, so
+  /// the optional password is sent as `?password=` (the web UI convention);
+  /// see `BACKEND-GAP: status password` in the loop LOG.
+  Future<StatusPageData> getStatusPage(String slug, {String? password}) async {
+    final String path = statusPagePath(slug);
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(
+          path,
+          queryParameters: <String, Object?>{
+            if (password != null && password.isNotEmpty) 'password': password,
+          },
+        );
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    final Object? inner = data['data'];
+    if (inner is! Map) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Unexpected shape from $path',
+      );
+    }
+    return StatusPageData.fromJson(inner.cast<String, Object?>());
   }
 
   /// Unwraps the `{ data: { incident, updates } }` envelope shared by the

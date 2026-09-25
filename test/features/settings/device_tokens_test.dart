@@ -130,6 +130,21 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    /// The devices section sits below the profile/notifications/billing
+    /// sections, so it is lazily built only once scrolled to. Drags the
+    /// outer list until [finder] is hit-testable (presence alone is not
+    /// enough: the list builds ahead into its cache extent). A plain
+    /// `scrollUntilVisible` cannot pin the outer [Scrollable]: the
+    /// quiet-hours text fields each contain their own inner scrollable.
+    Future<void> scrollToDevices(WidgetTester tester, Finder finder) async {
+      final Finder list = find.byKey(const ValueKey<String>('settings-list'));
+      for (int i = 0; i < 15 && finder.hitTestable().evaluate().isEmpty; i++) {
+        await tester.drag(list, const Offset(0, -500));
+        await tester.pumpAndSettle();
+      }
+      await tester.pumpAndSettle();
+    }
+
     ProviderContainer makeContainer(
       Future<ResponseBody> Function(RequestOptions) handler,
     ) {
@@ -161,6 +176,7 @@ void main() {
 
       await pumpSettings(tester, container);
 
+      await scrollToDevices(tester, find.text('Pixel 9'));
       expect(find.text('Devices'), findsOneWidget);
       expect(find.text('Pixel 9'), findsOneWidget);
       expect(find.text('Unlabeled device'), findsOneWidget);
@@ -178,6 +194,7 @@ void main() {
 
       await pumpSettings(tester, container);
 
+      await scrollToDevices(tester, find.text('No devices signed in.'));
       expect(find.text('No devices signed in.'), findsOneWidget);
     });
 
@@ -197,6 +214,7 @@ void main() {
 
       await pumpSettings(tester, container);
 
+      await scrollToDevices(tester, find.text('boom'));
       expect(find.text('boom'), findsOneWidget);
       expect(find.text('Retry'), findsOneWidget);
 
@@ -204,6 +222,7 @@ void main() {
       await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
 
+      await scrollToDevices(tester, find.text('Pixel 9'));
       expect(find.text('Pixel 9'), findsOneWidget);
     });
 
@@ -228,9 +247,16 @@ void main() {
       addTearDown(container.dispose);
 
       await pumpSettings(tester, container);
+      await scrollToDevices(tester, find.text('Pixel 9'));
       expect(find.text('Pixel 9'), findsOneWidget);
 
       // Successful revoke drops the row.
+      await scrollToDevices(
+        tester,
+        find.byKey(
+          const ValueKey<String>('revoke-11111111-1111-4111-8111-111111111111'),
+        ),
+      );
       await tester.tap(
         find.byKey(
           const ValueKey<String>('revoke-11111111-1111-4111-8111-111111111111'),
@@ -242,6 +268,12 @@ void main() {
 
       // Failed revoke keeps the row and surfaces a SnackBar.
       revokeShouldFail = true;
+      await scrollToDevices(
+        tester,
+        find.byKey(
+          const ValueKey<String>('revoke-22222222-2222-4222-8222-222222222222'),
+        ),
+      );
       await tester.tap(
         find.byKey(
           const ValueKey<String>('revoke-22222222-2222-4222-8222-222222222222'),

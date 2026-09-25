@@ -10,6 +10,7 @@ import 'features/incidents/incidents_screen.dart';
 import 'features/monitors/monitor_detail_screen.dart';
 import 'features/monitors/monitors_screen.dart';
 import 'features/settings/settings_screen.dart';
+import 'features/status/status_page_screen.dart';
 import 'theme/app_theme.dart';
 
 GoRouter createRouter({
@@ -74,6 +75,13 @@ GoRouter createRouter({
             path: 'settings',
             builder: (BuildContext context, GoRouterState state) =>
                 const SettingsScreen(),
+          ),
+          GoRoute(
+            path: 'status',
+            builder: (BuildContext context, GoRouterState state) =>
+                StatusPageScreen(
+                  initialSlug: state.uri.queryParameters['slug'] ?? '',
+                ),
           ),
         ],
       ),
