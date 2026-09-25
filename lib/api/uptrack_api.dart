@@ -2,6 +2,7 @@ import 'package:dio/dio.dart';
 
 import 'client.dart';
 import 'models/current_user.dart';
+import 'models/device_token.dart';
 import 'models/monitor.dart';
 
 /// Paths used by the mobile API client (mirrored in the contract test).
@@ -144,6 +145,33 @@ class UptrackApi {
       );
     }
     return DeviceTokenIssuance.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `GET /api/auth/device-tokens` — the caller's live (unrevoked)
+  /// device tokens (metadata only; the raw secret is never returned).
+  Future<List<DeviceToken>> listDeviceTokens() async {
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(kDeviceTokensPath);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: kDeviceTokensPath),
+        message: 'Empty response from $kDeviceTokensPath',
+      );
+    }
+    final Object? items = data['data'];
+    if (items is! List) {
+      throw DioException(
+        requestOptions: RequestOptions(path: kDeviceTokensPath),
+        message: 'Unexpected shape from $kDeviceTokensPath',
+      );
+    }
+    return items
+        .map(
+          (Object? e) =>
+              DeviceToken.fromJson((e! as Map).cast<String, Object?>()),
+        )
+        .toList();
   }
 
   /// `DELETE /api/auth/device-tokens/{id}` — revoke one device token.
