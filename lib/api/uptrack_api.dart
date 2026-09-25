@@ -231,6 +231,28 @@ class UptrackApi {
     await _dio.delete<Map<String, dynamic>>('$kDeviceTokensPath/$id');
   }
 
+  /// `POST /api/push/devices` — register (or re-register after a token
+  /// refresh) the native push token. Idempotent on `(platform, token)`:
+  /// re-registration refreshes `last_seen_at` and clears `invalidated_at`.
+  Future<void> registerPushDevice({
+    required String platform,
+    required String token,
+    String? environment,
+    String? appVersion,
+  }) async {
+    await _dio.post<Map<String, dynamic>>(
+      kPushDevicesPath,
+      data: <String, Object?>{
+        'platform': platform,
+        'token': token,
+        if (environment != null && environment.isNotEmpty)
+          'environment': environment,
+        if (appVersion != null && appVersion.isNotEmpty)
+          'app_version': appVersion,
+      },
+    );
+  }
+
   /// `DELETE /api/push/devices` — unregister a push token on logout.
   Future<void> unregisterPushDevice(String token) async {
     await _dio.delete<Map<String, dynamic>>(

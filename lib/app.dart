@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -11,6 +13,7 @@ import 'features/monitors/monitor_detail_screen.dart';
 import 'features/monitors/monitors_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'features/status/status_page_screen.dart';
+import 'push/push_providers.dart';
 import 'theme/app_theme.dart';
 
 GoRouter createRouter({
@@ -96,11 +99,24 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
   return createRouter(authStatusOf: () => status);
 });
 
-class UptrackApp extends ConsumerWidget {
+class UptrackApp extends ConsumerStatefulWidget {
   const UptrackApp({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<UptrackApp> createState() => _UptrackAppState();
+}
+
+class _UptrackAppState extends ConsumerState<UptrackApp> {
+  @override
+  void initState() {
+    super.initState();
+    // Best-effort push plumbing (token registration, cold-start deep link,
+    // foreground display); never blocks the first frame.
+    unawaited(initializePush(ref));
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final GoRouter router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'Uptrack',

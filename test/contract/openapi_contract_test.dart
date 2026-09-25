@@ -40,13 +40,14 @@ void main() {
       kBillingSubscriptionPath: 'get',
     };
     // NOTE: device-token endpoints (`GET /api/auth/device-tokens`,
-    // `DELETE /api/auth/device-tokens/{id}`) and the notification-prefs
-    // endpoint (`/api/users/me/notification-preferences`) are intentionally
+    // `DELETE /api/auth/device-tokens/{id}`), the notification-prefs
+    // endpoint (`/api/users/me/notification-preferences`), and the push
+    // device endpoint (`POST /api/push/devices`) are intentionally
     // not asserted here yet: the checked-in `openapi-v2.json` export
-    // predates the backend-loop routes (T013/T016) and contains no `device`
-    // or `preference` paths, so asserting them would fail on a stale export
-    // rather than on real drift. Re-add once the export is regenerated from
-    // the backend worktree.
+    // predates the backend-loop routes (T013/T014/T016) and contains no
+    // `device`, `preference`, or `push` paths, so asserting them would fail
+    // on a stale export rather than on real drift. Re-add once the export
+    // is regenerated from the backend worktree.
 
     for (final MapEntry<String, String> entry in usedEndpoints.entries) {
       final Object? pathItem = paths[entry.key];

@@ -5,6 +5,9 @@ import 'package:go_router/go_router.dart';
 import 'package:uptrack_mobile/app.dart';
 import 'package:uptrack_mobile/features/dashboard/dashboard_controller.dart';
 import 'package:uptrack_mobile/features/monitors/monitors_controller.dart';
+import 'package:uptrack_mobile/push/push_message.dart';
+import 'package:uptrack_mobile/push/push_providers.dart';
+import 'package:uptrack_mobile/push/push_service.dart';
 import 'package:uptrack_mobile/theme/app_theme.dart';
 
 /// The dashboard loads over HTTP + Drift (background isolate), which never
@@ -30,6 +33,34 @@ class _StubMonitorsRepository implements MonitorsRepository {
   @override
   Future<MonitorsData> load() async =>
       const MonitorsData(monitors: [], offline: false);
+}
+
+/// Push touches native method channels + the local-notifications plugin, so
+/// the shell test swaps in a service with inert seams (push flows themselves
+/// are covered in `test/push/push_test.dart` with fake channels).
+class _NoopNotifier implements LocalNotifier {
+  @override
+  Future<void> initialize({
+    required void Function(PushMessage message) onTap,
+  }) async {}
+
+  @override
+  Future<PushMessage?> initialNotification() async => null;
+
+  @override
+  Future<void> showForeground(PushMessage message) async {}
+}
+
+PushService _stubPushService() {
+  return PushService(
+    registerToken: ({
+      required String platform,
+      required String token,
+      String? environment,
+    }) async {},
+    onNavigate: (_) {},
+    notifier: _NoopNotifier(),
+  );
 }
 
 void main() {
@@ -62,6 +93,7 @@ void main() {
           monitorsRepositoryProvider.overrideWithValue(
             _StubMonitorsRepository(),
           ),
+          pushServiceProvider.overrideWithValue(_stubPushService()),
         ],
         child: const UptrackApp(),
       ),

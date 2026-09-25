@@ -44,6 +44,7 @@ dependencies:
   drift_flutter: ^0.3.1
   sqlite3_flutter_libs: ^0.6.0+eol
   fl_chart: ^1.2.0
+  flutter_local_notifications: ^22.3.1
 
 dev_dependencies:
   flutter_test:
