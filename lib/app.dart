@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
+import 'features/incidents/incident_detail_screen.dart';
 import 'features/incidents/incidents_screen.dart';
 import 'features/monitors/monitor_detail_screen.dart';
 import 'features/monitors/monitors_screen.dart';
@@ -59,6 +60,15 @@ GoRouter createRouter({
             path: 'incidents',
             builder: (BuildContext context, GoRouterState state) =>
                 const IncidentsScreen(),
+            routes: <GoRoute>[
+              GoRoute(
+                path: ':id',
+                builder: (BuildContext context, GoRouterState state) =>
+                    IncidentDetailScreen(
+                      incidentId: state.pathParameters['id']!,
+                    ),
+              ),
+            ],
           ),
           GoRoute(
             path: 'settings',

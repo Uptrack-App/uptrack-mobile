@@ -29,6 +29,21 @@ const String kMonitorAnalyticsPath = '/api/analytics/monitors/{monitor_id}';
 /// Concrete path for `GET /api/monitors/{id}`.
 String monitorDetailPath(String id) => '/api/monitors/$id';
 
+/// OpenAPI path template for `GET /api/incidents/{id}` (mirrored in the
+/// contract test). The runtime call interpolates the id via
+/// [incidentDetailPath].
+const String kIncidentDetailPath = '/api/incidents/{id}';
+
+/// Concrete path for `GET /api/incidents/{id}`.
+String incidentDetailPath(String id) => '/api/incidents/$id';
+
+/// OpenAPI path template for `POST /api/incidents/{id}/acknowledge`
+/// (mirrored in the contract test).
+const String kIncidentAcknowledgePath = '/api/incidents/{id}/acknowledge';
+
+/// Concrete path for `POST /api/incidents/{id}/acknowledge`.
+String incidentAcknowledgePath(String id) => '/api/incidents/$id/acknowledge';
+
 /// Concrete path for `GET /api/monitors/{id}/checks`.
 String monitorChecksPath(String id) => '/api/monitors/$id/checks';
 
@@ -235,6 +250,24 @@ class UptrackApi {
     return IncidentListResponse.fromJson(data.cast<String, Object?>());
   }
 
+  /// `GET /api/incidents/{id}` — one incident + its posted updates
+  /// (`{ data: { incident, updates } }` envelope).
+  Future<IncidentDetail> getIncident(String id) async {
+    final String path = incidentDetailPath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(path);
+    return _parseIncidentDetail(res.data, path);
+  }
+
+  /// `POST /api/incidents/{id}/acknowledge` — pause escalation and
+  /// auto-post an update; returns the refreshed incident detail.
+  Future<IncidentDetail> acknowledgeIncident(String id) async {
+    final String path = incidentAcknowledgePath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .post<Map<String, dynamic>>(path);
+    return _parseIncidentDetail(res.data, path);
+  }
+
   /// `GET /api/monitors` — list the authenticated org's monitors.
   Future<MonitorListResponse> listMonitors({
     int page = 1,
@@ -329,5 +362,24 @@ class UptrackApi {
       );
     }
     return MonitorAnalytics.fromJson(data.cast<String, Object?>());
+  }
+
+  /// Unwraps the `{ data: { incident, updates } }` envelope shared by the
+  /// incident detail and acknowledge endpoints.
+  IncidentDetail _parseIncidentDetail(Map<String, dynamic>? data, String path) {
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    final Object? inner = data['data'];
+    if (inner is! Map) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Unexpected shape from $path',
+      );
+    }
+    return IncidentDetail.fromJson(inner.cast<String, Object?>());
   }
 }

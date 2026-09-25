@@ -31,6 +31,8 @@ void main() {
       kGetMePath: 'get',
       kListMonitorsPath: 'get',
       kIncidentsPath: 'get',
+      kIncidentDetailPath: 'get',
+      kIncidentAcknowledgePath: 'post',
       kMonitorDetailPath: 'get',
       kMonitorChecksPath: 'get',
       kMonitorAnalyticsPath: 'get',
