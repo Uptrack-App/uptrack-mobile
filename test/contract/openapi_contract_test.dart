@@ -30,6 +30,7 @@ void main() {
     const Map<String, String> usedEndpoints = <String, String>{
       kGetMePath: 'get',
       kListMonitorsPath: 'get',
+      kIncidentsPath: 'get',
     };
     // NOTE: device-token endpoints (`GET /api/auth/device-tokens`,
     // `DELETE /api/auth/device-tokens/{id}`) are intentionally not asserted

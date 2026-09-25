@@ -3,6 +3,7 @@ import 'package:dio/dio.dart';
 import 'client.dart';
 import 'models/current_user.dart';
 import 'models/device_token.dart';
+import 'models/incident.dart';
 import 'models/monitor.dart';
 
 /// Paths used by the mobile API client (mirrored in the contract test).
@@ -14,6 +15,7 @@ const String kMagicLinkVerifyPath = '/api/auth/magic-link/verify';
 const String kLogoutPath = '/api/auth/logout';
 const String kDeviceTokensPath = '/api/auth/device-tokens';
 const String kPushDevicesPath = '/api/push/devices';
+const String kIncidentsPath = '/api/incidents';
 
 /// Result of `POST /api/auth/login`: either a 2FA prompt or an
 /// authenticated session (session cookie, captured by
@@ -190,6 +192,26 @@ class UptrackApi {
   /// `POST /api/auth/logout` — clear the server session cookie.
   Future<void> logout() async {
     await _dio.post<Map<String, dynamic>>(kLogoutPath);
+  }
+
+  /// `GET /api/incidents` — the org's incidents, newest first.
+  /// Pass `status: 'ongoing'` for open incidents only.
+  Future<IncidentListResponse> listIncidents({String? status}) async {
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(
+          kIncidentsPath,
+          queryParameters: <String, Object?>{
+            if (status != null && status.isNotEmpty) 'status': status,
+          },
+        );
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: kIncidentsPath),
+        message: 'Empty response from $kIncidentsPath',
+      );
+    }
+    return IncidentListResponse.fromJson(data.cast<String, Object?>());
   }
 
   /// `GET /api/monitors` — list the authenticated org's monitors.

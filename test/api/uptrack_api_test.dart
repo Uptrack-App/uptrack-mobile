@@ -6,6 +6,7 @@ import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/client.dart';
 import 'package:uptrack_mobile/api/models/current_user.dart';
+import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/api/models/monitor.dart';
 import 'package:uptrack_mobile/api/uptrack_api.dart';
 
@@ -125,6 +126,36 @@ void main() {
     expect(res.data.single.lastCheck?.responseTime, 123);
     expect(seen?.queryParameters['page'], 2);
     expect(seen?.queryParameters['per_page'], 50);
+  });
+
+  test('listIncidents parses the data envelope + status filter', () async {
+    RequestOptions? seen;
+    final Dio dio = dioWithFake((RequestOptions options) async {
+      seen = options;
+      return jsonResponse(<String, Object?>{
+        'data': <Object?>[
+          <String, Object?>{
+            'id': '44444444-4444-4444-8444-444444444444',
+            'monitor_id': '33333333-3333-4333-8333-333333333333',
+            'monitor_name': 'Homepage',
+            'status': 'open',
+            'started_at': '2026-09-26T00:00:00Z',
+            'resolved_at': null,
+            'acknowledged_at': null,
+            'inserted_at': '2026-09-26T00:00:00Z',
+          },
+        ],
+      });
+    });
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    final IncidentListResponse res = await api.listIncidents(status: 'ongoing');
+
+    expect(seen?.path, kIncidentsPath);
+    expect(seen?.queryParameters['status'], 'ongoing');
+    expect(res.data, hasLength(1));
+    expect(res.data.single.displayName, 'Homepage');
+    expect(res.data.single.isOngoing, isTrue);
   });
 
   test('bearer-token interceptor attaches Authorization header', () async {
