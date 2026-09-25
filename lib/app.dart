@@ -6,6 +6,7 @@ import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/incidents/incidents_screen.dart';
+import 'features/monitors/monitor_detail_screen.dart';
 import 'features/monitors/monitors_screen.dart';
 import 'features/settings/settings_screen.dart';
 import 'theme/app_theme.dart';
@@ -46,6 +47,13 @@ GoRouter createRouter({
             path: 'monitors',
             builder: (BuildContext context, GoRouterState state) =>
                 const MonitorsScreen(),
+            routes: <GoRoute>[
+              GoRoute(
+                path: ':id',
+                builder: (BuildContext context, GoRouterState state) =>
+                    MonitorDetailScreen(monitorId: state.pathParameters['id']!),
+              ),
+            ],
           ),
           GoRoute(
             path: 'incidents',

@@ -43,6 +43,7 @@ dependencies:
   drift: ^2.35.0
   drift_flutter: ^0.3.1
   sqlite3_flutter_libs: ^0.6.0+eol
+  fl_chart: ^1.2.0
 
 dev_dependencies:
   flutter_test:

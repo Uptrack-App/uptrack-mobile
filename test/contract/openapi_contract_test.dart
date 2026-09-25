@@ -31,6 +31,9 @@ void main() {
       kGetMePath: 'get',
       kListMonitorsPath: 'get',
       kIncidentsPath: 'get',
+      kMonitorDetailPath: 'get',
+      kMonitorChecksPath: 'get',
+      kMonitorAnalyticsPath: 'get',
     };
     // NOTE: device-token endpoints (`GET /api/auth/device-tokens`,
     // `DELETE /api/auth/device-tokens/{id}`) are intentionally not asserted

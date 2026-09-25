@@ -1,10 +1,12 @@
 import 'package:dio/dio.dart';
 
 import 'client.dart';
+import 'models/check.dart';
 import 'models/current_user.dart';
 import 'models/device_token.dart';
 import 'models/incident.dart';
 import 'models/monitor.dart';
+import 'models/monitor_analytics.dart';
 
 /// Paths used by the mobile API client (mirrored in the contract test).
 const String kGetMePath = '/api/auth/me';
@@ -16,6 +18,25 @@ const String kLogoutPath = '/api/auth/logout';
 const String kDeviceTokensPath = '/api/auth/device-tokens';
 const String kPushDevicesPath = '/api/push/devices';
 const String kIncidentsPath = '/api/incidents';
+
+/// OpenAPI path templates for the monitor detail flows (mirrored in the
+/// contract test). Runtime calls interpolate the concrete id via the
+/// `monitor*Path` helpers below.
+const String kMonitorDetailPath = '/api/monitors/{id}';
+const String kMonitorChecksPath = '/api/monitors/{id}/checks';
+const String kMonitorAnalyticsPath = '/api/analytics/monitors/{monitor_id}';
+
+/// Concrete path for `GET /api/monitors/{id}`.
+String monitorDetailPath(String id) => '/api/monitors/$id';
+
+/// Concrete path for `GET /api/monitors/{id}/checks`.
+String monitorChecksPath(String id) => '/api/monitors/$id/checks';
+
+/// Concrete path for `GET /api/analytics/monitors/{monitor_id}`.
+String monitorAnalyticsPath(String id) => '/api/analytics/monitors/$id';
+
+/// Chart windows offered by the monitor detail screen (`?days=` values).
+const Set<int> analyticsDayOptions = <int>{1, 7, 90};
 
 /// Result of `POST /api/auth/login`: either a 2FA prompt or an
 /// authenticated session (session cookie, captured by
@@ -235,5 +256,78 @@ class UptrackApi {
       );
     }
     return MonitorListResponse.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `GET /api/monitors/{id}` — a single monitor (`{ data }` envelope).
+  Future<Monitor> getMonitor(String id) async {
+    final String path = monitorDetailPath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(path);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    final Object? inner = data['data'];
+    if (inner is! Map) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Unexpected shape from $path',
+      );
+    }
+    return Monitor.fromJson(inner.cast<String, Object?>());
+  }
+
+  /// `GET /api/monitors/{id}/checks?limit=N` — recent checks, newest first.
+  Future<CheckListResponse> listChecks(String id, {int limit = 20}) async {
+    final String path = monitorChecksPath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(
+          path,
+          queryParameters: <String, Object?>{'limit': limit},
+        );
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return CheckListResponse.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `GET /api/analytics/monitors/{monitor_id}?days=N` — response-time
+  /// series + percentiles for the 24h/7d/90d chart windows.
+  ///
+  /// Throws [ArgumentError] for windows outside [analyticsDayOptions]; the
+  /// server additionally clamps `days` to the plan's retention and echoes
+  /// the effective window as `period_days`.
+  Future<MonitorAnalytics> getMonitorAnalytics(
+    String id, {
+    int days = 7,
+  }) async {
+    if (!analyticsDayOptions.contains(days)) {
+      throw ArgumentError.value(
+        days,
+        'days',
+        'Must be one of $analyticsDayOptions',
+      );
+    }
+    final String path = monitorAnalyticsPath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .get<Map<String, dynamic>>(
+          path,
+          queryParameters: <String, Object?>{'days': days},
+        );
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return MonitorAnalytics.fromJson(data.cast<String, Object?>());
   }
 }

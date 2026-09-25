@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:uptrack_mobile/app.dart';
 import 'package:uptrack_mobile/features/dashboard/dashboard_controller.dart';
+import 'package:uptrack_mobile/features/monitors/monitors_controller.dart';
 import 'package:uptrack_mobile/theme/app_theme.dart';
 
 /// The dashboard loads over HTTP + Drift (background isolate), which never
@@ -19,6 +20,16 @@ class _StubDashboardRepository implements DashboardRepository {
     recentIncidents: [],
     offline: false,
   );
+}
+
+/// The monitors list loads over HTTP + Drift (background isolate), which
+/// never settles under fake-async `pumpAndSettle` — so the shell test swaps
+/// in a canned repository (list content itself is covered in
+/// `test/features/monitors/monitors_test.dart`).
+class _StubMonitorsRepository implements MonitorsRepository {
+  @override
+  Future<MonitorsData> load() async =>
+      const MonitorsData(monitors: [], offline: false);
 }
 
 void main() {
@@ -47,6 +58,9 @@ void main() {
           routerProvider.overrideWithValue(router),
           dashboardRepositoryProvider.overrideWithValue(
             _StubDashboardRepository(),
+          ),
+          monitorsRepositoryProvider.overrideWithValue(
+            _StubMonitorsRepository(),
           ),
         ],
         child: const UptrackApp(),

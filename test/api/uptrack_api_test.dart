@@ -5,9 +5,11 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/client.dart';
+import 'package:uptrack_mobile/api/models/check.dart';
 import 'package:uptrack_mobile/api/models/current_user.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/api/models/monitor.dart';
+import 'package:uptrack_mobile/api/models/monitor_analytics.dart';
 import 'package:uptrack_mobile/api/uptrack_api.dart';
 
 /// Fake [HttpClientAdapter] returning canned JSON without network access.
@@ -156,6 +158,114 @@ void main() {
     expect(res.data, hasLength(1));
     expect(res.data.single.displayName, 'Homepage');
     expect(res.data.single.isOngoing, isTrue);
+  });
+
+  test('getMonitor parses the { data } envelope', () async {
+    RequestOptions? seen;
+    final Dio dio = dioWithFake((RequestOptions options) async {
+      seen = options;
+      return jsonResponse(<String, Object?>{
+        'data': (monitorsFixture()['data']! as List).single,
+      });
+    });
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    final Monitor monitor = await api.getMonitor(
+      '33333333-3333-4333-8333-333333333333',
+    );
+
+    expect(seen?.path, '/api/monitors/33333333-3333-4333-8333-333333333333');
+    expect(monitor.name, 'Homepage');
+    expect(monitor.regionsRequired, 'any');
+  });
+
+  test('listChecks parses checks newest-first with a limit param', () async {
+    RequestOptions? seen;
+    final Dio dio = dioWithFake((RequestOptions options) async {
+      seen = options;
+      return jsonResponse(<String, Object?>{
+        'data': <Object?>[
+          <String, Object?>{
+            'status': 'up',
+            'response_time': 120,
+            'status_code': 200,
+            'checked_at': '2026-09-26T00:00:00Z',
+            'error_message': null,
+          },
+          <String, Object?>{
+            'status': 'down',
+            'response_time': 5000,
+            'status_code': 503,
+            'checked_at': '2026-09-25T23:55:00Z',
+            'error_message': 'connection refused',
+          },
+        ],
+      });
+    });
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    final CheckListResponse res = await api.listChecks('monitor-id');
+
+    expect(seen?.path, '/api/monitors/monitor-id/checks');
+    expect(seen?.queryParameters['limit'], 20);
+    expect(res.data, hasLength(2));
+    expect(res.data.first.isUp, isTrue);
+    expect(res.data.last.errorMessage, 'connection refused');
+  });
+
+  test(
+    'getMonitorAnalytics parses series + percentiles + period_days',
+    () async {
+      RequestOptions? seen;
+      final Dio dio = dioWithFake((RequestOptions options) async {
+        seen = options;
+        return jsonResponse(<String, Object?>{
+          'monitor_id': 'monitor-id',
+          'period_days': 7,
+          'uptime_chart': <Object?>[],
+          'response_times': <Object?>[
+            <String, Object?>{'timestamp': 1729900000, 'response_time': 123.5},
+            <String, Object?>{'timestamp': 1729903600, 'response_time': 140.0},
+          ],
+          'percentiles': <String, Object?>{
+            'p50': 120.0,
+            'p95': 300.0,
+            'p99': 500.0,
+          },
+          'incident_stats': <String, Object?>{
+            'total_incidents': 1,
+            'ongoing_incidents': 0,
+            'resolved_incidents': 1,
+            'mttr_minutes': 12.0,
+          },
+        });
+      });
+      final UptrackApi api = UptrackApi(dio: dio);
+
+      final MonitorAnalytics analytics = await api.getMonitorAnalytics(
+        'monitor-id',
+        days: 90,
+      );
+
+      expect(seen?.path, '/api/analytics/monitors/monitor-id');
+      expect(seen?.queryParameters['days'], 90);
+      expect(analytics.periodDays, 7);
+      expect(analytics.responseTimes, hasLength(2));
+      expect(analytics.responseTimes.first.responseTime, 123.5);
+      expect(analytics.percentiles.p95, 300.0);
+    },
+  );
+
+  test('getMonitorAnalytics rejects windows outside 1/7/90', () async {
+    final Dio dio = dioWithFake(
+      (RequestOptions options) async => jsonResponse(<String, Object?>{}),
+    );
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    expect(
+      () => api.getMonitorAnalytics('monitor-id', days: 30),
+      throwsArgumentError,
+    );
   });
 
   test('bearer-token interceptor attaches Authorization header', () async {
