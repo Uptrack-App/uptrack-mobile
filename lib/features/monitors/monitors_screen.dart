@@ -178,33 +178,39 @@ class _MonitorRow extends StatelessWidget {
     final String? uptime = monitor.uptimePercentage == null
         ? null
         : '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime';
-    return Card(
-      child: ListTile(
-        title: Text(monitor.name),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(monitor.url, maxLines: 1, overflow: TextOverflow.ellipsis),
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: <Widget>[
-                MonitorStatusChip(status: monitor.status),
-                if (uptime != null)
-                  Text(uptime, style: theme.textTheme.bodySmall),
-                if (monitor.regionsRequired.isNotEmpty)
-                  Text(
-                    'Regions: ${monitor.regionsRequired}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                Text(monitor.monitorType, style: theme.textTheme.bodySmall),
-              ],
-            ),
-          ],
+    final String semanticsLabel = uptime == null
+        ? 'Monitor ${monitor.name}, status ${monitor.status}'
+        : 'Monitor ${monitor.name}, status ${monitor.status}, $uptime';
+    return Semantics(
+      label: semanticsLabel,
+      child: Card(
+        child: ListTile(
+          title: Text(monitor.name),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(monitor.url, maxLines: 1, overflow: TextOverflow.ellipsis),
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: <Widget>[
+                  MonitorStatusChip(status: monitor.status),
+                  if (uptime != null)
+                    Text(uptime, style: theme.textTheme.bodySmall),
+                  if (monitor.regionsRequired.isNotEmpty)
+                    Text(
+                      'Regions: ${monitor.regionsRequired}',
+                      style: theme.textTheme.bodySmall,
+                    ),
+                  Text(monitor.monitorType, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.go('/monitors/${monitor.id}'),
         ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.go('/monitors/${monitor.id}'),
       ),
     );
   }

@@ -83,7 +83,13 @@ class _DetailBody extends ConsumerWidget {
                 ),
               ),
             ),
-          Text(monitor.name, style: theme.textTheme.headlineSmall),
+          Semantics(
+            label: 'Monitor ${monitor.name}',
+            header: true,
+            container: true,
+            explicitChildNodes: true,
+            child: Text(monitor.name, style: theme.textTheme.headlineSmall),
+          ),
           const SizedBox(height: 4),
           Text(monitor.url, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
@@ -191,6 +197,11 @@ class _ResponseChart extends StatelessWidget {
         )
         .toList();
     final ResponsePercentiles percentiles = analytics.percentiles;
+    final String summary =
+        'Response-time chart, last ${analytics.periodDays} days: '
+        'p50 ${percentiles.p50.toStringAsFixed(0)} ms, '
+        'p95 ${percentiles.p95.toStringAsFixed(0)} ms, '
+        'p99 ${percentiles.p99.toStringAsFixed(0)} ms';
 
     return Card(
       child: Padding(
@@ -198,35 +209,43 @@ class _ResponseChart extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
-            SizedBox(
-              height: 200,
-              child: LineChart(
-                LineChartData(
-                  lineBarsData: <LineChartBarData>[
-                    LineChartBarData(
-                      spots: spots,
-                      isCurved: true,
-                      color: theme.colorScheme.primary,
-                      barWidth: 2,
-                      dotData: const FlDotData(show: false),
-                      belowBarData: BarAreaData(
-                        show: true,
-                        color: theme.colorScheme.primary.withValues(
-                          alpha: 0.15,
+            Semantics(
+              label: summary,
+              image: true,
+              container: true,
+              explicitChildNodes: true,
+              child: ExcludeSemantics(
+                child: SizedBox(
+                  height: 200,
+                  child: LineChart(
+                    LineChartData(
+                      lineBarsData: <LineChartBarData>[
+                        LineChartBarData(
+                          spots: spots,
+                          isCurved: true,
+                          color: theme.colorScheme.primary,
+                          barWidth: 2,
+                          dotData: const FlDotData(show: false),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: theme.colorScheme.primary.withValues(
+                              alpha: 0.15,
+                            ),
+                          ),
+                        ),
+                      ],
+                      titlesData: const FlTitlesData(
+                        topTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
+                        ),
+                        rightTitles: AxisTitles(
+                          sideTitles: SideTitles(showTitles: false),
                         ),
                       ),
-                    ),
-                  ],
-                  titlesData: const FlTitlesData(
-                    topTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
-                    ),
-                    rightTitles: AxisTitles(
-                      sideTitles: SideTitles(showTitles: false),
+                      gridData: const FlGridData(show: true),
+                      borderData: FlBorderData(show: false),
                     ),
                   ),
-                  gridData: const FlGridData(show: true),
-                  borderData: FlBorderData(show: false),
                 ),
               ),
             ),
@@ -259,22 +278,27 @@ class _CheckRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final ColorScheme scheme = theme.colorScheme;
-    return Card(
-      child: ListTile(
-        leading: Icon(
-          check.isUp ? Icons.check_circle : Icons.error,
-          color: check.isUp ? scheme.primary : scheme.error,
-        ),
-        title: Text(
-          '${check.status} · ${check.responseTime} ms · HTTP ${check.statusCode}',
-        ),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(check.checkedAt, style: theme.textTheme.bodySmall),
-            if (check.errorMessage != null && check.errorMessage!.isNotEmpty)
-              Text(check.errorMessage!, style: theme.textTheme.bodySmall),
-          ],
+    return Semantics(
+      label:
+          'Check ${check.status}, ${check.responseTime} ms, '
+          'HTTP ${check.statusCode}',
+      child: Card(
+        child: ListTile(
+          leading: Icon(
+            check.isUp ? Icons.check_circle : Icons.error,
+            color: check.isUp ? scheme.primary : scheme.error,
+          ),
+          title: Text(
+            '${check.status} · ${check.responseTime} ms · HTTP ${check.statusCode}',
+          ),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(check.checkedAt, style: theme.textTheme.bodySmall),
+              if (check.errorMessage != null && check.errorMessage!.isNotEmpty)
+                Text(check.errorMessage!, style: theme.textTheme.bodySmall),
+            ],
+          ),
         ),
       ),
     );

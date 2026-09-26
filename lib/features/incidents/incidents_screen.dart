@@ -146,27 +146,34 @@ class _IncidentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Card(
-      child: ListTile(
-        title: Text(incident.displayName),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            const SizedBox(height: 4),
-            Wrap(
-              spacing: 8,
-              runSpacing: 4,
-              children: <Widget>[
-                _StatusChip(incident: incident),
-                if (incident.isAcknowledged)
-                  Text('Acknowledged', style: theme.textTheme.bodySmall),
-                Text(incident.insertedAt, style: theme.textTheme.bodySmall),
-              ],
-            ),
-          ],
+    final String state = incident.isOngoing ? 'Open' : 'Resolved';
+    final String label = incident.isAcknowledged
+        ? 'Incident ${incident.displayName}, $state, acknowledged'
+        : 'Incident ${incident.displayName}, $state';
+    return Semantics(
+      label: label,
+      child: Card(
+        child: ListTile(
+          title: Text(incident.displayName),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              const SizedBox(height: 4),
+              Wrap(
+                spacing: 8,
+                runSpacing: 4,
+                children: <Widget>[
+                  _StatusChip(incident: incident),
+                  if (incident.isAcknowledged)
+                    Text('Acknowledged', style: theme.textTheme.bodySmall),
+                  Text(incident.insertedAt, style: theme.textTheme.bodySmall),
+                ],
+              ),
+            ],
+          ),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.go('/incidents/${incident.id}'),
         ),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.go('/incidents/${incident.id}'),
       ),
     );
   }

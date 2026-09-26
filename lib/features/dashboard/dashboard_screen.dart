@@ -155,15 +155,19 @@ class _StatTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 12),
-        child: Column(
-          children: <Widget>[
-            Text(value, style: theme.textTheme.headlineSmall),
-            const SizedBox(height: 4),
-            Text(label, style: theme.textTheme.bodySmall),
-          ],
+    return Semantics(
+      label: '$label monitors: $value',
+      container: true,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 12),
+          child: Column(
+            children: <Widget>[
+              Text(value, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text(label, style: theme.textTheme.bodySmall),
+            ],
+          ),
         ),
       ),
     );
@@ -179,24 +183,28 @@ class _UptimeSummary extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     final double? uptime = data.averageUptime;
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text('Average uptime', style: theme.textTheme.titleMedium),
-            const SizedBox(height: 4),
-            Text(
-              uptime == null ? '—' : '${uptime.toStringAsFixed(1)}%',
-              style: theme.textTheme.headlineSmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'across ${data.totalMonitors} monitors',
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
+    final String uptimeText = uptime == null
+        ? '—'
+        : '${uptime.toStringAsFixed(1)}%';
+    return Semantics(
+      label: 'Average uptime $uptimeText across ${data.totalMonitors} monitors',
+      container: true,
+      child: Card(
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text('Average uptime', style: theme.textTheme.titleMedium),
+              const SizedBox(height: 4),
+              Text(uptimeText, style: theme.textTheme.headlineSmall),
+              const SizedBox(height: 4),
+              Text(
+                'across ${data.totalMonitors} monitors',
+                style: theme.textTheme.bodySmall,
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -220,12 +228,15 @@ class _IncidentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(incident.displayName),
-        subtitle: Text(incident.status),
-        trailing: const Icon(Icons.chevron_right),
-        onTap: () => context.go('/incidents'),
+    return Semantics(
+      label: 'Incident ${incident.displayName}, status ${incident.status}',
+      child: Card(
+        child: ListTile(
+          title: Text(incident.displayName),
+          subtitle: Text(incident.status),
+          trailing: const Icon(Icons.chevron_right),
+          onTap: () => context.go('/incidents'),
+        ),
       ),
     );
   }

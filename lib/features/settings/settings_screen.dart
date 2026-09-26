@@ -136,34 +136,43 @@ class _DeviceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Row(
-          children: <Widget>[
-            Expanded(child: Text(device.displayName)),
-            if (isCurrent)
-              const Padding(
-                padding: EdgeInsets.only(left: 8),
-                child: Chip(
-                  label: Text('This device'),
-                  visualDensity: VisualDensity.compact,
+    final String label = isCurrent
+        ? 'Device ${device.displayName}, signed in ${device.createdAt}, '
+              'this device'
+        : 'Device ${device.displayName}, signed in ${device.createdAt}';
+    return Semantics(
+      label: label,
+      container: true,
+      explicitChildNodes: true,
+      child: Card(
+        child: ListTile(
+          title: Row(
+            children: <Widget>[
+              Expanded(child: Text(device.displayName)),
+              if (isCurrent)
+                const Padding(
+                  padding: EdgeInsets.only(left: 8),
+                  child: Chip(
+                    label: Text('This device'),
+                    visualDensity: VisualDensity.compact,
+                  ),
                 ),
-              ),
-          ],
+            ],
+          ),
+          subtitle: Text('Signed in ${device.createdAt}'),
+          trailing: isRevoking
+              ? const SizedBox(
+                  width: 24,
+                  height: 24,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : IconButton(
+                  key: ValueKey<String>('revoke-${device.id}'),
+                  icon: const Icon(Icons.delete_outline),
+                  tooltip: 'Revoke ${device.displayName}',
+                  onPressed: onRevoke,
+                ),
         ),
-        subtitle: Text('Signed in ${device.createdAt}'),
-        trailing: isRevoking
-            ? const SizedBox(
-                width: 24,
-                height: 24,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : IconButton(
-                key: ValueKey<String>('revoke-${device.id}'),
-                icon: const Icon(Icons.delete_outline),
-                tooltip: 'Revoke ${device.displayName}',
-                onPressed: onRevoke,
-              ),
       ),
     );
   }

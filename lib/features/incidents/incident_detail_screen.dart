@@ -107,6 +107,10 @@ class _DetailBody extends StatelessWidget {
     final Incident incident = data.incident;
     final bool canAcknowledge =
         incident.isOngoing && !incident.isAcknowledged && !data.offline;
+    final String state = incident.isOngoing ? 'Open' : 'Resolved';
+    final String headerLabel = incident.isAcknowledged
+        ? 'Incident ${incident.displayName}, $state, acknowledged'
+        : 'Incident ${incident.displayName}, $state';
 
     return RefreshIndicator(
       onRefresh: onRefresh,
@@ -129,59 +133,69 @@ class _DetailBody extends StatelessWidget {
                 ),
               ),
             ),
-          Card(
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: <Widget>[
-                  Text(incident.displayName, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 8),
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 4,
-                    children: <Widget>[
-                      Chip(
-                        label: Text(incident.isOngoing ? 'Open' : 'Resolved'),
-                        visualDensity: VisualDensity.compact,
-                      ),
-                      if (incident.isAcknowledged)
-                        const Chip(
-                          label: Text('Acknowledged'),
+          Semantics(
+            label: headerLabel,
+            header: true,
+            child: Card(
+              child: Padding(
+                padding: const EdgeInsets.all(16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: <Widget>[
+                    Text(
+                      incident.displayName,
+                      style: theme.textTheme.titleLarge,
+                    ),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 4,
+                      children: <Widget>[
+                        Chip(
+                          label: Text(incident.isOngoing ? 'Open' : 'Resolved'),
                           visualDensity: VisualDensity.compact,
                         ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Text(
-                    'Started ${incident.startedAt ?? incident.insertedAt}',
-                    style: theme.textTheme.bodySmall,
-                  ),
-                  if (incident.resolvedAt != null)
+                        if (incident.isAcknowledged)
+                          const Chip(
+                            label: Text('Acknowledged'),
+                            visualDensity: VisualDensity.compact,
+                          ),
+                      ],
+                    ),
+                    const SizedBox(height: 8),
                     Text(
-                      'Resolved ${incident.resolvedAt}',
+                      'Started ${incident.startedAt ?? incident.insertedAt}',
                       style: theme.textTheme.bodySmall,
                     ),
-                  if (incident.acknowledgedAt != null)
-                    Text(
-                      'Acknowledged ${incident.acknowledgedAt}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                ],
+                    if (incident.resolvedAt != null)
+                      Text(
+                        'Resolved ${incident.resolvedAt}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                    if (incident.acknowledgedAt != null)
+                      Text(
+                        'Acknowledged ${incident.acknowledgedAt}',
+                        style: theme.textTheme.bodySmall,
+                      ),
+                  ],
+                ),
               ),
             ),
           ),
           const SizedBox(height: 12),
           if (canAcknowledge)
-            FilledButton(
-              onPressed: acking ? null : onAcknowledge,
-              child: acking
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Acknowledge'),
+            Semantics(
+              label: 'Acknowledge incident ${incident.displayName}',
+              child: FilledButton(
+                onPressed: acking ? null : onAcknowledge,
+                child: acking
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Text('Acknowledge'),
+              ),
             ),
           const SizedBox(height: 16),
           Text('Updates', style: theme.textTheme.titleMedium),
@@ -214,21 +228,24 @@ class _UpdateRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    return Card(
-      child: ListTile(
-        title: Text(update.displayTitle),
-        subtitle: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Text(update.status, style: theme.textTheme.bodySmall),
-            if (update.postedAt != null)
-              Text(update.postedAt!, style: theme.textTheme.bodySmall),
-            if (update.description != null && update.description!.isNotEmpty)
-              Padding(
-                padding: const EdgeInsets.only(top: 4),
-                child: Text(update.description!),
-              ),
-          ],
+    return Semantics(
+      label: 'Update ${update.displayTitle}, ${update.status}',
+      child: Card(
+        child: ListTile(
+          title: Text(update.displayTitle),
+          subtitle: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: <Widget>[
+              Text(update.status, style: theme.textTheme.bodySmall),
+              if (update.postedAt != null)
+                Text(update.postedAt!, style: theme.textTheme.bodySmall),
+              if (update.description != null && update.description!.isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(top: 4),
+                  child: Text(update.description!),
+                ),
+            ],
+          ),
         ),
       ),
     );

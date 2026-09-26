@@ -405,29 +405,37 @@ class _SeverityRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return ListTile(
-      title: Text('$severity${isDefault ? ' (default)' : ''}'),
-      trailing: DropdownButton<String>(
-        key: ValueKey<String>('prefs-severity-$severity'),
-        value: value,
-        items: <DropdownMenuItem<String>>[
-          DropdownMenuItem<String>(
-            value: kDefaultInterruption[severity],
-            child: const Text('Default'),
-          ),
-          for (final String level in kInterruptionLevels)
-            if (level != kDefaultInterruption[severity])
-              DropdownMenuItem<String>(value: level, child: Text(level)),
-        ],
-        onChanged: enabled
-            ? (String? selected) {
-                if (selected == kDefaultInterruption[severity]) {
-                  onChanged(null);
-                } else {
-                  onChanged(selected);
+    final String label = isDefault
+        ? 'Severity $severity interruption: $value, default'
+        : 'Severity $severity interruption: $value';
+    return Semantics(
+      label: label,
+      container: true,
+      explicitChildNodes: true,
+      child: ListTile(
+        title: Text('$severity${isDefault ? ' (default)' : ''}'),
+        trailing: DropdownButton<String>(
+          key: ValueKey<String>('prefs-severity-$severity'),
+          value: value,
+          items: <DropdownMenuItem<String>>[
+            DropdownMenuItem<String>(
+              value: kDefaultInterruption[severity],
+              child: const Text('Default'),
+            ),
+            for (final String level in kInterruptionLevels)
+              if (level != kDefaultInterruption[severity])
+                DropdownMenuItem<String>(value: level, child: Text(level)),
+          ],
+          onChanged: enabled
+              ? (String? selected) {
+                  if (selected == kDefaultInterruption[severity]) {
+                    onChanged(null);
+                  } else {
+                    onChanged(selected);
+                  }
                 }
-              }
-            : null,
+              : null,
+        ),
       ),
     );
   }
