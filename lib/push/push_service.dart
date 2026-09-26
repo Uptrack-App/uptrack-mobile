@@ -6,6 +6,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 
 import 'push_channels.dart';
+import 'push_actions.dart';
 import 'push_message.dart';
 
 /// Registers (or re-registers after a token refresh) the native push token
@@ -135,6 +136,7 @@ class PushService {
     MethodChannel? tokenChannel,
     LocalNotifier? notifier,
     TargetPlatform? platform,
+    this.actionHandler,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
@@ -146,6 +148,10 @@ class PushService {
   final MethodChannel _tokenChannel;
   final LocalNotifier _notifier;
   final TargetPlatform? _platformOverride;
+
+  /// Lock-screen triage executor (T031). Null in tests that only cover the
+  /// T027 plumbing — action taps then fall back to a plain deep-link.
+  final PushActionHandler? actionHandler;
 
   bool _initialized = false;
 
@@ -215,6 +221,21 @@ class PushService {
         final PushMessage? message = PushMessage.fromMap(map);
         if (message != null) {
           _navigateFor(message);
+        }
+      case PushEventMethods.onNotificationAction:
+        final PushActionRequest? request = PushActionRequest.fromMap(map);
+        if (request == null) {
+          return;
+        }
+        final PushActionHandler? handler = actionHandler;
+        if (handler != null) {
+          await handler.handle(request);
+        } else {
+          // Pre-wiring fallback: deep-link so the user can triage manually.
+          final String? location = request.routeLocation;
+          if (location != null) {
+            onNavigate(location);
+          }
         }
     }
   }

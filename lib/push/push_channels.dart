@@ -37,6 +37,12 @@ abstract final class PushEventMethods {
   /// User tapped a notification (background state):
   /// `{incident_id?, monitor_id?}`.
   static const String onNotificationTap = 'onNotificationTap';
+
+  /// User tapped a lock-screen triage action (any app state):
+  /// `{action, incident_id?, monitor_id?}` where `action` is one of
+  /// `acknowledge`/`escalate`/`snooze` (or the native `UPTRACK_ACK`,
+  /// `UPTRACK_ESCALATE`, `UPTRACK_SNOOZE` ids the T028 hosts send).
+  static const String onNotificationAction = 'onNotificationAction';
 }
 
 /// Method names on [PushChannels.token] (Dart → native).

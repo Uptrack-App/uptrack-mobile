@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../api/uptrack_api.dart';
 import '../app.dart' show routerProvider;
 import '../features/auth/auth_controller.dart' show uptrackApiProvider;
+import 'push_actions.dart';
 import 'push_service.dart';
 
 /// Dart-side push plumbing (T027): token refresh → `POST /api/push/devices`,
@@ -17,6 +18,7 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
   Ref ref,
 ) {
   final UptrackApi api = ref.watch(uptrackApiProvider);
+  void navigate(String location) => ref.read(routerProvider).go(location);
   return PushService(
     registerToken:
         ({
@@ -28,7 +30,8 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
           token: token,
           environment: environment,
         ),
-    onNavigate: (String location) => ref.read(routerProvider).go(location),
+    onNavigate: navigate,
+    actionHandler: PushActionHandler(api: api, onNavigate: navigate),
   );
 });
 

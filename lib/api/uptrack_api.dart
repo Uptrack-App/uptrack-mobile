@@ -58,6 +58,20 @@ const String kIncidentAcknowledgePath = '/api/incidents/{id}/acknowledge';
 /// Concrete path for `POST /api/incidents/{id}/acknowledge`.
 String incidentAcknowledgePath(String id) => '/api/incidents/$id/acknowledge';
 
+/// OpenAPI path template for `POST /api/incidents/{id}/escalate`
+/// (lock-screen triage; device-token Bearer auth only).
+const String kIncidentEscalatePath = '/api/incidents/{id}/escalate';
+
+/// Concrete path for `POST /api/incidents/{id}/escalate`.
+String incidentEscalatePath(String id) => '/api/incidents/$id/escalate';
+
+/// OpenAPI path template for `POST /api/monitors/{id}/snooze`
+/// (lock-screen triage; device-token Bearer auth only).
+const String kMonitorSnoozePath = '/api/monitors/{id}/snooze';
+
+/// Concrete path for `POST /api/monitors/{id}/snooze`.
+String monitorSnoozePath(String id) => '/api/monitors/$id/snooze';
+
 /// Concrete path for `GET /api/monitors/{id}/checks`.
 String monitorChecksPath(String id) => '/api/monitors/$id/checks';
 
@@ -80,6 +94,35 @@ class LoginResult {
 
   final CurrentUserResponse? me;
   final bool totpRequired;
+}
+
+/// Result of `POST /api/incidents/{id}/escalate`: the policy steps fired
+/// immediately by this call (`escalated: false` when the call was an
+/// idempotent no-op on an already-acknowledged/resolved incident).
+class EscalateResult {
+  const EscalateResult({required this.escalated, required this.stepsFired});
+
+  factory EscalateResult.fromJson(Map<String, Object?> json) {
+    return EscalateResult(
+      escalated: json['escalated'] == true,
+      stepsFired: (json['steps_fired'] as num?)?.toInt() ?? 0,
+    );
+  }
+
+  final bool escalated;
+  final int stepsFired;
+}
+
+/// Result of `POST /api/monitors/{id}/snooze`: `mobile_push` for this
+/// user + monitor resumes after [snoozedUntil].
+class SnoozeResult {
+  const SnoozeResult({required this.snoozedUntil});
+
+  factory SnoozeResult.fromJson(Map<String, Object?> json) {
+    return SnoozeResult(snoozedUntil: json['snoozed_until']! as String);
+  }
+
+  final String snoozedUntil;
 }
 
 /// Raw device-token issuance: the secret is returned exactly once.
@@ -302,6 +345,38 @@ class UptrackApi {
     final Response<Map<String, dynamic>> res = await _dio
         .post<Map<String, dynamic>>(path);
     return _parseIncidentDetail(res.data, path);
+  }
+
+  /// `POST /api/incidents/{id}/escalate` — fire the monitor's escalation
+  /// policy immediately (device-token Bearer auth; lock-screen triage).
+  Future<EscalateResult> escalateIncident(String id) async {
+    final String path = incidentEscalatePath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .post<Map<String, dynamic>>(path);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return EscalateResult.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `POST /api/monitors/{id}/snooze` — suppress `mobile_push` for this
+  /// user + monitor for one hour (device-token Bearer auth).
+  Future<SnoozeResult> snoozeMonitor(String id) async {
+    final String path = monitorSnoozePath(id);
+    final Response<Map<String, dynamic>> res = await _dio
+        .post<Map<String, dynamic>>(path);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return SnoozeResult.fromJson(data.cast<String, Object?>());
   }
 
   /// `GET /api/monitors` — list the authenticated org's monitors.
