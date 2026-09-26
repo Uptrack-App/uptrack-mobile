@@ -1,0 +1,22 @@
+Uptrack review notes (v1.0.0)
+
+TEST ACCOUNT
+- TODO: provision a demo workspace (email + password or magic link) before submitting for review and record the credentials here or in App Store Connect / Play Console reviewer instructions. The app requires login; there is no guest mode.
+
+WHAT TO EXERCISE
+- Log in → dashboard (status counts, uptime summary, recent incidents).
+- Monitors → search/filter list → detail (response-time chart, check history).
+- Incidents → detail → Acknowledge (optimistic update with rollback on error).
+- Status → open a public status page (password field appears only for protected pages).
+- Settings → profile, notification preferences (severity mapping, quiet hours), Devices (list + revoke), billing (read-only, web link only — no IAP).
+
+DATA SAFETY SUMMARY
+- No advertising tracking. NSPrivacyTracking is false; no tracking domains (see ios/Runner/PrivacyInfo.xcprivacy).
+- Account data (email, monitors, incidents) is sent to the user's own Uptrack backend over HTTPS and cached on-device (SQLite) for offline reading.
+- Auth uses short-lived device tokens stored in the OS keychain/keystore (never in plain files); per-device revoke is in Settings → Devices.
+- Crash reports (Sentry) and product analytics (PostHog) initialize only when the build is configured with a DSN/key; unconfigured builds are verified no-ops. No crash/analytics data leaves the device unless configured by the build.
+- Push tokens (APNs/FCM) are registered only after login and unregistered on logout.
+- Required-reason APIs: file timestamps and system boot time via the Flutter engine only (mirrors the engine's own privacy manifest; reasons 0A2A.1, C617.1, 35F9.1). No UserDefaults/file-timestamp/disk-space/boot-time access in app code. The PostHog SDK ships its own manifest (UserDefaults CA92.1, analytics data types).
+
+BILLING
+- No in-app purchases anywhere in the binary (no StoreKit IAP code). Upgrades happen on the web via a region-gated link; iOS builds carry the External Purchase Link entitlement where applicable.
