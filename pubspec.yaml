@@ -45,6 +45,8 @@ dependencies:
   sqlite3_flutter_libs: ^0.6.0+eol
   fl_chart: ^1.2.0
   flutter_local_notifications: ^22.3.1
+  sentry_flutter: ^8.14.2
+  posthog_flutter: ^5.50.0
 
 dev_dependencies:
   flutter_test:

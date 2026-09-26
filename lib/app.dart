@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'obs/observability.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/dashboard/dashboard_screen.dart';
@@ -19,9 +20,11 @@ import 'theme/app_theme.dart';
 GoRouter createRouter({
   AuthStatus Function()? authStatusOf,
   String initialLocation = '/',
+  List<NavigatorObserver>? observers,
 }) {
   return GoRouter(
     initialLocation: initialLocation,
+    observers: observers,
     redirect: (BuildContext context, GoRouterState state) {
       final AuthStatus Function()? statusOf = authStatusOf;
       if (statusOf == null) {
@@ -40,21 +43,25 @@ GoRouter createRouter({
     routes: <GoRoute>[
       GoRoute(
         path: '/login',
+        name: 'login',
         builder: (BuildContext context, GoRouterState state) =>
             const LoginScreen(),
       ),
       GoRoute(
         path: '/',
+        name: 'dashboard',
         builder: (BuildContext context, GoRouterState state) =>
             const DashboardScreen(),
         routes: <GoRoute>[
           GoRoute(
             path: 'monitors',
+            name: 'monitors',
             builder: (BuildContext context, GoRouterState state) =>
                 const MonitorsScreen(),
             routes: <GoRoute>[
               GoRoute(
                 path: ':id',
+                name: 'monitorDetail',
                 builder: (BuildContext context, GoRouterState state) =>
                     MonitorDetailScreen(monitorId: state.pathParameters['id']!),
               ),
@@ -62,11 +69,13 @@ GoRouter createRouter({
           ),
           GoRoute(
             path: 'incidents',
+            name: 'incidents',
             builder: (BuildContext context, GoRouterState state) =>
                 const IncidentsScreen(),
             routes: <GoRoute>[
               GoRoute(
                 path: ':id',
+                name: 'incidentDetail',
                 builder: (BuildContext context, GoRouterState state) =>
                     IncidentDetailScreen(
                       incidentId: state.pathParameters['id']!,
@@ -76,11 +85,13 @@ GoRouter createRouter({
           ),
           GoRoute(
             path: 'settings',
+            name: 'settings',
             builder: (BuildContext context, GoRouterState state) =>
                 const SettingsScreen(),
           ),
           GoRoute(
             path: 'status',
+            name: 'status',
             builder: (BuildContext context, GoRouterState state) =>
                 StatusPageScreen(
                   initialSlug: state.uri.queryParameters['slug'] ?? '',
@@ -96,7 +107,10 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
   final AuthStatus status = ref.watch(
     authControllerProvider.select((AuthState s) => s.status),
   );
-  return createRouter(authStatusOf: () => status);
+  return createRouter(
+    authStatusOf: () => status,
+    observers: buildAppObservers(),
+  );
 });
 
 class UptrackApp extends ConsumerStatefulWidget {
