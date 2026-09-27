@@ -9,6 +9,7 @@ import 'package:uptrack_mobile/api/models/check.dart';
 import 'package:uptrack_mobile/api/models/current_user.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/api/models/monitor.dart';
+import 'package:uptrack_mobile/widgets/live_activity.dart';
 import 'package:uptrack_mobile/api/models/monitor_analytics.dart';
 import 'package:uptrack_mobile/api/uptrack_api.dart';
 
@@ -374,5 +375,45 @@ void main() {
     );
     expect(seen?.method, 'POST');
     expect(detail.incident.isAcknowledged, isTrue);
+  });
+
+  test('registerLiveActivity POSTs the register body', () async {
+    RequestOptions? seen;
+    final Dio dio = dioWithFake((RequestOptions options) async {
+      seen = options;
+      return jsonResponse(<String, Object?>{'ok': true});
+    });
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    await api.registerLiveActivity(
+      const LiveActivityRegisterRequest(
+        incidentId: '44444444-4444-4444-8444-444444444444',
+        token: 'activity-token',
+        kind: 'push_to_start',
+      ),
+    );
+
+    expect(seen?.path, '/api/push/live-activities');
+    expect(seen?.method, 'POST');
+    final Map<String, dynamic> body = (seen?.data as Map)
+        .cast<String, dynamic>();
+    expect(body['kind'], 'push_to_start');
+    expect(body['token'], 'activity-token');
+  });
+
+  test('unregisterLiveActivity DELETEs with the token body', () async {
+    RequestOptions? seen;
+    final Dio dio = dioWithFake((RequestOptions options) async {
+      seen = options;
+      return jsonResponse(<String, Object?>{'ok': true});
+    });
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    await api.unregisterLiveActivity(
+      const LiveActivityRemoveRequest(token: 'activity-token'),
+    );
+
+    expect(seen?.path, '/api/push/live-activities');
+    expect(seen?.method, 'DELETE');
   });
 }

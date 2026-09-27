@@ -10,6 +10,7 @@ import 'models/monitor.dart';
 import 'models/monitor_analytics.dart';
 import 'models/notification_preferences.dart';
 import 'models/status_page.dart';
+import '../widgets/live_activity.dart';
 
 /// Paths used by the mobile API client (mirrored in the contract test).
 const String kGetMePath = '/api/auth/me';
@@ -522,6 +523,25 @@ class UptrackApi {
       );
     }
     return BillingSubscriptionInfo.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `POST /api/push/live-activities` — register the activity push token
+  /// when a Live Activity starts (device-token Bearer auth; idempotent
+  /// upsert; 404 on unknown incidents, 422 on already-resolved ones).
+  Future<void> registerLiveActivity(LiveActivityRegisterRequest request) async {
+    await _dio.post<Map<String, dynamic>>(
+      kLiveActivitiesPath,
+      data: request.toJson(),
+    );
+  }
+
+  /// `DELETE /api/push/live-activities` — remove the activity token when it
+  /// ends on-device (owner-scoped; unknown tokens → 404).
+  Future<void> unregisterLiveActivity(LiveActivityRemoveRequest request) async {
+    await _dio.delete<Map<String, dynamic>>(
+      kLiveActivitiesPath,
+      data: request.toJson(),
+    );
   }
 
   /// `GET /api/status/{slug}` — public status page (no auth required).
