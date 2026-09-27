@@ -42,7 +42,8 @@ void main() {
           .cast<String, Object?>();
       expect(aps['event'], 'start');
       expect(aps['timestamp'], 1700000000);
-      expect(aps['attributes-type'], kLiveActivityAttributesType);
+      expect(aps['attributes-type'], 'UptrackIncident');
+      expect(kLiveActivityAttributesType, 'UptrackIncident');
       final Map<String, Object?> attributes = (aps['attributes']! as Map)
           .cast<String, Object?>();
       expect(attributes['incidentId'], 'inc-1');

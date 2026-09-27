@@ -10,7 +10,7 @@ library;
 
 /// `attributes-type` identifying our ActivityKit attributes struct — must
 /// match `LIVE_ACTIVITY_ATTRIBUTES_TYPE` on the server.
-const String kLiveActivityAttributesType = 'UptrackIncidentAttributes';
+const String kLiveActivityAttributesType = 'UptrackIncident';
 
 /// `POST/DELETE /api/push/live-activities` (device-token Bearer auth).
 const String kLiveActivitiesPath = '/api/push/live-activities';
