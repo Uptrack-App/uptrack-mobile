@@ -43,6 +43,14 @@ abstract final class PushEventMethods {
   /// `acknowledge`/`escalate`/`snooze` (or the native `UPTRACK_ACK`,
   /// `UPTRACK_ESCALATE`, `UPTRACK_SNOOZE` ids the T028 hosts send).
   static const String onNotificationAction = 'onNotificationAction';
+
+  /// ActivityKit push-to-start token (iOS 17.2+, T055):
+  /// `{token, kind?, incident_id?, expires_in_seconds?}` where `kind`
+  /// defaults to `push_to_start`. The native host sends no `incident_id`
+  /// (the token bootstraps remotely-started activities before any incident
+  /// exists); Dart registers immediately when scoped, otherwise parks the
+  /// token until the next incident push arrives.
+  static const String onLiveActivityToken = 'onLiveActivityToken';
 }
 
 /// Method names on [PushChannels.token] (Dart → native).

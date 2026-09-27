@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'push_channels.dart';
 import 'push_actions.dart';
 import 'push_message.dart';
+import '../widgets/live_activity.dart';
 
 /// Registers (or re-registers after a token refresh) the native push token
 /// with the backend (`POST /api/push/devices`).
@@ -16,6 +17,12 @@ typedef PushTokenRegistration = Future<void> Function({
   required String token,
   String? environment,
 });
+
+/// Registers a Live Activity push token with the backend
+/// (`POST /api/push/live-activities`, device-token Bearer auth).
+typedef LiveActivityTokenRegistration = Future<void> Function(
+  LiveActivityRegisterRequest request,
+);
 
 /// Deep-link navigation for a notification tap, e.g. `router.go`.
 typedef PushNavigation = void Function(String location);
@@ -138,6 +145,7 @@ class PushService {
     TargetPlatform? platform,
     this.actionHandler,
     this.onForegroundData,
+    this.registerLiveActivity,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
@@ -154,6 +162,12 @@ class PushService {
   /// T027 plumbing — action taps then fall back to a plain deep-link.
   final PushActionHandler? actionHandler;
 
+  /// Live Activity token registration (T061): `POST
+  /// /api/push/live-activities` via [UptrackApi.registerLiveActivity].
+  /// Null when unwired — `onLiveActivityToken` arrivals are then parked
+  /// (push-to-start) or dropped, never crash.
+  final LiveActivityTokenRegistration? registerLiveActivity;
+
   /// FCM data-message handler (T056, Android): when present, foreground
   /// messages delegate here (widget refresh + local display) instead of the
   /// plain [LocalNotifier.showForeground] path.
@@ -163,6 +177,12 @@ class PushService {
 
   /// Visible for testing.
   bool get isInitialized => _initialized;
+
+  /// Parked push-to-start token: the native host (T055) reports it before
+  /// any incident exists, but `POST /api/push/live-activities` requires an
+  /// `incident_id` — so it waits here until the next incident-scoped push
+  /// arrives, then registers once. Visible for testing.
+  LiveActivityRegisterRequest? pendingLiveActivityToken;
 
   /// Arms the native→Dart handler, the local-notification plugin, drains any
   /// cold-start tap (killed state), and registers the current token.
@@ -220,6 +240,7 @@ class PushService {
         }
       case PushEventMethods.onForegroundMessage:
         if (map != null) {
+          await _flushPendingLiveActivityToken(map);
           final Future<void> Function(Map<Object?, Object?> data)? onData =
               onForegroundData;
           if (onData != null) {
@@ -234,8 +255,13 @@ class PushService {
       case PushEventMethods.onNotificationTap:
         final PushMessage? message = PushMessage.fromMap(map);
         if (message != null) {
+          if (map != null) {
+            await _flushPendingLiveActivityToken(map);
+          }
           _navigateFor(message);
         }
+      case PushEventMethods.onLiveActivityToken:
+        await _handleLiveActivityToken(map);
       case PushEventMethods.onNotificationAction:
         final PushActionRequest? request = PushActionRequest.fromMap(map);
         if (request == null) {
@@ -251,6 +277,98 @@ class PushService {
             onNavigate(location);
           }
         }
+    }
+  }
+
+  /// Handles one native `onLiveActivityToken` call (T055 contract):
+  /// `{token, kind?, incident_id?, expires_in_seconds?}`.
+  ///
+  /// The `POST /api/push/live-activities` endpoint requires an
+  /// `incident_id`, but the push-to-start bootstrap token arrives before any
+  /// incident exists — so an unscoped token is parked in
+  /// [pendingLiveActivityToken] and flushed on the next incident push.
+  /// Malformed payloads are dropped silently (never throws).
+  Future<void> _handleLiveActivityToken(Map<Object?, Object?>? map) async {
+    if (map == null) {
+      return;
+    }
+    final Object? rawToken = map['token'];
+    if (rawToken is! String || rawToken.trim().isEmpty) {
+      return;
+    }
+    final Object? rawKind = map['kind'];
+    final String kind = rawKind is String && rawKind.isNotEmpty
+        ? rawKind
+        : 'push_to_start';
+    final Object? rawIncident = map['incident_id'];
+    final String? incidentId = rawIncident is String && rawIncident.isNotEmpty
+        ? rawIncident
+        : null;
+    final Object? rawTtl = map['expires_in_seconds'];
+    final int? expiresInSeconds = rawTtl is num ? rawTtl.toInt() : null;
+    if (incidentId == null) {
+      // Bootstrap token with no incident to scope it to: park it for the
+      // flush, but only for push_to_start (an unscoped `update` token names
+      // no locally-started activity and is useless).
+      if (kind == 'push_to_start') {
+        pendingLiveActivityToken = LiveActivityRegisterRequest(
+          incidentId: '',
+          token: rawToken,
+          kind: kind,
+          expiresInSeconds: expiresInSeconds,
+        );
+      }
+      return;
+    }
+    final LiveActivityRegisterRequest request = LiveActivityRegisterRequest(
+      incidentId: incidentId,
+      token: rawToken,
+      kind: kind,
+      expiresInSeconds: expiresInSeconds,
+    );
+    if (request.validate().isNotEmpty) {
+      return;
+    }
+    await _registerLiveActivity(request);
+  }
+
+  /// Registers a parked push-to-start token against the incident named by
+  /// an incoming push (`onForegroundMessage` / `onNotificationTap`); a
+  /// no-op without a parked token or without an `incident_id`. One-shot:
+  /// the server upserts on `(token)`, so the parked copy is cleared after
+  /// the attempt regardless of outcome.
+  Future<void> _flushPendingLiveActivityToken(Map<Object?, Object?> map) async {
+    final LiveActivityRegisterRequest? pending = pendingLiveActivityToken;
+    if (pending == null) {
+      return;
+    }
+    final Object? rawIncident = map['incident_id'];
+    if (rawIncident is! String || rawIncident.isEmpty) {
+      return;
+    }
+    pendingLiveActivityToken = null;
+    final LiveActivityRegisterRequest request = LiveActivityRegisterRequest(
+      incidentId: rawIncident,
+      token: pending.token,
+      kind: pending.kind,
+      expiresInSeconds: pending.expiresInSeconds,
+    );
+    if (request.validate().isNotEmpty) {
+      return;
+    }
+    await _registerLiveActivity(request);
+  }
+
+  /// Best-effort server registration: provider-side pruning covers missed
+  /// tokens, so failures (offline, 404 unknown incident, 422 resolved)
+  /// never surface to the platform channel.
+  Future<void> _registerLiveActivity(
+    LiveActivityRegisterRequest request,
+  ) async {
+    try {
+      await registerLiveActivity?.call(request);
+    } catch (_) {
+      // Best-effort only.
     }
   }
 

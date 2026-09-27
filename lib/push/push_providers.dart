@@ -46,6 +46,7 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
         ),
     onNavigate: navigate,
     actionHandler: PushActionHandler(api: api, onNavigate: navigate),
+    registerLiveActivity: api.registerLiveActivity,
     notifier: notifier,
     onForegroundData: (Map<Object?, Object?> data) async {
       await fcmData.handle(data);
