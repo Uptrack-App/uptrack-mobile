@@ -3,6 +3,7 @@ import 'package:home_widget/home_widget.dart';
 import '../data/local/app_database.dart';
 import '../data/local/cache_repository.dart';
 import '../push/push_message.dart';
+import 'widget_group.dart';
 import 'widget_snapshot.dart';
 
 /// `home_widget` plugin calls behind a seam the tests fake (the real
@@ -16,23 +17,32 @@ abstract class WidgetDataStore {
 /// Production [WidgetDataStore] delegating to the `home_widget` plugin.
 ///
 /// The T055 WidgetKit extension reads the same App Group data (the group
-/// id is set there alongside the entitlement); the T056 Glance widget
-/// reads the Android-side store. Dart only writes primitives here.
+/// id is registered via [WidgetGroup.ensureConfigured] alongside the
+/// entitlement); the T056 Glance widget reads the Android-side store.
+/// Dart only writes primitives here.
 class HomeWidgetStore implements WidgetDataStore {
   const HomeWidgetStore();
 
   @override
-  Future<bool?> save<T>(String key, T? data) =>
-      HomeWidget.saveWidgetData<T>(key, data);
+  Future<bool?> save<T>(String key, T? data) async {
+    await WidgetGroup.ensureConfigured();
+    return HomeWidget.saveWidgetData<T>(key, data);
+  }
 
   @override
-  Future<T?> read<T>(String key) => HomeWidget.getWidgetData<T>(key);
+  Future<T?> read<T>(String key) async {
+    await WidgetGroup.ensureConfigured();
+    return HomeWidget.getWidgetData<T>(key);
+  }
 
   @override
-  Future<bool?> refresh() => HomeWidget.updateWidget(
-    androidName: 'UptrackStatusWidgetProvider',
-    iOSName: 'UptrackStatusWidget',
-  );
+  Future<bool?> refresh() async {
+    await WidgetGroup.ensureConfigured();
+    return HomeWidget.updateWidget(
+      androidName: 'UptrackStatusWidgetProvider',
+      iOSName: 'UptrackStatusWidget',
+    );
+  }
 }
 
 /// Loads cached incident rows for the widget (defaults to the Drift

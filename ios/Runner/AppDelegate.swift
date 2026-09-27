@@ -1,6 +1,7 @@
 import Flutter
 import UIKit
 import UserNotifications
+import ActivityKit
 
 /// Native APNs host for the Dart push layer (T028).
 ///
@@ -63,6 +64,8 @@ import UserNotifications
     if let remote = launchOptions?[.remoteNotification] as? [AnyHashable: Any] {
       initialNotification = Self.tapPayload(from: remote)
     }
+
+    observeLiveActivityPushToStart()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -149,6 +152,30 @@ import UserNotifications
       forwardOrBuffer(method: "onNotificationAction", payload: payload)
     default:
       return
+    }
+  }
+
+  // MARK: - Live Activity push-to-start (T055)
+
+  /// Observes ActivityKit push-to-start tokens (iOS 17.2+) and forwards them
+  /// to Dart over the `push/events` channel as `onLiveActivityToken`
+  /// `{token, kind: push_to_start}`. Dart registers the token with
+  /// `POST /api/push/live-activities` (see `LiveActivityRegisterRequest` in
+  /// `lib/widgets/live_activity.dart`); the current Dart `_handleMethodCall`
+  /// ignores unknown methods, so a Dart handler can land as a follow-up
+  /// without breaking this build. Update-token rotation for already-running
+  /// activities is out of scope (the server prunes stale rows).
+  private func observeLiveActivityPushToStart() {
+    if #available(iOS 17.2, *) {
+      Task {
+        for await data in Activity<UptrackIncident>.pushToStartTokenUpdates {
+          let hex = data.map { String(format: "%02x", $0) }.joined()
+          let payload = ["token": hex, "kind": "push_to_start"]
+          await MainActor.run {
+            self.eventsChannel?.invokeMethod("onLiveActivityToken", arguments: payload)
+          }
+        }
+      }
     }
   }
 
