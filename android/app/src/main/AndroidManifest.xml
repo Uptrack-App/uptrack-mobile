@@ -1,4 +1,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- T056: UptrackDataMessageReceiver posts incident alerts locally. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
         android:label="uptrack_mobile"
         android:name="${applicationName}"
@@ -30,6 +32,26 @@
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+        <!-- T056 Glance status widget (update pushed from Dart/FCM). -->
+        <receiver
+            android:name=".UptrackStatusWidgetProvider"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/uptrack_status_widget_info" />
+        </receiver>
+        <!-- T056 FCM data-only entry point (forwarded by the future
+             FirebaseMessagingService once the M0.3 Firebase project exists). -->
+        <receiver
+            android:name=".UptrackDataMessageReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="app.uptrack.mobile.PUSH_DATA" />
+            </intent-filter>
+        </receiver>
     </application>
     <!-- Required to query activities that can process text, see:
          https://developer.android.com/training/package-visibility and

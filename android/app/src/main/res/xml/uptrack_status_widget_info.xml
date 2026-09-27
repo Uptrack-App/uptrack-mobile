@@ -1,0 +1,15 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- T056 Glance status widget. updatePeriodMillis=0: refreshes are pushed
+     from Dart (foreground) and best-effort from UptrackDataMessageReceiver
+     (FCM data message); the OS never polls. -->
+<appwidget-provider xmlns:android="http://schemas.android.com/apk/res/android"
+    android:minWidth="180dp"
+    android:minHeight="110dp"
+    android:targetCellWidth="3"
+    android:targetCellHeight="2"
+    android:maxResizeWidth="320dp"
+    android:maxResizeHeight="180dp"
+    android:updatePeriodMillis="0"
+    android:initialLayout="@layout/uptrack_status_widget"
+    android:description="@string/uptrack_status_widget_desc"
+    android:widgetCategory="home_screen" />

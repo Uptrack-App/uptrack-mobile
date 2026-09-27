@@ -137,6 +137,7 @@ class PushService {
     LocalNotifier? notifier,
     TargetPlatform? platform,
     this.actionHandler,
+    this.onForegroundData,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
@@ -152,6 +153,11 @@ class PushService {
   /// Lock-screen triage executor (T031). Null in tests that only cover the
   /// T027 plumbing — action taps then fall back to a plain deep-link.
   final PushActionHandler? actionHandler;
+
+  /// FCM data-message handler (T056, Android): when present, foreground
+  /// messages delegate here (widget refresh + local display) instead of the
+  /// plain [LocalNotifier.showForeground] path.
+  final Future<void> Function(Map<Object?, Object?> data)? onForegroundData;
 
   bool _initialized = false;
 
@@ -213,9 +219,17 @@ class PushService {
           }
         }
       case PushEventMethods.onForegroundMessage:
-        final PushMessage? message = PushMessage.fromMap(map);
-        if (message != null) {
-          await _notifier.showForeground(message);
+        if (map != null) {
+          final Future<void> Function(Map<Object?, Object?> data)? onData =
+              onForegroundData;
+          if (onData != null) {
+            await onData(map);
+          } else {
+            final PushMessage? message = PushMessage.fromMap(map);
+            if (message != null) {
+              await _notifier.showForeground(message);
+            }
+          }
         }
       case PushEventMethods.onNotificationTap:
         final PushMessage? message = PushMessage.fromMap(map);

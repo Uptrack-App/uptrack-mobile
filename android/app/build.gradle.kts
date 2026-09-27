@@ -53,4 +53,8 @@ flutter {
 
 dependencies {
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+    // T056 data-message receiver posts with NotificationCompat (the
+    // plugin's androidx.core is `implementation`-scoped, so the app
+    // declares it explicitly rather than relying on transitivity).
+    implementation("androidx.core:core:1.13.1")
 }
