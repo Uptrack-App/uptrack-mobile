@@ -45,6 +45,15 @@
         </receiver>
         <!-- T056 FCM data-only entry point (forwarded by the future
              FirebaseMessagingService once the M0.3 Firebase project exists). -->
+        <!-- R2.1 FCM entry point. Needs the M0.3 Firebase project;
+             without it FCM never delivers and Dart no-ops. -->
+        <service
+            android:name=".UptrackFirebaseMessagingService"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="com.google.firebase.MESSAGING_EVENT" />
+            </intent-filter>
+        </service>
         <receiver
             android:name=".UptrackDataMessageReceiver"
             android:exported="false">
