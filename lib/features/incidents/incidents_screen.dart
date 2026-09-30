@@ -1,3 +1,5 @@
+import '../../theme/status_colors.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -187,12 +189,17 @@ class _StatusChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final String label = incident.isOngoing ? 'Open' : 'Resolved';
-    final ColorScheme scheme = Theme.of(context).colorScheme;
+    final UptrackStatusColors colors = UptrackStatusColors.of(context);
+    final UptrackStatus look = incident.isOngoing
+        ? colors.down
+        : colors.unknown;
     return Chip(
+      avatar: Icon(look.icon, size: 14, color: look.color),
       label: Text(label),
-      backgroundColor: incident.isOngoing
-          ? scheme.errorContainer
-          : scheme.surfaceContainerHighest,
+      backgroundColor: look.soft,
+      side: BorderSide.none,
+      labelStyle: Theme.of(context).textTheme.labelSmall
+          ?.copyWith(color: look.color),
       visualDensity: VisualDensity.compact,
     );
   }

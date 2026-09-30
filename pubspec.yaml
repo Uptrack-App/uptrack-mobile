@@ -77,6 +77,22 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
+  # Geist Sans + Geist Mono (SIL OFL 1.1, license in assets/fonts/OFL.txt).
+  # Same faces as the web app; see docs/mobile/design-system.md in uptrack-spec.
+  fonts:
+    - family: Geist
+      fonts:
+        - asset: assets/fonts/Geist-Regular.ttf
+        - asset: assets/fonts/Geist-Medium.ttf
+          weight: 500
+        - asset: assets/fonts/Geist-SemiBold.ttf
+          weight: 600
+    - family: GeistMono
+      fonts:
+        - asset: assets/fonts/GeistMono-Regular.ttf
+        - asset: assets/fonts/GeistMono-Medium.ttf
+          weight: 500
+
   # To add assets to your application, add an assets section, like this:
   # assets:
   #   - images/a_dot_burr.jpeg

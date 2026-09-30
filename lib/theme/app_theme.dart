@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'status_colors.dart';
 import 'tokens.dart';
 
 abstract final class AppTheme {
@@ -21,14 +22,15 @@ abstract final class AppTheme {
     final border = isDark
         ? UptrackColors.darkBorder
         : UptrackColors.lightBorder;
+    final brand = isDark ? UptrackColors.brandDark : UptrackColors.brandLight;
     final scheme = ColorScheme(
       brightness: brightness,
-      primary: UptrackColors.brand,
-      onPrimary: const Color(0xFF1B1714),
+      primary: brand,
+      onPrimary: isDark ? UptrackColors.darkBackground : Colors.white,
       secondary: isDark ? UptrackColors.upDark : UptrackColors.upLight,
-      onSecondary: isDark ? const Color(0xFF172019) : Colors.white,
+      onSecondary: isDark ? UptrackColors.darkBackground : Colors.white,
       error: isDark ? UptrackColors.downDark : UptrackColors.downLight,
-      onError: Colors.white,
+      onError: isDark ? UptrackColors.darkBackground : Colors.white,
       surface: surface,
       onSurface: foreground,
       surfaceContainerHighest: muted,
@@ -41,12 +43,14 @@ abstract final class AppTheme {
       scrim: Colors.black,
       inverseSurface: foreground,
       onInverseSurface: background,
-      inversePrimary: isDark ? UptrackColors.brand : const Color(0xFF9B4529),
+      inversePrimary: isDark
+          ? UptrackColors.brandLight
+          : UptrackColors.brandDark,
       tertiary: isDark
           ? UptrackColors.degradedDark
           : UptrackColors.degradedLight,
-      onTertiary: isDark ? const Color(0xFF261B08) : Colors.white,
-      surfaceTint: UptrackColors.brand,
+      onTertiary: isDark ? UptrackColors.darkBackground : Colors.white,
+      surfaceTint: brand,
     );
     final borderRadius = BorderRadius.circular(UptrackRadii.md);
     final shape = RoundedRectangleBorder(borderRadius: borderRadius);
@@ -79,9 +83,12 @@ abstract final class AppTheme {
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: borderRadius,
-          borderSide: const BorderSide(color: UptrackColors.brand, width: 2),
+          borderSide: BorderSide(color: brand, width: 2),
         ),
       ),
+      extensions: <ThemeExtension<dynamic>>[
+        isDark ? UptrackStatusColors.dark : UptrackStatusColors.light,
+      ],
       useMaterial3: true,
     );
   }

@@ -1,29 +1,51 @@
 import 'package:flutter/material.dart';
 
+/// Ink Blue palette. Mirrors `uptrack-web/DESIGN.md` (the source of truth): cool
+/// blue-gray neutrals and a navy ink primary. Status colors are the only
+/// saturated hues. Text on a status's soft background needs at least 4.5:1.
+/// Change a token in web DESIGN.md first, then here. See
+/// docs/mobile/design-system.md in uptrack-spec.
 abstract final class UptrackColors {
-  static const Color brand = Color(0xFFD97757);
+  // Primary (navy ink in light mode, light ink-blue in dark mode).
+  static const Color brandLight = Color(0xFF1E3A5F);
+  static const Color brandDark = Color(0xFF9CB8E0);
 
-  static const Color upLight = Color(0xFF4F8A5B);
+  // Status (light / dark).
+  static const Color upLight = Color(0xFF387048);
   static const Color upDark = Color(0xFF7FB08A);
-  static const Color downLight = Color(0xFFBC4123);
-  static const Color downDark = Color(0xFFE2654C);
-  static const Color degradedLight = Color(0xFFB5791F);
+  static const Color downLight = Color(0xFFB03B1F);
+  static const Color downDark = Color(0xFFEE7A63);
+  static const Color degradedLight = Color(0xFF8A6400);
   static const Color degradedDark = Color(0xFFE0B354);
-  static const Color paused = Color(0xFF6B8AA8);
-  static const Color unknownLight = Color(0xFF777873);
-  static const Color unknownDark = Color(0xFFAAA9A2);
+  static const Color pausedLight = Color(0xFF476685);
+  static const Color pausedDark = Color(0xFF8AA8C4);
+  static const Color unknownLight = Color(0xFF526176);
+  static const Color unknownDark = Color(0xFF93A2B6);
 
-  static const Color lightBackground = Color(0xFFF7F5F0);
+  // Status soft backgrounds (text/icon sits on these).
+  static const Color upSoftLight = Color(0xFFE6F0E8);
+  static const Color upSoftDark = Color(0xFF2B3A30);
+  static const Color downSoftLight = Color(0xFFF6E3DD);
+  static const Color downSoftDark = Color(0xFF3B2B27);
+  static const Color degradedSoftLight = Color(0xFFF4ECD6);
+  static const Color degradedSoftDark = Color(0xFF3A3320);
+  static const Color pausedSoftLight = Color(0xFFE3EAF1);
+  static const Color pausedSoftDark = Color(0xFF28323C);
+  static const Color unknownSoftLight = Color(0xFFE6EBF1);
+  static const Color unknownSoftDark = Color(0xFF232D3A);
+
+  // Neutrals.
+  static const Color lightBackground = Color(0xFFF5F7FA);
   static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightMuted = Color(0xFFECEAE4);
-  static const Color lightForeground = Color(0xFF252622);
-  static const Color lightBorder = Color(0xFFD8D6CF);
+  static const Color lightMuted = Color(0xFFEAEFF5);
+  static const Color lightForeground = Color(0xFF121B28);
+  static const Color lightBorder = Color(0xFFD6DEE8);
 
-  static const Color darkBackground = Color(0xFF171816);
-  static const Color darkSurface = Color(0xFF222320);
-  static const Color darkMuted = Color(0xFF30312D);
-  static const Color darkForeground = Color(0xFFF1F0EB);
-  static const Color darkBorder = Color(0xFF41423D);
+  static const Color darkBackground = Color(0xFF0E141C);
+  static const Color darkSurface = Color(0xFF151D28);
+  static const Color darkMuted = Color(0xFF1D2836);
+  static const Color darkForeground = Color(0xFFE8EEF5);
+  static const Color darkBorder = Color(0xFF2B3848);
 }
 
 abstract final class UptrackSpacing {
@@ -37,14 +59,15 @@ abstract final class UptrackSpacing {
 }
 
 abstract final class UptrackRadii {
-  static const double sm = 6;
-  static const double md = 10;
-  static const double lg = 16;
+  static const double sm = 4;
+  static const double md = 8;
+  static const double lg = 12;
   static const double pill = 999;
 }
 
 abstract final class UptrackTypography {
-  static const String fontFamily = 'Inter';
+  static const String fontFamily = 'Geist';
+  static const String monoFamily = 'GeistMono';
 
   static const double xs = 12;
   static const double sm = 14;
@@ -59,24 +82,57 @@ abstract final class UptrackTypography {
     bodySmall: TextStyle(fontFamily: fontFamily, fontSize: xs, color: color),
     bodyMedium: TextStyle(fontFamily: fontFamily, fontSize: md, color: color),
     bodyLarge: TextStyle(fontFamily: fontFamily, fontSize: lg, color: color),
-    labelSmall: TextStyle(fontFamily: fontFamily, fontSize: xs, color: color),
-    labelMedium: TextStyle(fontFamily: fontFamily, fontSize: sm, color: color),
-    labelLarge: TextStyle(fontFamily: fontFamily, fontSize: md, color: color),
-    titleSmall: TextStyle(fontFamily: fontFamily, fontSize: md, color: color),
-    titleMedium: TextStyle(fontFamily: fontFamily, fontSize: xl, color: color),
-    titleLarge: TextStyle(fontFamily: fontFamily, fontSize: xxl, color: color),
+    labelSmall: TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w500,
+      fontSize: xs,
+      color: color,
+    ),
+    labelMedium: TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w500,
+      fontSize: sm,
+      color: color,
+    ),
+    labelLarge: TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w500,
+      fontSize: md,
+      color: color,
+    ),
+    titleSmall: TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w600,
+      fontSize: md,
+      color: color,
+    ),
+    titleMedium: TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w600,
+      fontSize: xl,
+      color: color,
+    ),
+    titleLarge: TextStyle(
+      fontFamily: fontFamily,
+      fontWeight: FontWeight.w600,
+      fontSize: xxl,
+      color: color,
+    ),
     headlineSmall: TextStyle(
       fontFamily: fontFamily,
+      fontWeight: FontWeight.w600,
       fontSize: xxl,
       color: color,
     ),
     headlineMedium: TextStyle(
       fontFamily: fontFamily,
+      fontWeight: FontWeight.w600,
       fontSize: displaySm,
       color: color,
     ),
     headlineLarge: TextStyle(
       fontFamily: fontFamily,
+      fontWeight: FontWeight.w600,
       fontSize: displayMd,
       color: color,
     ),

@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/models/check.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/api/models/monitor.dart';
 import 'package:uptrack_mobile/api/models/monitor_analytics.dart';
+import 'package:uptrack_mobile/theme/app_theme.dart';
 import 'package:uptrack_mobile/features/dashboard/dashboard_controller.dart';
 import 'package:uptrack_mobile/features/dashboard/dashboard_screen.dart';
 import 'package:uptrack_mobile/features/incidents/incident_detail_screen.dart';
@@ -121,7 +123,11 @@ class _IncidentDetailRepo implements IncidentDetailRepository {
   Future<IncidentDetailData> acknowledge(String id) => load(id);
 }
 
-Future<void> _pumpGolden(WidgetTester tester, Widget home) async {
+Future<void> _pumpGolden(
+  WidgetTester tester,
+  Widget home, {
+  required ThemeData theme,
+}) async {
   tester.view.physicalSize = const Size(800, 1200);
   tester.view.devicePixelRatio = 1.0;
   addTearDown(() {
@@ -139,50 +145,95 @@ Future<void> _pumpGolden(WidgetTester tester, Widget home) async {
           _IncidentDetailRepo(),
         ),
       ],
-      child: MaterialApp(home: home),
+      child: MaterialApp(theme: theme, home: home),
     ),
   );
   await tester.pumpAndSettle();
 }
 
+/// Loads the bundled Geist faces so goldens show real text, not test blocks.
+/// This also fails the suite if a font asset is missing from the bundle.
+Future<void> _loadFonts() async {
+  const families = <String, List<String>>{
+    'Geist': <String>[
+      'assets/fonts/Geist-Regular.ttf',
+      'assets/fonts/Geist-Medium.ttf',
+      'assets/fonts/Geist-SemiBold.ttf',
+    ],
+    'GeistMono': <String>[
+      'assets/fonts/GeistMono-Regular.ttf',
+      'assets/fonts/GeistMono-Medium.ttf',
+    ],
+  };
+  for (final entry in families.entries) {
+    final loader = FontLoader(entry.key);
+    for (final asset in entry.value) {
+      loader.addFont(rootBundle.load(asset));
+    }
+    await loader.load();
+  }
+}
+
+/// Goldens render each core screen with the real app theme ("Ink Blue",
+/// see uptrack-web/DESIGN.md) in both light and dark mode.
 void main() {
-  testWidgets('golden: dashboard', (WidgetTester tester) async {
-    await _pumpGolden(tester, const DashboardScreen());
-    await expectLater(
-      find.byType(DashboardScreen),
-      matchesGoldenFile('goldens/dashboard.png'),
-    );
-  });
+  setUpAll(_loadFonts);
 
-  testWidgets('golden: monitor list', (WidgetTester tester) async {
-    await _pumpGolden(tester, const MonitorsScreen());
-    await expectLater(
-      find.byType(MonitorsScreen),
-      matchesGoldenFile('goldens/monitor_list.png'),
-    );
-  });
+  final themes = <String, ThemeData>{
+    'dark': AppTheme.dark,
+    'light': AppTheme.light,
+  };
 
-  testWidgets('golden: monitor detail', (WidgetTester tester) async {
-    await _pumpGolden(tester, const MonitorDetailScreen(monitorId: 'm1'));
-    await expectLater(
-      find.byType(MonitorDetailScreen),
-      matchesGoldenFile('goldens/monitor_detail.png'),
-    );
-  });
+  for (final entry in themes.entries) {
+    final mode = entry.key;
+    final theme = entry.value;
 
-  testWidgets('golden: incidents feed', (WidgetTester tester) async {
-    await _pumpGolden(tester, const IncidentsScreen());
-    await expectLater(
-      find.byType(IncidentsScreen),
-      matchesGoldenFile('goldens/incidents.png'),
-    );
-  });
+    testWidgets('golden: dashboard ($mode)', (WidgetTester tester) async {
+      await _pumpGolden(tester, const DashboardScreen(), theme: theme);
+      await expectLater(
+        find.byType(DashboardScreen),
+        matchesGoldenFile('goldens/dashboard_$mode.png'),
+      );
+    });
 
-  testWidgets('golden: incident detail', (WidgetTester tester) async {
-    await _pumpGolden(tester, const IncidentDetailScreen(incidentId: 'i1'));
-    await expectLater(
-      find.byType(IncidentDetailScreen),
-      matchesGoldenFile('goldens/incident_detail.png'),
-    );
-  });
+    testWidgets('golden: monitor list ($mode)', (WidgetTester tester) async {
+      await _pumpGolden(tester, const MonitorsScreen(), theme: theme);
+      await expectLater(
+        find.byType(MonitorsScreen),
+        matchesGoldenFile('goldens/monitor_list_$mode.png'),
+      );
+    });
+
+    testWidgets('golden: monitor detail ($mode)', (WidgetTester tester) async {
+      await _pumpGolden(
+        tester,
+        const MonitorDetailScreen(monitorId: 'm1'),
+        theme: theme,
+      );
+      await expectLater(
+        find.byType(MonitorDetailScreen),
+        matchesGoldenFile('goldens/monitor_detail_$mode.png'),
+      );
+    });
+
+    testWidgets('golden: incidents feed ($mode)', (WidgetTester tester) async {
+      await _pumpGolden(tester, const IncidentsScreen(), theme: theme);
+      await expectLater(
+        find.byType(IncidentsScreen),
+        matchesGoldenFile('goldens/incidents_$mode.png'),
+      );
+    });
+
+    testWidgets('golden: incident detail ($mode)', (WidgetTester tester) async {
+      await _pumpGolden(
+        tester,
+        const IncidentDetailScreen(incidentId: 'i1'),
+        theme: theme,
+      );
+      await expectLater(
+        find.byType(IncidentDetailScreen),
+        matchesGoldenFile('goldens/incident_detail_$mode.png'),
+      );
+    });
+  }
 }

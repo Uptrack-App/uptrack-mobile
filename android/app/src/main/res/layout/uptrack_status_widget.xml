@@ -1,11 +1,13 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- T056 status widget content (also the initialLayout — RemoteViews, no
+<!-- Colors are the Ink Blue dark tokens (surface, foreground, muted) from web
+     DESIGN.md / lib/theme/tokens.dart.
+     T056 status widget content (also the initialLayout — RemoteViews, no
      Glance/Compose; see UptrackStatusWidgetProvider). -->
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/uptrack_widget_root"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#111111"
+    android:background="#151D28"
     android:gravity="center_vertical"
     android:orientation="vertical"
     android:padding="12dp">
@@ -17,7 +19,7 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:text="Uptrack"
-        android:textColor="#FFFFFF"
+        android:textColor="#E8EEF5"
         android:textSize="14sp"
         android:textStyle="bold" />
 
@@ -28,7 +30,7 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:text="No ongoing incidents"
-        android:textColor="#BBBBBB"
+        android:textColor="#93A2B6"
         android:textSize="12sp" />
 
     <!-- R2.4: truthful freshness ("Updated 5m ago" / "Stale · updated 2h
@@ -40,6 +42,6 @@
         android:ellipsize="end"
         android:maxLines="1"
         android:text=""
-        android:textColor="#777777"
+        android:textColor="#7F8FA5"
         android:textSize="10sp" />
 </LinearLayout>
