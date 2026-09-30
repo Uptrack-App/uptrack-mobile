@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/auth_interceptors.dart';
 import '../../api/client.dart';
 import '../../api/uptrack_api.dart';
+import '../../widgets/widget_store.dart' show clearWidgetData;
 import 'token_storage.dart';
 
 /// Authentication status for the router redirect and login UI.
@@ -371,6 +372,8 @@ class AuthController extends Notifier<AuthState> {
     _pendingEmail = null;
     _pendingPassword = null;
     state = const AuthState();
+    // R2.4: no signed-in incident may linger on the home widget.
+    await clearWidgetData();
   }
 
   /// Re-auth on 401: drops a signed-in session back to the login screen.
@@ -382,6 +385,7 @@ class AuthController extends Notifier<AuthState> {
     }
     ref.read(authTokenHolderProvider).token = null;
     unawaited(ref.read(tokenStoreProvider).clear());
+    unawaited(clearWidgetData());
     state = state.copyWith(
       status: AuthStatus.signedOut,
       deviceTokenId: null,

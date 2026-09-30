@@ -45,6 +45,24 @@ class HomeWidgetStore implements WidgetDataStore {
   }
 }
 
+/// Clears every widget key and refreshes the widget so no signed-in
+/// incident data lingers on the home screen after logout, account switch,
+/// 401 re-auth or account deletion (R2.4). Best-effort: the platform
+/// channel may be unavailable (tests, exotic hosts) and must never fail
+/// the caller's sign-out flow.
+Future<void> clearWidgetData([
+  WidgetDataStore store = const HomeWidgetStore(),
+]) async {
+  try {
+    for (final String key in WidgetDataKeys.all) {
+      await store.save<String>(key, null);
+    }
+    await store.refresh();
+  } catch (_) {
+    // Widget clearing is hygiene, not correctness of sign-out.
+  }
+}
+
 /// Loads cached incident rows for the widget (defaults to the Drift
 /// read-through cache; tests inject a fake list).
 typedef SnapshotLoader = Future<List<IncidentSnapshot>> Function();

@@ -183,4 +183,23 @@ void main() {
       expect(WidgetRefresher.pickTop(<IncidentSnapshot>[]), isNull);
     });
   });
+
+  group('clearWidgetData', () {
+    test('removes every key and refreshes (R2.4 logout hygiene)', () async {
+      final FakeStore store = FakeStore();
+      final WidgetRefresher seed = WidgetRefresher(
+        store: store,
+        loadSnapshots: () async => <IncidentSnapshot>[row('inc-1')],
+      );
+      await seed.refresh();
+      expect(store.values[WidgetDataKeys.incidentId], 'inc-1');
+
+      await clearWidgetData(store);
+
+      for (final String key in WidgetDataKeys.all) {
+        expect(store.values.containsKey(key), isFalse);
+      }
+      expect(store.refreshes, 2);
+    });
+  });
 }
