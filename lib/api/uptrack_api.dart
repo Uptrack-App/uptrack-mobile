@@ -19,6 +19,7 @@ const String kLoginPath = '/api/auth/login';
 const String kMagicLinkPath = '/api/auth/magic-link';
 const String kMagicLinkVerifyPath = '/api/auth/magic-link/verify';
 const String kLogoutPath = '/api/auth/logout';
+const String kDeleteAccountPath = '/api/auth/account';
 const String kDeviceTokensPath = '/api/auth/device-tokens';
 const String kPushDevicesPath = '/api/push/devices';
 const String kIncidentsPath = '/api/incidents';
@@ -308,6 +309,24 @@ class UptrackApi {
   /// `POST /api/auth/logout` — clear the server session cookie.
   Future<void> logout() async {
     await _dio.post<Map<String, dynamic>>(kLogoutPath);
+  }
+
+  /// `POST /api/auth/account` — soft-delete the account + organization
+  /// (R2.6). Owner-only, session-auth only; email/password users must pass
+  /// their `password`; a live subscription must be cancelled first (the
+  /// server answers 409 until then). Returns the goodbye token for the
+  /// anonymous post-deletion feedback flow; callers should treat any
+  /// 2xx as success and run the full local wipe regardless.
+  Future<String?> deleteAccount({String? password}) async {
+    final Response<Map<String, dynamic>> res = await _dio
+        .post<Map<String, dynamic>>(
+          kDeleteAccountPath,
+          data: <String, Object?>{
+            if (password != null && password.isNotEmpty) 'password': password,
+          },
+        );
+    final Object? token = res.data?['goodbye_token'];
+    return token is String && token.isNotEmpty ? token : null;
   }
 
   /// `GET /api/incidents` — the org's incidents, newest first.

@@ -416,4 +416,33 @@ void main() {
     expect(seen?.path, '/api/push/live-activities');
     expect(seen?.method, 'DELETE');
   });
+
+  test('deleteAccount posts password and returns the goodbye token', () async {
+    RequestOptions? seen;
+    final Dio dio = dioWithFake((RequestOptions options) async {
+      seen = options;
+      return jsonResponse(<String, Object?>{
+        'ok': true,
+        'goodbye_token': 'gb-123',
+      });
+    });
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    final String? token = await api.deleteAccount(password: 'secret');
+
+    expect(token, 'gb-123');
+    expect(seen?.path, '/api/auth/account');
+    expect(seen?.method, 'POST');
+    expect((seen?.data as Map).cast<String, dynamic>()['password'], 'secret');
+  });
+
+  test('deleteAccount returns null without a goodbye token', () async {
+    final Dio dio = dioWithFake(
+      (RequestOptions options) async =>
+          jsonResponse(<String, Object?>{'ok': true}),
+    );
+    final UptrackApi api = UptrackApi(dio: dio);
+
+    expect(await api.deleteAccount(), isNull);
+  });
 }
