@@ -52,3 +52,6 @@ app.*.map.json
 *.p8
 **/GoogleService-Info.plist
 **/google-services.json
+android/key.properties
+android/app/*.keystore
+android/app/*.jks
