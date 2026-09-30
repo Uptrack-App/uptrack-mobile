@@ -224,4 +224,14 @@ class CacheRepository {
       .insertOnConflictUpdate(
         CacheMetaCompanion.insert(key: key, updatedAt: DateTime.now()),
       );
+
+  /// Wipes every cached collection and freshness marker (R2.4 logout /
+  /// account-switch / 401 hygiene: no signed-in user's monitors, incidents
+  /// or check history may survive for the next account).
+  Future<void> clearAll() => _db.transaction(() async {
+    await _db.delete(_db.cachedMonitors).go();
+    await _db.delete(_db.cachedIncidents).go();
+    await _db.delete(_db.cachedChecks).go();
+    await _db.delete(_db.cacheMeta).go();
+  });
 }

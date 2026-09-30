@@ -128,4 +128,23 @@ void main() {
       isTrue,
     );
   });
+
+  test('clearAll wipes collections and freshness (R2.4)', () async {
+    await repo.saveMonitors(<Monitor>[_monitor('m1')]);
+    await repo.saveIncidents(const <IncidentSnapshot>[
+      IncidentSnapshot(
+        id: 'i1',
+        monitorId: 'm1',
+        status: 'ongoing',
+        insertedAt: '2026-09-27T10:00:00Z',
+      ),
+    ]);
+
+    await repo.clearAll();
+
+    expect((await repo.getMonitors()).data, isEmpty);
+    expect((await repo.getIncidents()).data, isEmpty);
+    expect(await repo.isStale(kMonitorsCacheKey), isTrue);
+    expect(await repo.isStale(kIncidentsCacheKey), isTrue);
+  });
 }

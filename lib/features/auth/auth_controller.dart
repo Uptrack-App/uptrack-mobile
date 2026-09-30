@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/auth_interceptors.dart';
 import '../../api/client.dart';
 import '../../api/uptrack_api.dart';
+import '../../data/local/database_providers.dart' show cacheRepositoryProvider;
 import '../../widgets/widget_store.dart' show clearWidgetData;
 import 'token_storage.dart';
 
@@ -372,8 +373,14 @@ class AuthController extends Notifier<AuthState> {
     _pendingEmail = null;
     _pendingPassword = null;
     state = const AuthState();
-    // R2.4: no signed-in incident may linger on the home widget.
+    // R2.4: no signed-in incident may linger on the home widget, and no
+    // cached monitors/incidents may survive for the next account.
     await clearWidgetData();
+    try {
+      await ref.read(cacheRepositoryProvider).clearAll();
+    } catch (_) {
+      // Cache wipe is hygiene, not correctness of sign-out.
+    }
   }
 
   /// Re-auth on 401: drops a signed-in session back to the login screen.
@@ -386,6 +393,9 @@ class AuthController extends Notifier<AuthState> {
     ref.read(authTokenHolderProvider).token = null;
     unawaited(ref.read(tokenStoreProvider).clear());
     unawaited(clearWidgetData());
+    unawaited(
+      ref.read(cacheRepositoryProvider).clearAll().catchError((_) {}),
+    );
     state = state.copyWith(
       status: AuthStatus.signedOut,
       deviceTokenId: null,

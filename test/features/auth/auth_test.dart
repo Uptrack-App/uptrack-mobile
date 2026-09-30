@@ -2,10 +2,13 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/uptrack_api.dart';
+import 'package:uptrack_mobile/data/local/app_database.dart';
+import 'package:uptrack_mobile/data/local/database_providers.dart';
 import 'package:uptrack_mobile/features/auth/auth_controller.dart';
 import 'package:uptrack_mobile/features/auth/login_screen.dart';
 import 'package:uptrack_mobile/features/auth/token_storage.dart';
@@ -170,9 +173,17 @@ void main() {
               adapter: adapter,
             ),
           ),
+          // R2.4: sign-out wipes the offline cache — back it with an
+          // in-memory DB so no host database is touched in tests.
+          appDatabaseProvider.overrideWithValue(
+            AppDatabase.forTesting(NativeDatabase.memory()),
+          ),
         ],
       );
-      addTearDown(container.dispose);
+      addTearDown(() {
+        container.read(appDatabaseProvider).close();
+        container.dispose();
+      });
     });
 
     test(
