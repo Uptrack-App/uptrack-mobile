@@ -30,4 +30,16 @@
         android:text="No ongoing incidents"
         android:textColor="#BBBBBB"
         android:textSize="12sp" />
+
+    <!-- R2.4: truthful freshness ("Updated 5m ago" / "Stale · updated 2h
+         ago"); hidden when no timestamp was ever written. -->
+    <TextView
+        android:id="@+id/uptrack_widget_updated"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:ellipsize="end"
+        android:maxLines="1"
+        android:text=""
+        android:textColor="#777777"
+        android:textSize="10sp" />
 </LinearLayout>

@@ -5,8 +5,12 @@ import android.appwidget.AppWidgetManager
 import android.content.Context
 import android.content.Intent
 import android.content.SharedPreferences
+import android.view.View
 import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
+import java.time.Duration
+import java.time.LocalDateTime
+import java.time.format.DateTimeParseException
 
 /**
  * Status-summary home widget (T056, Android counterpart of the T055
@@ -63,6 +67,15 @@ class UptrackStatusWidgetProvider : HomeWidgetProvider() {
             val views = RemoteViews(context.packageName, R.layout.uptrack_status_widget)
             views.setTextViewText(R.id.uptrack_widget_title, title)
             views.setTextViewText(R.id.uptrack_widget_state, state)
+            // R2.4: freshness is data, not decoration — hide the line when
+            // no timestamp was ever written rather than showing a guess.
+            val updated = updatedLine(widgetData.getString(KEY_UPDATED_AT, null))
+            if (updated == null) {
+                views.setViewVisibility(R.id.uptrack_widget_updated, View.GONE)
+            } else {
+                views.setViewVisibility(R.id.uptrack_widget_updated, View.VISIBLE)
+                views.setTextViewText(R.id.uptrack_widget_updated, updated)
+            }
             views.setOnClickPendingIntent(
                 R.id.uptrack_widget_root,
                 PendingIntent.getActivity(
@@ -85,5 +98,42 @@ class UptrackStatusWidgetProvider : HomeWidgetProvider() {
         const val KEY_MONITOR_NAME = "uptrack_widget_monitor_name"
         const val KEY_STATUS = "uptrack_widget_status"
         const val KEY_ACKNOWLEDGED = "uptrack_widget_acknowledged"
+        const val KEY_UPDATED_AT = "uptrack_widget_updated_at"
+
+        /**
+         * Age beyond which the widget admits staleness (R2.4). Refreshes are
+         * event-driven (foreground sync, FCM data message), not polled, so a
+         * quiet hour is normal — only flag data older than this.
+         */
+        const val STALE_AFTER_MINUTES = 60L
+
+        /**
+         * Truthful freshness line for [raw] (`DateTime.toIso8601String`,
+         * device-local, written by Dart's `WidgetSnapshot.toWidgetData`).
+         * Buckets mirror `WidgetSnapshot.elapsedLabel` (`5m`/`2h`/`3d`).
+         * Null when no timestamp exists or it does not parse — the caller
+         * hides the line instead of showing a guess.
+         */
+        fun updatedLine(raw: String?): String? {
+            if (raw.isNullOrBlank()) return null
+            val written = try {
+                LocalDateTime.parse(raw)
+            } catch (e: DateTimeParseException) {
+                return null
+            }
+            val minutes = Duration.between(written, LocalDateTime.now())
+                .toMinutes().coerceAtLeast(0)
+            val relative = when {
+                minutes < 1 -> "just now"
+                minutes < 60 -> "${minutes}m ago"
+                minutes < 2880 -> "${minutes / 60}h ago"
+                else -> "${minutes / 1440}d ago"
+            }
+            return if (minutes > STALE_AFTER_MINUTES) {
+                "Stale · updated $relative"
+            } else {
+                "Updated $relative"
+            }
+        }
     }
 }
