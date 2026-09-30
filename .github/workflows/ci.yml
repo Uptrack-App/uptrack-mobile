@@ -31,11 +31,49 @@ jobs:
       - run: flutter pub get
       - run: flutter test
 
-  macos-placeholder:
-    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+  # R3.1 signed iOS archive for TestFlight (R4.5/R5). Manual signing from
+  # secrets — no match repo, no secrets in source. Required repo config:
+  #   secrets: IOS_DIST_CERT_P12, IOS_DIST_CERT_PASSWORD,
+  #            IOS_PROVISION_PROFILE, IOS_EXPORT_OPTIONS_PLIST
+  #            (all base64-encoded files)
+  #   vars:    API_BASE_URL (e.g. https://api.uptrack.app)
+  release-ios:
+    if: startsWith(github.ref, 'refs/tags/')
     runs-on: macos-latest
     steps:
-      - run: echo "macOS build placeholder; signing is not configured yet."
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          channel: stable
+          architecture: x64
+      - run: flutter pub get
+      - name: Require API base URL
+        run: test -n "${{ vars.API_BASE_URL }}" || (echo "Set the API_BASE_URL repo variable first" && exit 1)
+      - name: Install signing assets from secrets
+        env:
+          IOS_DIST_CERT_P12: ${{ secrets.IOS_DIST_CERT_P12 }}
+          IOS_DIST_CERT_PASSWORD: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+          IOS_PROVISION_PROFILE: ${{ secrets.IOS_PROVISION_PROFILE }}
+          IOS_EXPORT_OPTIONS_PLIST: ${{ secrets.IOS_EXPORT_OPTIONS_PLIST }}
+        run: |
+          for v in IOS_DIST_CERT_P12 IOS_PROVISION_PROFILE IOS_EXPORT_OPTIONS_PLIST; do
+            test -n "${!v}" || (echo "Missing $v secret" && exit 1)
+          done
+          mkdir -p "$RUNNER_TEMP/signing"
+          echo "$IOS_DIST_CERT_P12" | base64 -d > "$RUNNER_TEMP/signing/dist.p12"
+          echo "$IOS_PROVISION_PROFILE" | base64 -d > "$RUNNER_TEMP/signing/profile.mobileprovision"
+          echo "$IOS_EXPORT_OPTIONS_PLIST" | base64 -d > "$RUNNER_TEMP/signing/ExportOptions.plist"
+          mkdir -p ~/Library/MobileDevice/Provisioning\ Profiles
+          cp "$RUNNER_TEMP/signing/profile.mobileprovision" ~/Library/MobileDevice/Provisioning\ Profiles/
+      - uses: apple-actions/import-codesign-certs@63fff01cd422d4b7b855d40ca1e9d34d2de9427d # v3
+        with:
+          p12-file-base64: ${{ secrets.IOS_DIST_CERT_P12 }}
+          p12-password: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
+      - run: flutter build ipa --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }} --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist"
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        with:
+          name: app-release-ipa
+          path: build/ios/ipa/*.ipa
 
   # R3.1 signed Android App Bundle for the Play closed track (R4.4).
   # Required repo configuration (all in Settings, never in the repo):
