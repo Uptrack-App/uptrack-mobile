@@ -1,12 +1,14 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/auth_interceptors.dart';
 import '../../api/client.dart';
 import '../../api/uptrack_api.dart';
 import '../../data/local/database_providers.dart' show cacheRepositoryProvider;
+import '../../push/push_channels.dart' show PushChannels;
 import '../../widgets/widget_store.dart' show clearWidgetData;
 import 'token_storage.dart';
 
@@ -381,6 +383,7 @@ class AuthController extends Notifier<AuthState> {
     } catch (_) {
       // Cache wipe is hygiene, not correctness of sign-out.
     }
+    await clearSessionNotifications();
   }
 
   /// Re-auth on 401: drops a signed-in session back to the login screen.
@@ -396,10 +399,28 @@ class AuthController extends Notifier<AuthState> {
     unawaited(
       ref.read(cacheRepositoryProvider).clearAll().catchError((_) {}),
     );
+    unawaited(clearSessionNotifications());
     state = state.copyWith(
       status: AuthStatus.signedOut,
       deviceTokenId: null,
       errorMessage: 'Session expired. Sign in again.',
     );
+  }
+}
+
+/// Asks the native host to drop the signed-out session's delivered
+/// notifications, badge and Live Activities (R2.4; implemented in
+/// `AppDelegate.clearSessionNotifications` — Android answers
+/// MissingPlugin until it implements the method). Best-effort: never
+/// throws, so sign-out can't fail on platform-channel issues.
+Future<void> clearSessionNotifications() async {
+  try {
+    await PushChannels.tokenChannel().invokeMethod(
+      'clearSessionNotifications',
+    );
+  } on MissingPluginException {
+    // Host has no such method (Android, tests) — nothing to clear.
+  } on PlatformException {
+    // Native clear failed — sign-out proceeds regardless.
   }
 }

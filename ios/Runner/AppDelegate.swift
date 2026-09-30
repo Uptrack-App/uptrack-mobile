@@ -91,6 +91,19 @@ import ActivityKit
         let pending = self.initialNotification
         self.initialNotification = nil
         result(pending)
+      case "clearSessionNotifications":
+        // R2.4 logout/401 hygiene: no old-account banners, badges or Live
+        // Activities may linger for the next account on this device.
+        let center = UNUserNotificationCenter.current()
+        center.removeAllDeliveredNotifications()
+        center.removeAllPendingNotificationRequests()
+        if #available(iOS 16.2, *) {
+          for activity in Activity<UptrackIncident>.activities {
+            Task { await activity.end(nil, dismissalPolicy: .immediate) }
+          }
+        }
+        UIApplication.shared.applicationIconBadgeNumber = 0
+        result(true)
       default:
         result(FlutterMethodNotImplemented)
       }
