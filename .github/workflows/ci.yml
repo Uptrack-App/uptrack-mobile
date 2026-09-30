@@ -49,6 +49,18 @@ jobs:
       - run: flutter pub get
       - name: Require API base URL
         run: test -n "${{ vars.API_BASE_URL }}" || (echo "Set the API_BASE_URL repo variable first" && exit 1)
+      - name: Derive version from tag
+        # Tags look like v1.0.1+5 (build name + build number). Without a
+        # +number suffix the build number falls back to the run number so
+        # every store upload still increases monotonically.
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "BUILD_NAME=${TAG%%+*}" >> "$GITHUB_ENV"
+          if [ "$TAG" = "${TAG%%+*}" ]; then
+            echo "BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_NUMBER=${TAG##*+}" >> "$GITHUB_ENV"
+          fi
       - name: Install signing assets from secrets
         env:
           IOS_DIST_CERT_P12: ${{ secrets.IOS_DIST_CERT_P12 }}
@@ -69,7 +81,7 @@ jobs:
         with:
           p12-file-base64: ${{ secrets.IOS_DIST_CERT_P12 }}
           p12-password: ${{ secrets.IOS_DIST_CERT_PASSWORD }}
-      - run: flutter build ipa --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }} --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist"
+      - run: flutter build ipa --release --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER" --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }} --export-options-plist="$RUNNER_TEMP/signing/ExportOptions.plist"
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: app-release-ipa
@@ -95,6 +107,18 @@ jobs:
       - run: flutter pub get
       - name: Require API base URL
         run: test -n "${{ vars.API_BASE_URL }}" || (echo "Set the API_BASE_URL repo variable first" && exit 1)
+      - name: Derive version from tag
+        # Tags look like v1.0.1+5 (build name + build number). Without a
+        # +number suffix the build number falls back to the run number so
+        # every store upload still increases monotonically.
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          echo "BUILD_NAME=${TAG%%+*}" >> "$GITHUB_ENV"
+          if [ "$TAG" = "${TAG%%+*}" ]; then
+            echo "BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+          else
+            echo "BUILD_NUMBER=${TAG##*+}" >> "$GITHUB_ENV"
+          fi
       - name: Write signing files from secrets
         env:
           ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
@@ -110,7 +134,7 @@ jobs:
           keyAlias=$ANDROID_KEY_ALIAS
           storeFile=upload.keystore
           EOF
-      - run: flutter build appbundle --release --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
+      - run: flutter build appbundle --release --build-name="$BUILD_NAME" --build-number="$BUILD_NUMBER" --dart-define=API_BASE_URL=${{ vars.API_BASE_URL }}
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
           name: app-release-aab
