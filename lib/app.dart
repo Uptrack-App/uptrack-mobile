@@ -136,7 +136,7 @@ class _UptrackAppState extends ConsumerState<UptrackApp> {
       title: 'Uptrack',
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.dark,
+      themeMode: ThemeMode.system,
       routerConfig: router,
     );
   }

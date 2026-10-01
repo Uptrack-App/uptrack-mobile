@@ -6,7 +6,7 @@ import 'package:uptrack_mobile/theme/app_theme.dart';
 import 'package:uptrack_mobile/theme/status_colors.dart';
 import 'package:uptrack_mobile/theme/tokens.dart';
 
-/// Guard rails for the Ink Blue design system (uptrack-web/DESIGN.md is the
+/// Guard rails for the Ink design system (tokens v2) (uptrack-web/DESIGN.md is the
 /// source of truth; token map: uptrack-spec/docs/mobile/design-system.md).
 
 double _contrast(Color a, Color b) {
@@ -90,9 +90,64 @@ void main() {
     expect(offenders, isEmpty, reason: offenders.join('\n'));
   });
 
-  test('theme uses the bundled Geist family', () {
-    expect(UptrackTypography.fontFamily, 'Geist');
-    expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'Geist');
-    expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'Geist');
+  test('theme uses the bundled IBM Plex families', () {
+    expect(UptrackTypography.fontFamily, 'IBMPlexSans');
+    expect(UptrackTypography.monoFamily, 'IBMPlexMono');
+    expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'IBMPlexSans');
+    expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'IBMPlexSans');
+  });
+
+  test('tokens v2 match uptrack-web styles.css', () {
+    expect(UptrackColors.lightBackground, const Color(0xFFFFFFFF));
+    expect(UptrackColors.lightForeground, const Color(0xFF0E1520));
+    expect(UptrackColors.lightCta, const Color(0xFF0E1520));
+    expect(UptrackColors.lightPrimary, const Color(0xFF1F5AD6));
+    expect(UptrackColors.darkBackground, const Color(0xFF0A0E14));
+    expect(UptrackColors.darkCta, const Color(0xFFF2F5F8));
+    expect(UptrackColors.darkPrimary, const Color(0xFF8FB2F2));
+    expect(AppTheme.light.scaffoldBackgroundColor, const Color(0xFFFFFFFF));
+    expect(AppTheme.dark.scaffoldBackgroundColor, const Color(0xFF0A0E14));
+  });
+
+  test('selected segment and secondary are neutral, not status colors', () {
+    for (final bool isDark in <bool>[true, false]) {
+      final ThemeData theme = isDark ? AppTheme.dark : AppTheme.light;
+      final UptrackStatusColors status = isDark
+          ? UptrackStatusColors.dark
+          : UptrackStatusColors.light;
+      final Set<Color> statusColors = <Color>{
+        for (final UptrackStatus s in <UptrackStatus>[
+          status.up,
+          status.down,
+          status.degraded,
+          status.paused,
+          status.unknown,
+        ]) ...<Color>[s.color, s.soft],
+      };
+      final Color? selected = theme.segmentedButtonTheme.style?.backgroundColor
+          ?.resolve(<WidgetState>{WidgetState.selected});
+      expect(selected, isNotNull);
+      expect(statusColors, isNot(contains(selected)));
+      expect(statusColors, isNot(contains(theme.colorScheme.secondary)));
+      expect(
+        statusColors,
+        isNot(contains(theme.colorScheme.secondaryContainer)),
+      );
+    }
+  });
+
+  test('filled buttons use the ink CTA', () {
+    expect(
+      AppTheme.light.filledButtonTheme.style?.backgroundColor?.resolve(
+        <WidgetState>{},
+      ),
+      UptrackColors.lightCta,
+    );
+    expect(
+      AppTheme.dark.filledButtonTheme.style?.backgroundColor?.resolve(
+        <WidgetState>{},
+      ),
+      UptrackColors.darkCta,
+    );
   });
 }

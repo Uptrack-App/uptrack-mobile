@@ -1,14 +1,43 @@
 import 'package:flutter/material.dart';
 
-/// Ink Blue palette. Mirrors `uptrack-web/DESIGN.md` (the source of truth): cool
-/// blue-gray neutrals and a navy ink primary. Status colors are the only
-/// saturated hues. Text on a status's soft background needs at least 4.5:1.
-/// Change a token in web DESIGN.md first, then here. See
-/// docs/mobile/design-system.md in uptrack-spec.
+/// Uptrack "Ink" palette, tokens v2. Mirrors `uptrack-web/src/styles.css`
+/// (`:root` = light, `.dark` = dark) and the front matter of
+/// `uptrack-web/DESIGN.md`, which are the source of truth. White pages, gray
+/// bands, an ink CTA and a blue accent. Status colors are the only saturated
+/// hues. Text on a status's soft background needs at least 4.5:1.
+/// Change a token on the web first, then here.
 abstract final class UptrackColors {
-  // Primary (navy ink in light mode, light ink-blue in dark mode).
-  static const Color brandLight = Color(0xFF1E3A5F);
-  static const Color brandDark = Color(0xFF9CB8E0);
+  // Light (`:root`).
+  static const Color lightBackground = Color(0xFFFFFFFF); // --background
+  static const Color lightSurface = Color(0xFFFFFFFF); // --card
+  static const Color lightSurfaceRaised = Color(0xFFF1F4F8); // --muted
+  static const Color lightBand = Color(0xFFF5F7FA); // --band
+  static const Color lightForeground = Color(0xFF0E1520); // --foreground
+  static const Color lightBody = Color(0xFF3D4A5C); // --body
+  static const Color lightMutedForeground = Color(0xFF5E6B7D);
+  static const Color lightBorder = Color(0xFFE3E8EF); // --border
+  static const Color lightInput = Color(0xFFD5DCE6); // --input
+  static const Color lightPrimary = Color(0xFF1F5AD6); // --primary (accent)
+  static const Color lightOnPrimary = Color(0xFFFFFFFF);
+  static const Color lightCta = Color(0xFF0E1520); // --cta (ink)
+  static const Color lightOnCta = Color(0xFFFFFFFF);
+  static const Color lightDestructive = Color(0xFFBC4123);
+
+  // Dark (`.dark`).
+  static const Color darkBackground = Color(0xFF0A0E14);
+  static const Color darkSurface = Color(0xFF111822);
+  static const Color darkSurfaceRaised = Color(0xFF18212D);
+  static const Color darkBand = Color(0xFF111822);
+  static const Color darkForeground = Color(0xFFEEF2F6);
+  static const Color darkBody = Color(0xFFBAC5D2);
+  static const Color darkMutedForeground = Color(0xFF8795A8);
+  static const Color darkBorder = Color(0xFF243041);
+  static const Color darkInput = Color(0xFF2B3848);
+  static const Color darkPrimary = Color(0xFF8FB2F2);
+  static const Color darkOnPrimary = Color(0xFF0A0E14);
+  static const Color darkCta = Color(0xFFF2F5F8);
+  static const Color darkOnCta = Color(0xFF0A0E14);
+  static const Color darkDestructive = Color(0xFFEE7A63);
 
   // Status (light / dark).
   static const Color upLight = Color(0xFF387048);
@@ -33,19 +62,27 @@ abstract final class UptrackColors {
   static const Color pausedSoftDark = Color(0xFF28323C);
   static const Color unknownSoftLight = Color(0xFFE6EBF1);
   static const Color unknownSoftDark = Color(0xFF232D3A);
+}
 
-  // Neutrals.
-  static const Color lightBackground = Color(0xFFF5F7FA);
-  static const Color lightSurface = Color(0xFFFFFFFF);
-  static const Color lightMuted = Color(0xFFEAEFF5);
-  static const Color lightForeground = Color(0xFF121B28);
-  static const Color lightBorder = Color(0xFFD6DEE8);
-
-  static const Color darkBackground = Color(0xFF0E141C);
-  static const Color darkSurface = Color(0xFF151D28);
-  static const Color darkMuted = Color(0xFF1D2836);
-  static const Color darkForeground = Color(0xFFE8EEF5);
-  static const Color darkBorder = Color(0xFF2B3848);
+/// `--shadow-raised-value` from the web, light and dark.
+abstract final class UptrackShadows {
+  static const List<BoxShadow> raisedLight = <BoxShadow>[
+    BoxShadow(color: Color(0x0F0E1520), offset: Offset(0, 1), blurRadius: 2),
+    BoxShadow(
+      color: Color(0x2E0E1520),
+      offset: Offset(0, 10),
+      blurRadius: 28,
+      spreadRadius: -14,
+    ),
+  ];
+  static const List<BoxShadow> raisedDark = <BoxShadow>[
+    BoxShadow(
+      color: Color(0x8C000000),
+      offset: Offset(0, 10),
+      blurRadius: 30,
+      spreadRadius: -14,
+    ),
+  ];
 }
 
 abstract final class UptrackSpacing {
@@ -62,12 +99,13 @@ abstract final class UptrackRadii {
   static const double sm = 4;
   static const double md = 8;
   static const double lg = 12;
+  static const double frame = 14;
   static const double pill = 999;
 }
 
 abstract final class UptrackTypography {
-  static const String fontFamily = 'Geist';
-  static const String monoFamily = 'GeistMono';
+  static const String fontFamily = 'IBMPlexSans';
+  static const String monoFamily = 'IBMPlexMono';
 
   static const double xs = 12;
   static const double sm = 14;
@@ -78,63 +116,78 @@ abstract final class UptrackTypography {
   static const double displaySm = 30;
   static const double displayMd = 36;
 
-  static TextTheme textTheme(Color color) => TextTheme(
-    bodySmall: TextStyle(fontFamily: fontFamily, fontSize: xs, color: color),
-    bodyMedium: TextStyle(fontFamily: fontFamily, fontSize: md, color: color),
-    bodyLarge: TextStyle(fontFamily: fontFamily, fontSize: lg, color: color),
-    labelSmall: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w500,
-      fontSize: xs,
-      color: color,
-    ),
-    labelMedium: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w500,
-      fontSize: sm,
-      color: color,
-    ),
-    labelLarge: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w500,
-      fontSize: md,
-      color: color,
-    ),
-    titleSmall: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w600,
-      fontSize: md,
-      color: color,
-    ),
-    titleMedium: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w600,
-      fontSize: xl,
-      color: color,
-    ),
-    titleLarge: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w600,
-      fontSize: xxl,
-      color: color,
-    ),
-    headlineSmall: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w600,
-      fontSize: xxl,
-      color: color,
-    ),
-    headlineMedium: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w600,
-      fontSize: displaySm,
-      color: color,
-    ),
-    headlineLarge: TextStyle(
-      fontFamily: fontFamily,
-      fontWeight: FontWeight.w600,
-      fontSize: displayMd,
-      color: color,
-    ),
-  );
+  /// [color] is the heading/label ink; [body] is running text (web `--body`);
+  /// [muted] is secondary text such as timestamps (web `--muted-foreground`).
+  static TextTheme textTheme(Color color, {Color? body, Color? muted}) =>
+      TextTheme(
+        bodySmall: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: xs,
+          color: muted ?? color,
+        ),
+        bodyMedium: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: md,
+          color: body ?? color,
+        ),
+        bodyLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: lg,
+          color: body ?? color,
+        ),
+        labelSmall: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w500,
+          fontSize: xs,
+          color: color,
+        ),
+        labelMedium: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w500,
+          fontSize: sm,
+          color: color,
+        ),
+        labelLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w500,
+          fontSize: md,
+          color: color,
+        ),
+        titleSmall: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+          fontSize: md,
+          color: color,
+        ),
+        titleMedium: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+          fontSize: xl,
+          color: color,
+        ),
+        titleLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+          fontSize: xxl,
+          color: color,
+        ),
+        headlineSmall: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+          fontSize: xxl,
+          color: color,
+        ),
+        headlineMedium: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+          fontSize: displaySm,
+          color: color,
+        ),
+        headlineLarge: TextStyle(
+          fontFamily: fontFamily,
+          fontWeight: FontWeight.w600,
+          fontSize: displayMd,
+          color: color,
+        ),
+      );
 }
