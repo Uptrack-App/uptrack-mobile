@@ -4,6 +4,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/status_page.dart';
 import '../auth/auth_controller.dart';
+import '../../theme/status_colors.dart';
+import '../../util/date_format.dart';
 
 /// Query for the public status page lookup (slug + optional page password).
 typedef StatusQuery = ({String slug, String password});
@@ -220,7 +222,7 @@ class _StatusBody extends StatelessWidget {
               child: ListTile(
                 title: Text(monitor.name),
                 trailing: Chip(
-                  label: Text(monitor.status),
+                  label: Text(statusLabel(monitor.status)),
                   visualDensity: VisualDensity.compact,
                 ),
               ),
@@ -237,9 +239,9 @@ class _StatusBody extends StatelessWidget {
                 title: Text(incident.monitorName ?? incident.id),
                 subtitle: incident.startedAt == null
                     ? null
-                    : Text('Started ${incident.startedAt}'),
+                    : Text('Started ${formatTimestamp(incident.startedAt)}'),
                 trailing: Chip(
-                  label: Text(incident.status),
+                  label: Text(statusLabel(incident.status)),
                   visualDensity: VisualDensity.compact,
                 ),
               ),

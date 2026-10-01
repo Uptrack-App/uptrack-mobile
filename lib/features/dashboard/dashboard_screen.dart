@@ -4,6 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../api/models/incident.dart';
 import 'dashboard_controller.dart';
+import '../../theme/status_colors.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -229,11 +230,12 @@ class _IncidentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Semantics(
-      label: 'Incident ${incident.displayName}, status ${incident.status}',
+      label:
+          'Incident ${incident.displayName}, status ${statusLabel(incident.status)}',
       child: Card(
         child: ListTile(
           title: Text(incident.displayName),
-          subtitle: Text(incident.status),
+          subtitle: Text(statusLabel(incident.status)),
           trailing: const Icon(Icons.chevron_right),
           onTap: () => context.go('/incidents'),
         ),

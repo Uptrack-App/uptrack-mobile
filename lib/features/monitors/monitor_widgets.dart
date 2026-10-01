@@ -15,7 +15,7 @@ class MonitorStatusChip extends StatelessWidget {
         .forStatus(status);
     return Chip(
       avatar: Icon(look.icon, size: 14, color: look.color),
-      label: Text(status),
+      label: Text(statusLabel(status)),
       backgroundColor: look.soft,
       side: BorderSide.none,
       labelStyle: theme.textTheme.labelSmall?.copyWith(color: look.color),

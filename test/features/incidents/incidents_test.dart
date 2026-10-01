@@ -8,6 +8,7 @@ import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/features/incidents/incident_detail_screen.dart';
 import 'package:uptrack_mobile/features/incidents/incidents_controller.dart';
 import 'package:uptrack_mobile/features/incidents/incidents_screen.dart';
+import 'package:uptrack_mobile/util/date_format.dart';
 
 Incident _incident(
   String id,
@@ -165,7 +166,15 @@ void main() {
       expect(find.text('Homepage'), findsOneWidget);
       expect(find.text('API'), findsOneWidget);
       expect(find.text('Open'), findsNWidgets(2));
-      expect(find.text('Resolved'), findsOneWidget);
+      expect(
+        find.text('Resolved'),
+        findsOneWidget,
+      ); // Timestamps are human-readable local time, never raw ISO 8601.
+      expect(find.text('2026-09-26T00:00:00Z'), findsNothing);
+      expect(
+        find.text(formatTimestamp('2026-09-26T00:00:00Z')),
+        findsNWidgets(2),
+      );
     });
 
     testWidgets('open filter hides resolved incidents', (

@@ -200,8 +200,16 @@ void main() {
       expect(find.text('Monitors'), findsOneWidget);
       expect(find.text('Homepage'), findsOneWidget);
       expect(find.text('API'), findsOneWidget);
-      expect(find.text('up'), findsOneWidget);
-      expect(find.text('down'), findsOneWidget);
+      // Chip labels are capitalized like the web ("Up", not "up").
+      expect(
+        find.descendant(of: find.byType(Chip), matching: find.text('Up')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(of: find.byType(Chip), matching: find.text('Down')),
+        findsOneWidget,
+      );
+      expect(find.text('up'), findsNothing);
       expect(find.text('99.9% uptime'), findsOneWidget);
       expect(find.text('42.5% uptime'), findsOneWidget);
       expect(find.text('Regions: any'), findsNWidgets(2));
@@ -242,7 +250,12 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Down'));
+      await tester.tap(
+        find.descendant(
+          of: find.byType(SegmentedButton<MonitorStatusFilter>),
+          matching: find.text('Down'),
+        ),
+      );
       await tester.pumpAndSettle();
 
       expect(find.text('API'), findsOneWidget);
@@ -339,7 +352,7 @@ void main() {
       );
 
       expect(find.text('Homepage'), findsOneWidget);
-      expect(find.text('up'), findsOneWidget);
+      expect(find.text('Up'), findsOneWidget);
       expect(find.byType(LineChart), findsOneWidget);
       expect(find.textContaining('p50 120 ms'), findsOneWidget);
       expect(find.textContaining('Showing last 7 days'), findsOneWidget);

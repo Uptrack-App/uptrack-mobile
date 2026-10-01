@@ -20,6 +20,36 @@ class UptrackStatus {
   final String label;
 }
 
+/// Display label for an API status string, capitalized like the web
+/// `StatusBadge` ("Up", "Down", "Degraded", "Paused", "Pending", "Unknown").
+/// Statuses outside the monitor set (for example incident states such as
+/// `investigating` or `major_outage`) are humanized: "Investigating",
+/// "Major outage".
+String statusLabel(String? status) {
+  final String s = (status ?? '').trim().toLowerCase();
+  switch (s) {
+    case '':
+    case 'pending':
+      return 'Pending';
+    case 'up':
+    case 'operational':
+      return 'Up';
+    case 'down':
+      return 'Down';
+    case 'degraded':
+    case 'visual_regression':
+    case 'partial_outage':
+      return 'Degraded';
+    case 'paused':
+    case 'disabled':
+      return 'Paused';
+    case 'unknown':
+      return 'Unknown';
+  }
+  final String words = s.replaceAll(RegExp(r'[_\-\s]+'), ' ').trim();
+  return words[0].toUpperCase() + words.substring(1);
+}
+
 @immutable
 class UptrackStatusColors extends ThemeExtension<UptrackStatusColors> {
   const UptrackStatusColors({

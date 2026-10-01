@@ -7,6 +7,8 @@ import '../../api/models/monitor.dart';
 import '../../api/models/monitor_analytics.dart';
 import 'monitor_detail_controller.dart';
 import 'monitor_widgets.dart';
+import '../../theme/status_colors.dart';
+import '../../util/date_format.dart';
 
 /// Monitor detail: header, response-time chart (24h/7d/90d via `?days=`),
 /// percentiles, and check history.
@@ -109,7 +111,7 @@ class _DetailBody extends ConsumerWidget {
           const SizedBox(height: 8),
           if (monitor.lastCheck != null)
             Text(
-              'Last check: ${monitor.lastCheck!.status} · '
+              'Last check: ${statusLabel(monitor.lastCheck!.status)} · '
               '${monitor.lastCheck!.responseTime} ms',
               style: theme.textTheme.bodySmall,
             ),
@@ -280,7 +282,7 @@ class _CheckRow extends StatelessWidget {
     final ColorScheme scheme = theme.colorScheme;
     return Semantics(
       label:
-          'Check ${check.status}, ${check.responseTime} ms, '
+          'Check ${statusLabel(check.status)}, ${check.responseTime} ms, '
           'HTTP ${check.statusCode}',
       child: Card(
         child: ListTile(
@@ -289,12 +291,16 @@ class _CheckRow extends StatelessWidget {
             color: check.isUp ? scheme.primary : scheme.error,
           ),
           title: Text(
-            '${check.status} · ${check.responseTime} ms · HTTP ${check.statusCode}',
+            '${statusLabel(check.status)} · ${check.responseTime} ms · '
+            'HTTP ${check.statusCode}',
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(check.checkedAt, style: theme.textTheme.bodySmall),
+              Text(
+                formatTimestamp(check.checkedAt),
+                style: theme.textTheme.bodySmall,
+              ),
               if (check.errorMessage != null && check.errorMessage!.isNotEmpty)
                 Text(check.errorMessage!, style: theme.textTheme.bodySmall),
             ],

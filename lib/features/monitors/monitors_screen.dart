@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import '../../api/models/monitor.dart';
 import 'monitor_widgets.dart';
 import 'monitors_controller.dart';
+import '../../theme/status_colors.dart';
 
 /// Monitor list: status, uptime, regions, search + status filter.
 ///
@@ -179,8 +180,8 @@ class _MonitorRow extends StatelessWidget {
         ? null
         : '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime';
     final String semanticsLabel = uptime == null
-        ? 'Monitor ${monitor.name}, status ${monitor.status}'
-        : 'Monitor ${monitor.name}, status ${monitor.status}, $uptime';
+        ? 'Monitor ${monitor.name}, status ${statusLabel(monitor.status)}'
+        : 'Monitor ${monitor.name}, status ${statusLabel(monitor.status)}, $uptime';
     return Semantics(
       label: semanticsLabel,
       child: Card(

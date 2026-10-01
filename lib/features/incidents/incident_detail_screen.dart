@@ -3,6 +3,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/incident.dart';
 import 'incidents_controller.dart';
+import '../../theme/status_colors.dart';
+import '../../util/date_format.dart';
 
 /// Incident detail: header (monitor, status, timestamps), the acknowledge
 /// action with an optimistic update (rolled back with a SnackBar on error),
@@ -164,17 +166,17 @@ class _DetailBody extends StatelessWidget {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Started ${incident.startedAt ?? incident.insertedAt}',
+                      'Started ${formatTimestamp(incident.startedAt ?? incident.insertedAt)}',
                       style: theme.textTheme.bodySmall,
                     ),
                     if (incident.resolvedAt != null)
                       Text(
-                        'Resolved ${incident.resolvedAt}',
+                        'Resolved ${formatTimestamp(incident.resolvedAt)}',
                         style: theme.textTheme.bodySmall,
                       ),
                     if (incident.acknowledgedAt != null)
                       Text(
-                        'Acknowledged ${incident.acknowledgedAt}',
+                        'Acknowledged ${formatTimestamp(incident.acknowledgedAt)}',
                         style: theme.textTheme.bodySmall,
                       ),
                   ],
@@ -229,16 +231,22 @@ class _UpdateRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
     return Semantics(
-      label: 'Update ${update.displayTitle}, ${update.status}',
+      label: 'Update ${update.displayTitle}, ${statusLabel(update.status)}',
       child: Card(
         child: ListTile(
           title: Text(update.displayTitle),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(update.status, style: theme.textTheme.bodySmall),
+              Text(
+                statusLabel(update.status),
+                style: theme.textTheme.bodySmall,
+              ),
               if (update.postedAt != null)
-                Text(update.postedAt!, style: theme.textTheme.bodySmall),
+                Text(
+                  formatTimestamp(update.postedAt),
+                  style: theme.textTheme.bodySmall,
+                ),
               if (update.description != null && update.description!.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),

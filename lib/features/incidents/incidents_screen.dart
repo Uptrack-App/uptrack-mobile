@@ -6,6 +6,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../api/models/incident.dart';
 import 'incidents_controller.dart';
+import '../../util/date_format.dart';
 
 /// Incident feed: ongoing/resolved rows with an All/Open filter, newest
 /// first, with cache fallback when offline.
@@ -168,7 +169,10 @@ class _IncidentRow extends StatelessWidget {
                   _StatusChip(incident: incident),
                   if (incident.isAcknowledged)
                     Text('Acknowledged', style: theme.textTheme.bodySmall),
-                  Text(incident.insertedAt, style: theme.textTheme.bodySmall),
+                  Text(
+                    formatTimestamp(incident.insertedAt),
+                    style: theme.textTheme.bodySmall,
+                  ),
                 ],
               ),
             ],

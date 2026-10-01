@@ -159,7 +159,7 @@ void main() {
         findsOneWidget,
       );
       expect(
-        find.bySemanticsLabel('Incident Homepage, status open'),
+        find.bySemanticsLabel('Incident Homepage, status Open'),
         findsOneWidget,
       );
       handle.dispose();
@@ -187,7 +187,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        find.bySemanticsLabel('Monitor Homepage, status up, 99.9% uptime'),
+        find.bySemanticsLabel('Monitor Homepage, status Up, 99.9% uptime'),
         findsOneWidget,
       );
       handle.dispose();
@@ -250,11 +250,11 @@ void main() {
         findsOneWidget,
       );
       await tester.scrollUntilVisible(
-        find.bySemanticsLabel('Check up, 120 ms, HTTP 200'),
+        find.bySemanticsLabel('Check Up, 120 ms, HTTP 200'),
         200,
       );
       expect(
-        find.bySemanticsLabel('Check up, 120 ms, HTTP 200'),
+        find.bySemanticsLabel('Check Up, 120 ms, HTTP 200'),
         findsOneWidget,
       );
       handle.dispose();
@@ -322,11 +322,11 @@ void main() {
         findsOneWidget,
       );
       await tester.scrollUntilVisible(
-        find.bySemanticsLabel('Update Looking into it, investigating'),
+        find.bySemanticsLabel('Update Looking into it, Investigating'),
         200,
       );
       expect(
-        find.bySemanticsLabel('Update Looking into it, investigating'),
+        find.bySemanticsLabel('Update Looking into it, Investigating'),
         findsOneWidget,
       );
       handle.dispose();

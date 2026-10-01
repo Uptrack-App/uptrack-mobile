@@ -180,7 +180,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Acme Status'), findsOneWidget);
-      expect(find.text('degraded'), findsOneWidget);
+      expect(find.text('Degraded'), findsOneWidget);
       expect(find.text('api'), findsOneWidget);
       expect(find.text('db'), findsWidgets);
     });
