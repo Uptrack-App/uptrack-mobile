@@ -16,6 +16,7 @@ import 'package:uptrack_mobile/features/monitors/monitor_detail_controller.dart'
 import 'package:uptrack_mobile/features/monitors/monitor_detail_screen.dart';
 import 'package:uptrack_mobile/features/monitors/monitors_controller.dart';
 import 'package:uptrack_mobile/features/monitors/monitors_screen.dart';
+import 'package:uptrack_mobile/util/date_format.dart';
 
 Monitor _monitor(String id, String name, {String status = 'up'}) => Monitor(
   id: id,
@@ -151,18 +152,18 @@ Future<void> _pumpGolden(
   await tester.pumpAndSettle();
 }
 
-/// Loads the bundled Geist faces so goldens show real text, not test blocks.
+/// Loads the bundled IBM Plex faces so goldens show real text, not test blocks.
 /// This also fails the suite if a font asset is missing from the bundle.
 Future<void> _loadFonts() async {
   const families = <String, List<String>>{
-    'Geist': <String>[
-      'assets/fonts/Geist-Regular.ttf',
-      'assets/fonts/Geist-Medium.ttf',
-      'assets/fonts/Geist-SemiBold.ttf',
+    'IBMPlexSans': <String>[
+      'assets/fonts/IBMPlexSans-Regular.ttf',
+      'assets/fonts/IBMPlexSans-Medium.ttf',
+      'assets/fonts/IBMPlexSans-SemiBold.ttf',
     ],
-    'GeistMono': <String>[
-      'assets/fonts/GeistMono-Regular.ttf',
-      'assets/fonts/GeistMono-Medium.ttf',
+    'IBMPlexMono': <String>[
+      'assets/fonts/IBMPlexMono-Regular.ttf',
+      'assets/fonts/IBMPlexMono-Medium.ttf',
     ],
   };
   for (final entry in families.entries) {
@@ -174,10 +175,14 @@ Future<void> _loadFonts() async {
   }
 }
 
-/// Goldens render each core screen with the real app theme ("Ink Blue",
-/// see uptrack-web/DESIGN.md) in both light and dark mode.
+/// Goldens render each core screen with the real app theme ("Ink" tokens
+/// v2, see uptrack-web/DESIGN.md) in both light and dark mode. Timestamps
+/// render in UTC so goldens do not depend on the machine's time zone.
 void main() {
-  setUpAll(_loadFonts);
+  setUpAll(() async {
+    displayTimeZone = (DateTime t) => t.toUtc();
+    await _loadFonts();
+  });
 
   final themes = <String, ThemeData>{
     'dark': AppTheme.dark,
