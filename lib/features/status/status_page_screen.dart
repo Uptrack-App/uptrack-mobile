@@ -196,7 +196,7 @@ class _StatusBody extends StatelessWidget {
           children: <Widget>[
             Expanded(child: Text(data.name, style: theme.textTheme.titleLarge)),
             Chip(
-              label: Text(data.overallStatus),
+              label: Text(statusLabel(data.overallStatus)),
               visualDensity: VisualDensity.compact,
             ),
           ],
