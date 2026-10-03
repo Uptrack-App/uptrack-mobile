@@ -2,12 +2,15 @@ import 'dart:convert';
 import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
+import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/models/billing_subscription.dart';
 import 'package:uptrack_mobile/api/models/notification_preferences.dart';
 import 'package:uptrack_mobile/api/uptrack_api.dart';
+import 'package:uptrack_mobile/data/local/app_database.dart';
+import 'package:uptrack_mobile/data/local/database_providers.dart';
 import 'package:uptrack_mobile/features/auth/auth_controller.dart';
 import 'package:uptrack_mobile/features/auth/token_storage.dart';
 import 'package:uptrack_mobile/features/settings/settings_screen.dart';
@@ -339,5 +342,180 @@ void main() {
       );
       expect(seen.where((RequestOptions o) => o.method == 'PATCH'), isEmpty);
     });
+
+    group('DangerZoneSection (R2.6)', () {
+    ProviderContainer dangerContainer(
+      Future<ResponseBody> Function(RequestOptions) handler,
+    ) {
+      final AuthTokenHolder holder = AuthTokenHolder()..token = 'udt_test';
+      final ProviderContainer container = ProviderContainer(
+        overrides: [
+          tokenStoreProvider.overrideWithValue(MemoryTokenStore()),
+          authTokenHolderProvider.overrideWithValue(holder),
+          dioProvider.overrideWithValue(
+            buildAppDio(
+              holder: holder,
+              onUnauthorized: () {},
+              adapter: FakeAdapter(handler),
+            ),
+          ),
+          appDatabaseProvider.overrideWithValue(
+            AppDatabase.forTesting(NativeDatabase.memory()),
+          ),
+        ],
+      );
+      addTearDown(() {
+        container.read(appDatabaseProvider).close();
+        container.dispose();
+      });
+      return container;
+    }
+
+    Future<ResponseBody> dangerHandler(
+      RequestOptions options, {
+      int deleteStatus = 200,
+      Map<String, Object?>? deleteBody,
+    }) async {
+      final String path = options.path;
+      if (path == kGetMePath) return jsonResponse(meFixture());
+      if (path == kNotificationPreferencesPath) {
+        return jsonResponse(prefsFixture());
+      }
+      if (path == kBillingSubscriptionPath) {
+        return jsonResponse(billingFixture());
+      }
+      if (path == kDeviceTokensPath) {
+        return jsonResponse(<String, Object?>{'data': <Object?>[]});
+      }
+      if (path == kDeleteAccountPath) {
+        return jsonResponse(
+          deleteBody ?? <String, Object?>{'ok': true},
+          deleteStatus,
+        );
+      }
+      return jsonResponse(<String, Object?>{'ok': true});
+    }
+
+    Future<void> openDanger(
+      WidgetTester tester,
+      ProviderContainer container,
+    ) async {
+      await pumpSettings(tester, container);
+      await scrollTo(tester, find.text('Danger zone'));
+      // The confirm checkbox and delete button sit below the title; bring
+      // the whole section into view so taps hit-test.
+      await scrollTo(
+        tester,
+        find.byKey(const ValueKey<String>('delete-account')),
+      );
+    }
+
+    testWidgets('delete stays disabled until confirmed', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = dangerContainer(dangerHandler);
+      await openDanger(tester, container);
+
+      final Finder button = find.byKey(const ValueKey<String>('delete-account'));
+      expect(tester.widget<FilledButton>(button).enabled, isFalse);
+
+      await tester.tap(find.byKey(const ValueKey<String>('delete-confirm')));
+      await tester.pumpAndSettle();
+      expect(tester.widget<FilledButton>(button).enabled, isTrue);
+    });
+
+    testWidgets('live subscription surfaces the server message', (
+      WidgetTester tester,
+    ) async {
+      final List<RequestOptions> seen = <RequestOptions>[];
+      final ProviderContainer container = dangerContainer((
+        RequestOptions options,
+      ) async {
+        seen.add(options);
+        return dangerHandler(
+          options,
+          deleteStatus: 409,
+          deleteBody: <String, Object?>{'error': 'Cancel first.'},
+        );
+      });
+      await openDanger(tester, container);
+
+      await tester.tap(find.byKey(const ValueKey<String>('delete-confirm')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey<String>('delete-account')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Cancel first.'), findsOneWidget);
+      expect(
+        seen.where(
+          (RequestOptions o) =>
+              o.path == kDeleteAccountPath && o.method == 'POST',
+        ),
+        hasLength(1),
+      );
+    });
+
+    testWidgets('wrong password maps to 422 copy', (
+      WidgetTester tester,
+    ) async {
+      final ProviderContainer container = dangerContainer((
+        RequestOptions options,
+      ) async {
+        return dangerHandler(
+          options,
+          deleteStatus: 422,
+          deleteBody: <String, Object?>{'error': 'Password is incorrect'},
+        );
+      });
+      await openDanger(tester, container);
+
+      await tester.enterText(
+        find.byKey(const ValueKey<String>('delete-password')),
+        'wrong',
+      );
+      await tester.tap(find.byKey(const ValueKey<String>('delete-confirm')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey<String>('delete-account')));
+      await tester.pumpAndSettle();
+
+      expect(find.text('That password is incorrect. Try again.'), findsOneWidget);
+    });
+
+    testWidgets('success posts and signs out', (
+      WidgetTester tester,
+    ) async {
+      final List<RequestOptions> seen = <RequestOptions>[];
+      final ProviderContainer container = dangerContainer((
+        RequestOptions options,
+      ) async {
+        seen.add(options);
+        return dangerHandler(options);
+      });
+      await openDanger(tester, container);
+
+      await tester.tap(find.byKey(const ValueKey<String>('delete-confirm')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey<String>('delete-account')));
+      // Success leaves the busy spinner mounted (the real app navigates away
+      // on sign-out), so settle is impossible: bounded pumps flush the async
+      // sign-out chain instead.
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      expect(
+        seen.any(
+          (RequestOptions o) =>
+              o.path == kDeleteAccountPath && o.method == 'POST',
+        ),
+        isTrue,
+      );
+      expect(
+        container.read(authControllerProvider).status,
+        AuthStatus.signedOut,
+      );
+      expect(find.byKey(const ValueKey<String>('delete-error')), findsNothing);
+    });
+  });
   });
 }

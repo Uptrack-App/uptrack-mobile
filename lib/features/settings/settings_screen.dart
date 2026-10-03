@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../../api/models/device_token.dart';
 import '../auth/auth_controller.dart';
 import 'billing_section.dart';
+import 'danger_zone_section.dart';
 import 'device_tokens_controller.dart';
 import 'notification_prefs_section.dart';
 import 'profile_section.dart';
@@ -22,6 +23,7 @@ class SettingsScreen extends ConsumerWidget {
           NotificationPrefsSection(),
           BillingSection(),
           _DevicesSection(),
+          DangerZoneSection(),
         ],
       ),
     );

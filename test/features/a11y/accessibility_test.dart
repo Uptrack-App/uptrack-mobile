@@ -423,11 +423,21 @@ void main() {
       expect(deviceRow, findsOneWidget);
       // The revoke icon button keeps its tooltip as its accessible name.
       expect(find.byTooltip('Revoke Pixel 9'), findsOneWidget);
-      // Severity rows announce their interruption mapping.
-      expect(
-        find.bySemanticsLabel('Severity info interruption: active'),
-        findsOneWidget,
+      // Severity rows announce their interruption mapping. They sit above
+      // the devices section, so scroll back until the node is onstage: the
+      // settings list (danger zone included) is longer than one viewport.
+      final Finder severityRow = find.bySemanticsLabel(
+        'Severity info interruption: active',
       );
+      for (
+        int i = 0;
+        i < 15 && severityRow.hitTestable().evaluate().isEmpty;
+        i++
+      ) {
+        await tester.drag(list, const Offset(0, 500));
+        await tester.pumpAndSettle();
+      }
+      expect(severityRow, findsOneWidget);
       handle.dispose();
     });
   });
