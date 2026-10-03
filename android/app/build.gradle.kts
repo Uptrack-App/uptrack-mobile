@@ -45,6 +45,20 @@ android {
         versionName = flutter.versionName
     }
 
+    // R3.1: declared BEFORE buildTypes — the release build type references
+    // signingConfigs.getByName("release"), which fails if the config is
+    // created later in evaluation order.
+    signingConfigs {
+        if (keystorePropertiesFile.exists()) {
+            create("release") {
+                keyAlias = keystoreProperties["keyAlias"] as String
+                keyPassword = keystoreProperties["keyPassword"] as String
+                storeFile = file(keystoreProperties["storeFile"] as String)
+                storePassword = keystoreProperties["storePassword"] as String
+            }
+        }
+    }
+
     buildTypes {
         release {
             // R3.1: signed with the upload key when key.properties exists
@@ -54,19 +68,6 @@ android {
                 signingConfigs.getByName("release")
             } else {
                 signingConfigs.getByName("debug")
-            }
-        }
-    }
-
-    // R3.1: created only when key.properties exists (CI tags). Local
-    // builds never enter this branch, so missing keys can't break config.
-    signingConfigs {
-        if (keystorePropertiesFile.exists()) {
-            create("release") {
-                keyAlias = keystoreProperties["keyAlias"] as String
-                keyPassword = keystoreProperties["keyPassword"] as String
-                storeFile = file(keystoreProperties["storeFile"] as String)
-                storePassword = keystoreProperties["storePassword"] as String
             }
         }
     }

@@ -18,6 +18,7 @@ jobs:
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           channel: stable
+          flutter-version: 3.47.1
       - run: flutter pub get
       - run: flutter analyze
 
@@ -28,6 +29,7 @@ jobs:
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           channel: stable
+          flutter-version: 3.47.1
       - run: flutter pub get
       - run: flutter test
 
@@ -45,6 +47,7 @@ jobs:
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           channel: stable
+          flutter-version: 3.47.1
           architecture: x64
       - run: flutter pub get
       - name: Require API base URL
@@ -104,6 +107,7 @@ jobs:
       - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
         with:
           channel: stable
+          flutter-version: 3.47.1
       - run: flutter pub get
       - name: Require API base URL
         run: test -n "${{ vars.API_BASE_URL }}" || (echo "Set the API_BASE_URL repo variable first" && exit 1)
