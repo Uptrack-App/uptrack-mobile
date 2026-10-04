@@ -34,7 +34,10 @@ jobs:
       - run: dart run tool/generate_tokens.dart --check --source design/shared.tokens.json
       - run: flutter analyze
       - name: Test on Linux
-        run: flutter test $(rg --files test -g '*_test.dart' | rg -v '^test/design/gallery_test.dart$')
+        run: |
+          mapfile -t test_files < <(find test -name '*_test.dart' ! -path 'test/design/gallery_test.dart')
+          test "${#test_files[@]}" -gt 0
+          flutter test "${test_files[@]}"
 
   # Gallery baselines were captured on macOS. Keep their layout and
   # interaction checks there rather than relaxing image-diff tolerances.
