@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -9,6 +10,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/uptrack_api.dart';
 import 'package:uptrack_mobile/data/local/app_database.dart';
 import 'package:uptrack_mobile/data/local/database_providers.dart';
+import 'package:uptrack_mobile/design/uptrack_design.dart' show UptrackButton;
 import 'package:uptrack_mobile/features/auth/auth_controller.dart';
 import 'package:uptrack_mobile/features/auth/login_screen.dart';
 import 'package:uptrack_mobile/features/auth/social_login.dart';
@@ -667,5 +669,319 @@ void main() {
       );
       expect(await store.readDeviceToken(), 'udt_test_raw_token');
     });
+
+    testWidgets(
+      'a sent link is announced with the address that was actually requested',
+      (WidgetTester tester) async {
+        final SemanticsHandle handle = tester.ensureSemantics();
+        final List<String> requested = <String>[];
+        final MemoryTokenStore store = MemoryTokenStore();
+        final AuthTokenHolder holder = AuthTokenHolder();
+        final FakeAdapter adapter = FakeAdapter((RequestOptions options) async {
+          if (options.path == kMagicLinkPath) {
+            requested.add(
+              (options.data as Map<String, Object?>)['email']! as String,
+            );
+            return jsonResponse(<String, Object?>{'ok': true});
+          }
+          return jsonResponse(meFixture());
+        });
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(store),
+            authTokenHolderProvider.overrideWithValue(holder),
+            socialProvidersProvider.overrideWith((ref) async => <String>{}),
+            uptrackApiProvider.overrideWithValue(
+              UptrackApi(
+                dio: buildAppDio(
+                  holder: holder,
+                  onUnauthorized: () {},
+                  adapter: adapter,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: LoginScreen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Email'),
+          'ada@example.com',
+        );
+        await tester.tap(find.text('Email me a sign-in link'));
+        await tester.pumpAndSettle();
+        expect(requested, <String>['ada@example.com']);
+
+        // The confirmation is a live region: it announces the recipient
+        // without the user hunting for the newly revealed block.
+        final Finder notice = find.bySemanticsLabel(
+          RegExp('Sent to ada@example.com'),
+        );
+        expect(notice, findsOneWidget);
+        expect(
+          tester.getSemantics(notice).flagsCollection.isLiveRegion,
+          isTrue,
+        );
+        // The one primary action now offers the resend.
+        expect(find.text('Email me a sign-in link'), findsNothing);
+        expect(find.text('Resend sign-in link'), findsOneWidget);
+
+        // Editing the field must not rewrite who the sent link went to.
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Email'),
+          'grace@example.com',
+        );
+        await tester.pumpAndSettle();
+        expect(
+          find.bySemanticsLabel(RegExp('Sent to ada@example.com')),
+          findsOneWidget,
+        );
+        expect(
+          find.bySemanticsLabel(RegExp('Sent to grace@example.com')),
+          findsNothing,
+        );
+        handle.dispose();
+      },
+    );
+
+    testWidgets(
+      'the email field is not autocorrected and the send key is ignored while busy',
+      (WidgetTester tester) async {
+        final Completer<void> gate = Completer<void>();
+        int requests = 0;
+        final MemoryTokenStore store = MemoryTokenStore();
+        final AuthTokenHolder holder = AuthTokenHolder();
+        final FakeAdapter adapter = FakeAdapter((RequestOptions options) async {
+          if (options.path == kMagicLinkPath) {
+            requests++;
+            await gate.future;
+            return jsonResponse(<String, Object?>{'ok': true});
+          }
+          return jsonResponse(meFixture());
+        });
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(store),
+            authTokenHolderProvider.overrideWithValue(holder),
+            socialProvidersProvider.overrideWith((ref) async => <String>{}),
+            uptrackApiProvider.overrideWithValue(
+              UptrackApi(
+                dio: buildAppDio(
+                  holder: holder,
+                  onUnauthorized: () {},
+                  adapter: adapter,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(home: LoginScreen()),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        final Finder email = find.widgetWithText(TextFormField, 'Email');
+        final TextField field = tester.widget<TextField>(
+          find.descendant(of: email, matching: find.byType(TextField)),
+        );
+        expect(field.autocorrect, isFalse);
+        expect(field.enableSuggestions, isFalse);
+        expect(field.textInputAction, TextInputAction.send);
+
+        await tester.enterText(email, 'ada@example.com');
+        await tester.testTextInput.receiveAction(TextInputAction.send);
+        // The Dio interceptor pipeline only reaches the adapter once the
+        // fake clock advances, so pump real time rather than empty frames.
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(requests, 1);
+        expect(container.read(authControllerProvider).isLoading, isTrue);
+        expect(
+          tester
+              .widget<UptrackButton>(
+                find.widgetWithText(UptrackButton, 'Email me a sign-in link'),
+              )
+              .busy,
+          isTrue,
+        );
+
+        // A repeated send must not queue a second request while one is in
+        // flight: the button is busy and the field agrees.
+        await tester.showKeyboard(email);
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.testTextInput.receiveAction(TextInputAction.send);
+        await tester.pump(const Duration(milliseconds: 100));
+        expect(requests, 1);
+
+        gate.complete();
+        await tester.pumpAndSettle();
+        expect(find.textContaining('Sent to ada@example.com'), findsOneWidget);
+        expect(find.text('Resend sign-in link'), findsOneWidget);
+
+        // The field is not stuck: once idle the send key requests again.
+        await tester.showKeyboard(email);
+        await tester.pump(const Duration(milliseconds: 100));
+        await tester.testTextInput.receiveAction(TextInputAction.send);
+        await tester.pumpAndSettle();
+        expect(requests, 2);
+      },
+    );
+
+    testWidgets(
+      'a failed resend to a new address never claims the link was sent',
+      (WidgetTester tester) async {
+        final SemanticsHandle semantics = tester.ensureSemantics();
+        bool semanticsReleased = false;
+        // The binding verifies semantics handles are released inside the test
+        // body, so release in a finally (a failed expectation still cleans up)
+        // behind an idempotent guard.
+        void releaseSemantics() {
+          if (semanticsReleased) return;
+          semanticsReleased = true;
+          semantics.dispose();
+        }
+
+        final List<String> requested = <String>[];
+        // Held open so the pending resend is observable before it fails.
+        final Completer<void> resendGate = Completer<void>();
+        int attempts = 0;
+        final MemoryTokenStore store = MemoryTokenStore();
+        final AuthTokenHolder holder = AuthTokenHolder();
+        final FakeAdapter adapter = FakeAdapter((RequestOptions options) async {
+          if (options.path == kMagicLinkPath) {
+            requested.add(
+              (options.data as Map<String, Object?>)['email']! as String,
+            );
+            if (++attempts == 2) {
+              await resendGate.future;
+              return jsonResponse(<String, Object?>{
+                'error': 'Could not send the sign-in link',
+              }, 502);
+            }
+            return jsonResponse(<String, Object?>{'ok': true});
+          }
+          return jsonResponse(meFixture());
+        });
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(store),
+            authTokenHolderProvider.overrideWithValue(holder),
+            socialProvidersProvider.overrideWith((ref) async => <String>{}),
+            uptrackApiProvider.overrideWithValue(
+              UptrackApi(
+                dio: buildAppDio(
+                  holder: holder,
+                  onUnauthorized: () {},
+                  adapter: adapter,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+
+        try {
+          await tester.pumpWidget(
+            UncontrolledProviderScope(
+              container: container,
+              child: const MaterialApp(home: LoginScreen()),
+            ),
+          );
+          await tester.pumpAndSettle();
+
+          // 1. The link for A is confirmed, naming the address actually asked.
+          await tester.enterText(
+            find.widgetWithText(TextFormField, 'Email'),
+            'ada@example.com',
+          );
+          await tester.tap(find.text('Email me a sign-in link'));
+          await tester.pumpAndSettle();
+          expect(requested, <String>['ada@example.com']);
+          expect(
+            find.bySemanticsLabel(RegExp('Sent to ada@example.com')),
+            findsOneWidget,
+          );
+
+          // 2. Editing to B keeps A's confirmation until a new request resolves.
+          await tester.enterText(
+            find.widgetWithText(TextFormField, 'Email'),
+            'grace@example.com',
+          );
+          await tester.pumpAndSettle();
+          expect(
+            find.bySemanticsLabel(RegExp('Sent to ada@example.com')),
+            findsOneWidget,
+          );
+          expect(
+            find.bySemanticsLabel(RegExp('Sent to grace@example.com')),
+            findsNothing,
+          );
+
+          // 3. While the resend for B is in flight the stale notice is gone, so
+          //    nothing on screen still claims A is the last successful send.
+          await tester.ensureVisible(find.text('Resend sign-in link'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Resend sign-in link'));
+          await tester.pump(const Duration(milliseconds: 100));
+          expect(requested, <String>['ada@example.com', 'grace@example.com']);
+          expect(container.read(authControllerProvider).isLoading, isTrue);
+          expect(find.textContaining('Sent to '), findsNothing);
+          expect(find.text('Sign in'), findsNothing);
+
+          // 4. The failure surfaces as a live-region error and still claims no
+          //    successful send, for A or for B.
+          resendGate.complete();
+          await tester.pumpAndSettle();
+          final Finder error = find.bySemanticsLabel(
+            'Could not send the sign-in link',
+          );
+          expect(error, findsOneWidget);
+          expect(
+            tester.getSemantics(error).flagsCollection.isLiveRegion,
+            isTrue,
+          );
+          expect(find.textContaining('Sent to '), findsNothing);
+          expect(find.text('Resend sign-in link'), findsNothing);
+          expect(find.text('Email me a sign-in link'), findsOneWidget);
+          expect(container.read(authControllerProvider).magicLinkSent, isFalse);
+          expect(
+            container.read(authControllerProvider).errorMessage,
+            'Could not send the sign-in link',
+          );
+
+          // 5. Retrying succeeds and confirms the address actually requested, B.
+          await tester.ensureVisible(find.text('Email me a sign-in link'));
+          await tester.pumpAndSettle();
+          await tester.tap(find.text('Email me a sign-in link'));
+          await tester.pumpAndSettle();
+          expect(requested, <String>[
+            'ada@example.com',
+            'grace@example.com',
+            'grace@example.com',
+          ]);
+          expect(
+            find.bySemanticsLabel(RegExp('Sent to grace@example.com')),
+            findsOneWidget,
+          );
+          expect(
+            find.bySemanticsLabel(RegExp('Sent to ada@example.com')),
+            findsNothing,
+          );
+          expect(find.text('Resend sign-in link'), findsOneWidget);
+        } finally {
+          releaseSemantics();
+        }
+      },
+    );
   });
 }
