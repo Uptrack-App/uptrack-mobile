@@ -448,7 +448,9 @@ class _MagicLinkForm extends StatelessWidget {
       ],
     );
     final media = MediaQuery.of(context);
-    if (media.disableAnimations || media.accessibleNavigation) return form;
+    if (media.disableAnimations || media.accessibleNavigation) {
+      return form;
+    }
     return AnimatedSize(
       duration: const Duration(milliseconds: 220),
       curve: Curves.easeOutCubic,
