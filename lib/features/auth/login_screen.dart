@@ -80,96 +80,245 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
     final AuthState auth = ref.watch(authControllerProvider);
     final AuthController controller = ref.read(authControllerProvider.notifier);
 
+    final theme = Theme.of(context);
+    final dark = theme.brightness == Brightness.dark;
+    final accent = dark ? UptrackColors.upDark : UptrackColors.upLight;
+    final reduceMotion =
+        MediaQuery.disableAnimationsOf(context) ||
+        MediaQuery.of(context).accessibleNavigation;
+
     return Scaffold(
-      appBar: AppBar(title: const Text('Welcome to Uptrack')),
-      body: Center(
-        child: ConstrainedBox(
-          constraints: const BoxConstraints(maxWidth: 420),
-          child: Form(
-            key: _formKey,
-            child: ListView(
-              padding: const EdgeInsets.all(24),
-              shrinkWrap: true,
-              children: <Widget>[
-                if (auth.status != AuthStatus.needsTwoFactor) ...<Widget>[
-                  const UptrackBrand(),
-                  const SizedBox(height: 16),
-                  const Text('Sign up or sign in with your Uptrack account.'),
-                  const SizedBox(height: 16),
-                  _SocialLoginButtons(
-                    isLoading: auth.isLoading,
-                    onSignIn: controller.signInWithSocial,
-                  ),
-                  if (isAndroidDemoAvailable) ...<Widget>[
-                    OutlinedButton.icon(
-                      key: const ValueKey<String>('try-demo'),
-                      onPressed: auth.isLoading
-                          ? null
-                          : () => context.go('/demo'),
-                      icon: const Icon(Icons.explore_outlined),
-                      label: const Text('Try demo'),
+      body: DecoratedBox(
+        decoration: BoxDecoration(
+          gradient: LinearGradient(
+            begin: Alignment.topLeft,
+            end: Alignment.bottomRight,
+            colors: [
+              Color.alphaBlend(
+                accent.withValues(alpha: dark ? .10 : .06),
+                theme.colorScheme.surface,
+              ),
+              theme.colorScheme.surface,
+              theme.colorScheme.surface,
+            ],
+            stops: const [0, .48, 1],
+          ),
+        ),
+        child: SafeArea(
+          child: Center(
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 440),
+              child: Form(
+                key: _formKey,
+                child: ListView(
+                  padding: const EdgeInsets.fromLTRB(24, 28, 24, 24),
+                  children: [
+                    _LoginEntrance(
+                      reduceMotion: reduceMotion,
+                      start: 0,
+                      child: Row(
+                        children: [
+                          const Expanded(child: UptrackBrand()),
+                          ExcludeSemantics(
+                            child: Container(
+                              width: 48,
+                              height: 48,
+                              decoration: BoxDecoration(
+                                color: accent.withValues(alpha: .10),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: accent.withValues(alpha: .18),
+                                ),
+                              ),
+                              child: Icon(
+                                auth.status == AuthStatus.needsTwoFactor
+                                    ? Icons.shield_outlined
+                                    : Icons.monitor_heart_outlined,
+                                color: accent,
+                                size: 24,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const Text(
-                      'Explore sample monitors and incidents. No account needed.',
-                      textAlign: TextAlign.center,
+                    const SizedBox(height: 32),
+                    _LoginEntrance(
+                      reduceMotion: reduceMotion,
+                      start: .12,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            'Welcome to Uptrack',
+                            style: theme.textTheme.headlineMedium?.copyWith(
+                              fontWeight: FontWeight.w600,
+                              letterSpacing: -.8,
+                              height: 1.15,
+                            ),
+                          ),
+                          const SizedBox(height: 12),
+                          Text(
+                            auth.status == AuthStatus.needsTwoFactor
+                                ? 'One more step to keep your account secure.'
+                                : 'Your uptime, always in view.',
+                            style: theme.textTheme.bodyLarge?.copyWith(
+                              color: theme.colorScheme.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 28),
+                    _LoginEntrance(
+                      reduceMotion: reduceMotion,
+                      start: .24,
+                      child: Container(
+                        padding: const EdgeInsets.all(20),
+                        decoration: BoxDecoration(
+                          color: theme.colorScheme.surface,
+                          borderRadius: BorderRadius.circular(
+                            UptrackRadii.frame,
+                          ),
+                          border: Border.all(
+                            color: theme.colorScheme.outlineVariant,
+                          ),
+                          boxShadow: dark
+                              ? UptrackShadows.raisedDark
+                              : UptrackShadows.raisedLight,
+                        ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            if (auth.status != AuthStatus.needsTwoFactor) ...[
+                              Text(
+                                'Sign up or sign in with your Uptrack account.',
+                                style: theme.textTheme.bodyMedium,
+                              ),
+                              const SizedBox(height: 20),
+                              _SocialLoginButtons(
+                                isLoading: auth.isLoading,
+                                onSignIn: controller.signInWithSocial,
+                              ),
+                            ],
+                            if (widget.returnLocation.startsWith(
+                              '/billing/return',
+                            )) ...[
+                              const Text(
+                                'Sign in with the same account you used in the browser to see your subscription.',
+                              ),
+                              const SizedBox(height: 16),
+                            ],
+                            if (auth.status == AuthStatus.needsTwoFactor)
+                              _TwoFactorForm(
+                                code: _code,
+                                isLoading: auth.isLoading,
+                                errorMessage: auth.errorMessage,
+                                onSubmit: () {
+                                  if (_formKey.currentState!.validate()) {
+                                    controller.submitTwoFactorCode(_code.text);
+                                  }
+                                },
+                                onCancel: controller.cancelTwoFactor,
+                              )
+                            else
+                              _MagicLinkForm(
+                                email: _email,
+                                magicToken: _magicToken,
+                                isLoading: auth.isLoading,
+                                errorMessage: _linkError ?? auth.errorMessage,
+                                magicLinkSent: auth.magicLinkSent,
+                                onRequest: () {
+                                  if (validateEmail(_email.text) == null) {
+                                    setState(() => _linkError = null);
+                                    controller.requestMagicLink(_email.text);
+                                  } else {
+                                    _formKey.currentState!.validate();
+                                  }
+                                },
+                                onVerify: () {
+                                  if (_formKey.currentState!.validate()) {
+                                    controller.verifyMagicLink(
+                                      email: _email.text,
+                                      token: magicLinkInputToken(
+                                        input: _magicToken.text,
+                                        email: _email.text,
+                                      )!,
+                                    );
+                                  }
+                                },
+                              ),
+                          ],
+                        ),
+                      ),
+                    ),
+                    if (isAndroidDemoAvailable &&
+                        auth.status != AuthStatus.needsTwoFactor) ...[
+                      const SizedBox(height: 24),
+                      _LoginEntrance(
+                        reduceMotion: reduceMotion,
+                        start: .38,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            OutlinedButton.icon(
+                              key: const ValueKey<String>('try-demo'),
+                              onPressed: auth.isLoading
+                                  ? null
+                                  : () => context.go('/demo'),
+                              icon: const Icon(
+                                Icons.explore_outlined,
+                                size: 20,
+                              ),
+                              label: const Text('Try demo'),
+                            ),
+                            const SizedBox(height: 8),
+                            Text(
+                              'Explore sample monitors and incidents. No account needed.',
+                              textAlign: TextAlign.center,
+                              style: theme.textTheme.bodySmall,
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
                   ],
-                ],
-                if (widget.returnLocation.startsWith(
-                  '/billing/return',
-                )) ...<Widget>[
-                  const Text(
-                    'Sign in with the same account you used in the browser to see your subscription.',
-                  ),
-                  const SizedBox(height: 16),
-                ],
-                if (auth.status == AuthStatus.needsTwoFactor)
-                  _TwoFactorForm(
-                    code: _code,
-                    isLoading: auth.isLoading,
-                    errorMessage: auth.errorMessage,
-                    onSubmit: () {
-                      if (_formKey.currentState!.validate()) {
-                        controller.submitTwoFactorCode(_code.text);
-                      }
-                    },
-                    onCancel: controller.cancelTwoFactor,
-                  )
-                else
-                  _MagicLinkForm(
-                    email: _email,
-                    magicToken: _magicToken,
-                    isLoading: auth.isLoading,
-                    errorMessage: _linkError ?? auth.errorMessage,
-                    magicLinkSent: auth.magicLinkSent,
-                    onRequest: () {
-                      if (validateEmail(_email.text) == null) {
-                        setState(() => _linkError = null);
-                        controller.requestMagicLink(_email.text);
-                      } else {
-                        _formKey.currentState!.validate();
-                      }
-                    },
-                    onVerify: () {
-                      if (_formKey.currentState!.validate()) {
-                        controller.verifyMagicLink(
-                          email: _email.text,
-                          token: magicLinkInputToken(
-                            input: _magicToken.text,
-                            email: _email.text,
-                          )!,
-                        );
-                      }
-                    },
-                  ),
-              ],
+                ),
+              ),
             ),
           ),
         ),
       ),
     );
   }
+}
+
+/// Finite, staggered entrance: never loops or blocks an input. Honor the OS
+/// reduced-motion preference and accessibility navigation immediately.
+class _LoginEntrance extends StatelessWidget {
+  const _LoginEntrance({
+    required this.child,
+    required this.start,
+    required this.reduceMotion,
+  });
+  final Widget child;
+  final double start;
+  final bool reduceMotion;
+
+  @override
+  Widget build(BuildContext context) => TweenAnimationBuilder<double>(
+    tween: Tween<double>(begin: reduceMotion ? 1 : 0, end: 1),
+    duration: reduceMotion ? Duration.zero : const Duration(milliseconds: 720),
+    curve: Interval(start, 1, curve: Curves.easeOutCubic),
+    child: child,
+    builder: (context, value, child) => Opacity(
+      opacity: value,
+      child: Transform.translate(
+        offset: Offset(0, 18 * (1 - value)),
+        child: child,
+      ),
+    ),
+  );
 }
 
 class _ErrorText extends StatelessWidget {
@@ -252,48 +401,62 @@ class _MagicLinkForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: <Widget>[
-        if (errorMessage != null) _ErrorText(message: errorMessage!),
-        TextFormField(
-          controller: email,
-          decoration: const InputDecoration(labelText: 'Email'),
-          keyboardType: TextInputType.emailAddress,
-          autofillHints: const <String>[AutofillHints.email],
-          validator: validateEmail,
-        ),
-        const SizedBox(height: 12),
-        UptrackButton(
-          label: 'Email me a sign-in link',
-          onPressed: onRequest,
-          busy: isLoading,
-        ),
-        if (magicLinkSent) ...<Widget>[
-          const SizedBox(height: 8),
-          const Text(
-            'Check your email and open the link, then tap Open Uptrack to finish signing in. You can also paste the link below.',
-          ),
-          const SizedBox(height: 12),
+    return AnimatedSize(
+      duration: MediaQuery.disableAnimationsOf(context)
+          ? Duration.zero
+          : const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: <Widget>[
+          if (errorMessage != null) _ErrorText(message: errorMessage!),
           TextFormField(
-            controller: magicToken,
+            controller: email,
             decoration: const InputDecoration(
-              labelText: 'Sign-in link or code',
+              labelText: 'Email',
+              prefixIcon: Icon(Icons.mail_outline, size: 20),
             ),
-            autocorrect: false,
-            enableSuggestions: false,
-            obscureText: true,
-            validator: (String? value) =>
-                magicLinkInputToken(input: value ?? '', email: email.text) ==
-                    null
-                ? 'Paste the sign-in link for this email address'
-                : null,
-            onFieldSubmitted: (_) => onVerify(),
+            keyboardType: TextInputType.emailAddress,
+            autofillHints: const <String>[AutofillHints.email],
+            validator: validateEmail,
           ),
           const SizedBox(height: 12),
-          UptrackButton(label: 'Sign in', onPressed: onVerify, busy: isLoading),
+          UptrackButton(
+            label: 'Email me a sign-in link',
+            onPressed: onRequest,
+            busy: isLoading,
+          ),
+          if (magicLinkSent) ...<Widget>[
+            const SizedBox(height: 8),
+            const Text(
+              'Check your email and open the link, then tap Open Uptrack to finish signing in. You can also paste the link below.',
+            ),
+            const SizedBox(height: 12),
+            TextFormField(
+              controller: magicToken,
+              decoration: const InputDecoration(
+                labelText: 'Sign-in link or code',
+              ),
+              autocorrect: false,
+              enableSuggestions: false,
+              obscureText: true,
+              validator: (String? value) =>
+                  magicLinkInputToken(input: value ?? '', email: email.text) ==
+                      null
+                  ? 'Paste the sign-in link for this email address'
+                  : null,
+              onFieldSubmitted: (_) => onVerify(),
+            ),
+            const SizedBox(height: 12),
+            UptrackButton(
+              label: 'Sign in',
+              onPressed: onVerify,
+              busy: isLoading,
+            ),
+          ],
         ],
-      ],
+      ),
     );
   }
 }
@@ -341,7 +504,16 @@ class _SocialLoginButtons extends ConsumerWidget {
                         ),
                     const Padding(
                       padding: EdgeInsets.only(bottom: 16),
-                      child: Text('or use email', textAlign: TextAlign.center),
+                      child: Row(
+                        children: [
+                          Expanded(child: Divider()),
+                          Padding(
+                            padding: EdgeInsets.symmetric(horizontal: 12),
+                            child: Text('or use email'),
+                          ),
+                          Expanded(child: Divider()),
+                        ],
+                      ),
                     ),
                   ],
                 ),
