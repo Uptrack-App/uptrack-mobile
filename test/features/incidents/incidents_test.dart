@@ -220,10 +220,7 @@ void main() {
               const IncidentsData(incidents: <Incident>[], offline: false),
         ),
       );
-      expect(
-        find.text('No incidents. Your monitors are quiet.'),
-        findsOneWidget,
-      );
+      expect(find.text('No incidents.'), findsOneWidget);
     });
 
     testWidgets('offline banner for cached data', (WidgetTester tester) async {

@@ -1,4 +1,4 @@
-import '../../theme/status_colors.dart';
+import '../../design/uptrack_design.dart';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -47,7 +47,10 @@ class _IncidentsScreenState extends ConsumerState<IncidentsScreen> {
           ),
           Expanded(
             child: incidents.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const UptrackStateView(
+                message: 'Loading incidents',
+                loading: true,
+              ),
               error: (Object err, StackTrace _) => _IncidentsError(
                 message: incidentsErrorMessage(err),
                 onRetry: () => ref.invalidate(incidentsProvider),
@@ -81,37 +84,28 @@ class _IncidentsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (data.incidents.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('No incidents. Your monitors are quiet.'),
-        ),
-      );
-    }
-
-    final List<Incident> visible = filterIncidents(
-      data.incidents,
-      status: filter,
-    );
-    if (visible.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('No open incidents.'),
-        ),
-      );
-    }
-
+    final visible = filterIncidents(data.incidents, status: filter);
+    final emptyMessage = data.incidents.isEmpty
+        ? 'No incidents.'
+        : 'No open incidents.';
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           if (data.offline)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: _OfflineBanner(),
+            ),
+          if (visible.isEmpty)
+            UptrackStateView(
+              message: emptyMessage,
+              actionLabel: 'Refresh',
+              onAction: () {
+                onRefresh();
+              },
             ),
           for (final Incident incident in visible)
             _IncidentRow(incident: incident),
@@ -123,22 +117,11 @@ class _IncidentsBody extends StatelessWidget {
 
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner();
-
   @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(12),
-        child: Row(
-          children: <Widget>[
-            Icon(Icons.cloud_off_outlined),
-            SizedBox(width: 8),
-            Expanded(child: Text('Offline — showing cached data')),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const UptrackNotice(
+    message: 'Offline — showing cached data',
+    kind: UptrackNoticeKind.offline,
+  );
 }
 
 class _IncidentRow extends StatelessWidget {
@@ -148,63 +131,25 @@ class _IncidentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final String state = incident.isOngoing ? 'Open' : 'Resolved';
-    final String label = incident.isAcknowledged
-        ? 'Incident ${incident.displayName}, $state, acknowledged'
-        : 'Incident ${incident.displayName}, $state';
-    return Semantics(
-      label: label,
-      child: Card(
-        child: ListTile(
-          title: Text(incident.displayName),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: <Widget>[
-                  _StatusChip(incident: incident),
-                  if (incident.isAcknowledged)
-                    Text('Acknowledged', style: theme.textTheme.bodySmall),
-                  Text(
-                    formatTimestamp(incident.insertedAt),
-                    style: theme.textTheme.bodySmall,
-                  ),
-                ],
-              ),
-            ],
+    return UptrackDataRow(
+      title: incident.displayName,
+      semanticLabel:
+          'Incident ${incident.displayName}, ${incident.isOngoing ? 'Open' : 'Resolved'}${incident.isAcknowledged ? ', acknowledged' : ''}',
+      onTap: () => context.go('/incidents/${incident.id}'),
+      details: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          UptrackLifecycleBadge(
+            open: incident.isOngoing,
+            acknowledged: incident.isAcknowledged,
           ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.go('/incidents/${incident.id}'),
-        ),
+          UptrackDataText(
+            formatTimestamp(incident.insertedAt),
+            style: Theme.of(context).textTheme.bodySmall,
+          ),
+        ],
       ),
-    );
-  }
-}
-
-class _StatusChip extends StatelessWidget {
-  const _StatusChip({required this.incident});
-
-  final Incident incident;
-
-  @override
-  Widget build(BuildContext context) {
-    final String label = incident.isOngoing ? 'Open' : 'Resolved';
-    final UptrackStatusColors colors = UptrackStatusColors.of(context);
-    final UptrackStatus look = incident.isOngoing
-        ? colors.down
-        : colors.unknown;
-    return Chip(
-      avatar: Icon(look.icon, size: 14, color: look.color),
-      label: Text(label),
-      backgroundColor: look.soft,
-      side: BorderSide.none,
-      labelStyle: Theme.of(context).textTheme.labelSmall
-          ?.copyWith(color: look.color),
-      visualDensity: VisualDensity.compact,
     );
   }
 }
@@ -217,18 +162,10 @@ class _IncidentsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }

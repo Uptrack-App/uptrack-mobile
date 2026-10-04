@@ -83,7 +83,7 @@ String monitorAnalyticsPath(String id) => '/api/analytics/monitors/$id';
 /// Chart windows offered by the monitor detail screen (`?days=` values).
 const Set<int> analyticsDayOptions = <int>{1, 7, 90};
 
-/// Result of `POST /api/auth/login`: either a 2FA prompt or an
+/// Result of password or magic-link verification: either a 2FA prompt or an
 /// authenticated session (session cookie, captured by
 /// [SessionCookieInterceptor] on the shared Dio instance).
 class LoginResult {
@@ -157,6 +157,72 @@ class UptrackApi {
 
   final Dio _dio;
 
+  /// Configured Google/GitHub providers, shared with web signup/sign-in.
+  Future<Set<String>> getAuthProviders() async {
+    final response = await _dio.get<Map<String, dynamic>>(
+      '/api/auth/providers',
+    );
+    final providers = response.data?['providers'];
+    if (providers is! Map) {
+      throw const FormatException('Invalid providers response');
+    }
+    return <String>{
+      for (final name in <String>['google', 'github'])
+        if (providers[name] == true) name,
+    };
+  }
+
+  Uri socialLoginUrl(String provider, String state, String challenge) {
+    if (!<String>['google', 'github'].contains(provider)) {
+      throw ArgumentError.value(provider, 'provider');
+    }
+    final base = Uri.parse(_dio.options.baseUrl);
+    if (base.scheme != 'https' &&
+        !(base.scheme == 'http' &&
+            <String>[
+              'localhost',
+              '127.0.0.1',
+              '10.0.2.2',
+              '::1',
+            ].contains(base.host))) {
+      throw const FormatException('Social login requires HTTPS');
+    }
+    return base
+        .resolve('/auth/$provider')
+        .replace(
+          queryParameters: <String, String>{
+            'mobile_state': state,
+            'code_challenge': challenge,
+            'code_challenge_method': 'S256',
+          },
+        );
+  }
+
+  Future<({bool totpRequired, DeviceTokenIssuance? issuance})>
+  exchangeSocialCode({
+    required String code,
+    required String verifier,
+    String? totpCode,
+  }) async {
+    final response = await _dio.post<Map<String, dynamic>>(
+      '/api/auth/mobile/exchange',
+      data: <String, Object?>{
+        'code': code,
+        'code_verifier': verifier,
+        'totp_code': ?totpCode,
+      },
+    );
+    final data = response.data;
+    if (data == null) throw const FormatException('Invalid sign-in response');
+    if (data['totp_required'] == true) {
+      return (totpRequired: true, issuance: null);
+    }
+    return (
+      totpRequired: false,
+      issuance: DeviceTokenIssuance.fromJson(data.cast<String, Object?>()),
+    );
+  }
+
   /// `GET /api/auth/me` — current user + organization.
   Future<CurrentUserResponse> getMe() async {
     final Response<Map<String, dynamic>> res = await _dio
@@ -199,20 +265,25 @@ class UptrackApi {
   Future<void> requestMagicLink({required String email}) async {
     await _dio.post<Map<String, dynamic>>(
       kMagicLinkPath,
-      data: <String, Object?>{'email': email},
+      data: <String, Object?>{'email': email, 'client': 'mobile'},
     );
   }
 
   /// `POST /api/auth/magic-link/verify` — consume `{email, token}` from the
   /// magic-link deep link into an authenticated session.
-  Future<CurrentUserResponse> verifyMagicLink({
+  Future<LoginResult> verifyMagicLink({
     required String email,
     required String token,
+    String? totpCode,
   }) async {
     final Response<Map<String, dynamic>> res = await _dio
         .post<Map<String, dynamic>>(
           kMagicLinkVerifyPath,
-          data: <String, Object?>{'email': email, 'token': token},
+          data: <String, Object?>{
+            'email': email,
+            'token': token,
+            if (totpCode != null && totpCode.isNotEmpty) 'totp_code': totpCode,
+          },
         );
     final Map<String, dynamic>? data = res.data;
     if (data == null) {
@@ -221,7 +292,10 @@ class UptrackApi {
         message: 'Empty response from $kMagicLinkVerifyPath',
       );
     }
-    return CurrentUserResponse.fromJson(data.cast<String, Object?>());
+    if (data['totp_required'] == true) return const LoginResult.totpRequired();
+    return LoginResult.authenticated(
+      CurrentUserResponse.fromJson(data.cast<String, Object?>()),
+    );
   }
 
   /// `POST /api/auth/device-tokens` — exchange the login session for a

@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 @visibleForTesting
 DateTime Function(DateTime) displayTimeZone = _toLocal;
 
+DateTime toDisplayTime(DateTime t) => displayTimeZone(t);
+
 DateTime _toLocal(DateTime t) => t.toLocal();
 
 final DateFormat _timestamp = DateFormat('MMM d, y, HH:mm');

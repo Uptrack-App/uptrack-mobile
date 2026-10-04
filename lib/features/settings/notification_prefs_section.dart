@@ -1,3 +1,5 @@
+import '../../design/uptrack_design.dart';
+
 import 'dart:async';
 
 import 'package:dio/dio.dart';
@@ -370,16 +372,11 @@ class _NotificationPrefsSectionState
                 child: Text(state.savedMessage!),
               ),
             const SizedBox(height: 8),
-            FilledButton(
+            UptrackButton(
               key: const ValueKey<String>('prefs-save'),
-              onPressed: state.isSaving ? null : controller.save,
-              child: state.isSaving
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Text('Save preferences'),
+              label: 'Save preferences',
+              onPressed: controller.save,
+              busy: state.isSaving,
             ),
           ],
         ],

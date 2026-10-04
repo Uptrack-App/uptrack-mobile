@@ -244,8 +244,8 @@ void main() {
       expect(find.bySemanticsLabel('Monitor Homepage'), findsOneWidget);
       expect(
         find.bySemanticsLabel(
-          'Response-time chart, last 7 days: '
-          'p50 120 ms, p95 300 ms, p99 500 ms',
+          'Last 7 days. 2 measured samples. '
+          'p50 120 ms · p95 300 ms · p99 500 ms',
         ),
         findsOneWidget,
       );

@@ -49,15 +49,19 @@ struct UptrackStatusWidgetEntryView: View {
           Spacer()
           Text(snapshot.elapsedLabel).font(.caption2.monospacedDigit())
         }
-        .foregroundStyle(.secondary)
+        .foregroundStyle(UptrackInk.muted)
       }
       .padding()
+      .foregroundStyle(UptrackInk.foreground)
+      .background(UptrackInk.surface)
     } else {
       VStack(spacing: 4) {
-        Text("All clear").font(.headline)
-        Text("No ongoing incidents").font(.caption).foregroundStyle(.secondary)
+        Text("Uptrack").font(.headline)
+        Text("No ongoing incidents").font(.caption).foregroundStyle(UptrackInk.muted)
       }
       .padding()
+      .foregroundStyle(UptrackInk.foreground)
+      .background(UptrackInk.surface)
     }
   }
 }

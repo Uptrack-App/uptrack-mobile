@@ -1,3 +1,5 @@
+import '../../design/uptrack_design.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
@@ -5,7 +7,6 @@ import 'package:go_router/go_router.dart';
 import '../../api/models/monitor.dart';
 import 'monitor_widgets.dart';
 import 'monitors_controller.dart';
-import '../../theme/status_colors.dart';
 
 /// Monitor list: status, uptime, regions, search + status filter.
 ///
@@ -34,7 +35,7 @@ class _MonitorsScreenState extends ConsumerState<MonitorsScreen> {
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 4),
             child: TextField(
               decoration: const InputDecoration(
-                hintText: 'Search monitors',
+                labelText: 'Search monitors',
                 prefixIcon: Icon(Icons.search),
                 border: OutlineInputBorder(),
                 isDense: true,
@@ -61,7 +62,10 @@ class _MonitorsScreenState extends ConsumerState<MonitorsScreen> {
           ),
           Expanded(
             child: monitors.when(
-              loading: () => const Center(child: CircularProgressIndicator()),
+              loading: () => const UptrackStateView(
+                message: 'Loading monitors',
+                loading: true,
+              ),
               error: (Object err, StackTrace _) => _MonitorsError(
                 message: monitorsErrorMessage(err),
                 onRetry: () => ref.invalidate(monitorsProvider),
@@ -98,48 +102,28 @@ class _MonitorsBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (data.monitors.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: <Widget>[
-              Text('No monitors yet.'),
-              SizedBox(height: 8),
-              Text(
-                'Add a monitor on the web dashboard to get started.',
-                textAlign: TextAlign.center,
-              ),
-            ],
-          ),
-        ),
-      );
-    }
-
-    final List<Monitor> visible = filterMonitors(
-      data.monitors,
-      query: query,
-      status: filter,
-    );
-    if (visible.isEmpty) {
-      return const Center(
-        child: Padding(
-          padding: EdgeInsets.all(24),
-          child: Text('No monitors match your search.'),
-        ),
-      );
-    }
-
+    final visible = filterMonitors(data.monitors, query: query, status: filter);
+    final emptyMessage = data.monitors.isEmpty
+        ? 'No monitors yet. Add a monitor on the web dashboard to get started.'
+        : 'No monitors match your search.';
     return RefreshIndicator(
       onRefresh: onRefresh,
       child: ListView(
+        physics: const AlwaysScrollableScrollPhysics(),
         padding: const EdgeInsets.all(16),
         children: <Widget>[
           if (data.offline)
             const Padding(
               padding: EdgeInsets.only(bottom: 12),
               child: _OfflineBanner(),
+            ),
+          if (visible.isEmpty)
+            UptrackStateView(
+              message: emptyMessage,
+              actionLabel: 'Refresh',
+              onAction: () {
+                onRefresh();
+              },
             ),
           for (final Monitor monitor in visible) _MonitorRow(monitor: monitor),
         ],
@@ -150,22 +134,11 @@ class _MonitorsBody extends StatelessWidget {
 
 class _OfflineBanner extends StatelessWidget {
   const _OfflineBanner();
-
   @override
-  Widget build(BuildContext context) {
-    return const Card(
-      child: Padding(
-        padding: EdgeInsets.all(12),
-        child: Row(
-          children: <Widget>[
-            Icon(Icons.cloud_off_outlined),
-            SizedBox(width: 8),
-            Expanded(child: Text('Offline — showing cached data')),
-          ],
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => const UptrackNotice(
+    message: 'Offline — showing cached data',
+    kind: UptrackNoticeKind.offline,
+  );
 }
 
 class _MonitorRow extends StatelessWidget {
@@ -175,43 +148,36 @@ class _MonitorRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final String? uptime = monitor.uptimePercentage == null
-        ? null
-        : '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime';
-    final String semanticsLabel = uptime == null
-        ? 'Monitor ${monitor.name}, status ${statusLabel(monitor.status)}'
-        : 'Monitor ${monitor.name}, status ${statusLabel(monitor.status)}, $uptime';
-    return Semantics(
-      label: semanticsLabel,
-      child: Card(
-        child: ListTile(
-          title: Text(monitor.name),
-          subtitle: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text(monitor.url, maxLines: 1, overflow: TextOverflow.ellipsis),
-              const SizedBox(height: 4),
-              Wrap(
-                spacing: 8,
-                runSpacing: 4,
-                children: <Widget>[
-                  MonitorStatusChip(status: monitor.status),
-                  if (uptime != null)
-                    Text(uptime, style: theme.textTheme.bodySmall),
-                  if (monitor.regionsRequired.isNotEmpty)
-                    Text(
-                      'Regions: ${monitor.regionsRequired}',
-                      style: theme.textTheme.bodySmall,
-                    ),
-                  Text(monitor.monitorType, style: theme.textTheme.bodySmall),
-                ],
-              ),
+    final theme = Theme.of(context);
+    return UptrackDataRow(
+      title: monitor.name,
+      semanticLabel:
+          'Monitor ${monitor.name}, status ${statusLabel(monitor.status)}${monitor.uptimePercentage == null ? '' : ', ${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime'}',
+      onTap: () => context.go('/monitors/${monitor.id}'),
+      details: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          UptrackDataText(monitor.url),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              MonitorStatusChip(status: monitor.status),
+              if (monitor.uptimePercentage != null)
+                UptrackDataText(
+                  '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime',
+                  style: theme.textTheme.bodySmall,
+                ),
+              if (monitor.regionsRequired.isNotEmpty)
+                UptrackDataText(
+                  'Regions: ${monitor.regionsRequired}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              Text(monitor.monitorType, style: theme.textTheme.bodySmall),
             ],
           ),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.go('/monitors/${monitor.id}'),
-        ),
+        ],
       ),
     );
   }
@@ -225,18 +191,10 @@ class _MonitorsError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }

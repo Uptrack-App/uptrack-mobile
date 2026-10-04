@@ -54,7 +54,7 @@ class UptrackStatusWidgetProvider : HomeWidgetProvider() {
         val title: String
         val state: String
         if (incidentId.isNullOrEmpty()) {
-            title = "All clear"
+            title = "Uptrack"
             state = "No ongoing incidents"
         } else {
             title = monitorName?.takeIf { it.isNotBlank() }

@@ -49,16 +49,10 @@ class BillingSubscription {
   final String? cancelledAt;
 }
 
-/// Whether the region-gated "manage billing on the web" link may be shown.
-///
-/// Store builds flip this per region with
-/// `--dart-define=ALLOW_BILLING_LINK=false` where the external-purchase
-/// entitlement does not apply. The link itself is plain text (no launcher,
-/// no IAP) so review builds can hide it without code changes.
-const bool kBillingExternalLinkEnabled = bool.fromEnvironment(
-  'ALLOW_BILLING_LINK',
-  defaultValue: true,
-);
+/// Native purchase steering stays off until runtime storefront eligibility,
+/// store-program enrollment and its reporting obligations are implemented.
+/// A compile-time switch cannot establish any of those requirements.
+const bool kBillingExternalLinkEnabled = false;
 
 /// Web billing portal URL shown as read-only text (never opened from an
 /// in-app purchase flow — there is none).

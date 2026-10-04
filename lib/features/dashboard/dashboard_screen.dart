@@ -4,7 +4,7 @@ import 'package:go_router/go_router.dart';
 
 import '../../api/models/incident.dart';
 import 'dashboard_controller.dart';
-import '../../theme/status_colors.dart';
+import '../../design/uptrack_design.dart';
 
 class DashboardScreen extends ConsumerWidget {
   const DashboardScreen({super.key});
@@ -16,7 +16,8 @@ class DashboardScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Dashboard')),
       body: dashboard.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const UptrackStateView(message: 'Loading dashboard', loading: true),
         error: (Object err, StackTrace _) => _DashboardError(
           message: dashboardErrorMessage(err),
           onRetry: () => ref.invalidate(dashboardProvider),
@@ -124,92 +125,49 @@ class _OfflineBanner extends StatelessWidget {
 
 class _StatusCounts extends StatelessWidget {
   const _StatusCounts({required this.data});
-
   final DashboardData data;
-
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      children: <Widget>[
-        Expanded(
-          child: _StatTile(label: 'Up', value: '${data.upCount}'),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _StatTile(label: 'Down', value: '${data.downCount}'),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: _StatTile(label: 'Total', value: '${data.totalMonitors}'),
-        ),
-      ],
-    );
-  }
-}
-
-class _StatTile extends StatelessWidget {
-  const _StatTile({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    return Semantics(
-      label: '$label monitors: $value',
-      container: true,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.symmetric(vertical: 12),
-          child: Column(
-            children: <Widget>[
-              Text(value, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text(label, style: theme.textTheme.bodySmall),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final largeText = MediaQuery.textScalerOf(context).scale(16) > 24;
+      final columns = constraints.maxWidth < 350 || largeText ? 1 : 3;
+      final width = (constraints.maxWidth - (columns - 1) * 8) / columns;
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final entry in {
+            'Up': data.upCount,
+            'Down': data.downCount,
+            'Total': data.totalMonitors,
+          }.entries)
+            SizedBox(
+              width: width,
+              child: UptrackMetricTile(
+                label: entry.key,
+                semanticLabel: '${entry.key} monitors: ${entry.value}',
+                value: '${entry.value}',
+              ),
+            ),
+        ],
+      );
+    },
+  );
 }
 
 class _UptimeSummary extends StatelessWidget {
   const _UptimeSummary({required this.data});
-
   final DashboardData data;
-
   @override
-  Widget build(BuildContext context) {
-    final ThemeData theme = Theme.of(context);
-    final double? uptime = data.averageUptime;
-    final String uptimeText = uptime == null
-        ? '—'
-        : '${uptime.toStringAsFixed(1)}%';
-    return Semantics(
-      label: 'Average uptime $uptimeText across ${data.totalMonitors} monitors',
-      container: true,
-      child: Card(
-        child: Padding(
-          padding: const EdgeInsets.all(16),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: <Widget>[
-              Text('Average uptime', style: theme.textTheme.titleMedium),
-              const SizedBox(height: 4),
-              Text(uptimeText, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 4),
-              Text(
-                'across ${data.totalMonitors} monitors',
-                style: theme.textTheme.bodySmall,
-              ),
-            ],
-          ),
-        ),
-      ),
-    );
-  }
+  Widget build(BuildContext context) => UptrackMetricTile(
+    label: 'Average uptime',
+    semanticLabel:
+        'Average uptime ${data.averageUptime == null ? 'not available' : '${data.averageUptime!.toStringAsFixed(1)}%'} across ${data.totalMonitors} monitors',
+    value: data.averageUptime == null
+        ? null
+        : '${data.averageUptime!.toStringAsFixed(1)}%',
+    detail: 'across ${data.totalMonitors} monitors',
+  );
 }
 
 class _RecentIncidentsHeader extends StatelessWidget {
@@ -229,17 +187,15 @@ class _IncidentRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Semantics(
-      label:
-          'Incident ${incident.displayName}, status ${statusLabel(incident.status)}',
-      child: Card(
-        child: ListTile(
-          title: Text(incident.displayName),
-          subtitle: Text(statusLabel(incident.status)),
-          trailing: const Icon(Icons.chevron_right),
-          onTap: () => context.go('/incidents'),
-        ),
+    return UptrackDataRow(
+      title: incident.displayName,
+      semanticLabel:
+          'Incident ${incident.displayName}, status ${incident.isOngoing ? 'Open' : 'Resolved'}${incident.isAcknowledged ? ', acknowledged' : ''}',
+      details: UptrackLifecycleBadge(
+        open: incident.isOngoing,
+        acknowledged: incident.isAcknowledged,
       ),
+      onTap: () => context.go('/incidents/${incident.id}'),
     );
   }
 }
@@ -252,18 +208,10 @@ class _DashboardError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }

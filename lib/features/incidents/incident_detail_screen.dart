@@ -3,7 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/incident.dart';
 import 'incidents_controller.dart';
-import '../../theme/status_colors.dart';
+import '../../design/uptrack_design.dart';
 import '../../util/date_format.dart';
 
 /// Incident detail: header (monitor, status, timestamps), the acknowledge
@@ -65,7 +65,8 @@ class _IncidentDetailScreenState extends ConsumerState<IncidentDetailScreen> {
     return Scaffold(
       appBar: AppBar(title: const Text('Incident')),
       body: detail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const UptrackStateView(message: 'Loading incident', loading: true),
         error: (Object err, StackTrace _) => _DetailError(
           message: incidentsErrorMessage(err),
           onRetry: () =>
@@ -188,15 +189,10 @@ class _DetailBody extends StatelessWidget {
           if (canAcknowledge)
             Semantics(
               label: 'Acknowledge incident ${incident.displayName}',
-              child: FilledButton(
-                onPressed: acking ? null : onAcknowledge,
-                child: acking
-                    ? const SizedBox(
-                        width: 20,
-                        height: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Text('Acknowledge'),
+              child: UptrackButton(
+                label: 'Acknowledge',
+                onPressed: onAcknowledge,
+                busy: acking,
               ),
             ),
           const SizedBox(height: 16),
@@ -268,18 +264,10 @@ class _DetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }

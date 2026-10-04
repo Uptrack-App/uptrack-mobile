@@ -100,11 +100,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Dashboard'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(NavigationRail), findsOneWidget);
 
     router.go('/monitors');
     await tester.pumpAndSettle();
 
-    expect(find.text('Monitors'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('Monitors')),
+      findsOneWidget,
+    );
   });
 }

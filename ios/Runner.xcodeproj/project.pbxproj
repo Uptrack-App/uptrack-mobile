@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+        B7AC00010000000100000010 /* UptrackInk.g.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000010 /* UptrackInk.g.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
@@ -46,6 +47,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+        B7AC00020000000100000010 /* UptrackInk.g.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UptrackInk.g.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
@@ -144,6 +146,7 @@
 			children = (
 				B7AC00020000000100000001 /* UptrackWidgetData.swift */,
 				B7AC00020000000100000002 /* UptrackStatusWidget.swift */,
+                B7AC00020000000100000010 /* UptrackInk.g.swift */,
 				B7AC00020000000100000003 /* UptrackLiveActivity.swift */,
 				B7AC00020000000100000004 /* UptrackWidgets.swift */,
 			);
@@ -308,6 +311,7 @@
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
 				B7AC00010000000100000001 /* UptrackWidgetData.swift in Sources */,
 				B7AC00010000000100000002 /* UptrackStatusWidget.swift in Sources */,
+                B7AC00010000000100000010 /* UptrackInk.g.swift in Sources */,
 				B7AC00010000000100000003 /* UptrackLiveActivity.swift in Sources */,
 				B7AC00010000000100000004 /* UptrackWidgets.swift in Sources */,
 			);

@@ -66,6 +66,21 @@ void main() {
     }
   });
 
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    test('${theme.brightness}: essential input outline contrast', () {
+      final border =
+          theme.inputDecorationTheme.enabledBorder! as OutlineInputBorder;
+      expect(
+        _contrast(border.borderSide.color, theme.colorScheme.surface),
+        greaterThanOrEqualTo(3),
+      );
+      expect(
+        _contrast(theme.colorScheme.outline, theme.colorScheme.surface),
+        greaterThanOrEqualTo(3),
+      );
+    });
+  }
+
   test('screens use theme colors: no hardcoded colors outside lib/theme', () {
     final RegExp hardcoded = RegExp(
       r'Color\(\s*0x|Colors\.(red|green|amber|orange|blue|purple|deepPurple|pink|indigo|teal|yellow|grey|brown|cyan|lime)',

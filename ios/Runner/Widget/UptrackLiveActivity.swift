@@ -52,8 +52,9 @@ struct UptrackIncidentActivityWidget: Widget {
         }
       }
       .padding()
-      .activityBackgroundTint(.black)
-      .activitySystemActionForegroundColor(.white)
+      .foregroundStyle(UptrackInk.foreground)
+      .activityBackgroundTint(UptrackInk.surface)
+      .activitySystemActionForegroundColor(UptrackInk.foreground)
     } dynamicIsland: { context in
       DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {

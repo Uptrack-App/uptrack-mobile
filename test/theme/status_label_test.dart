@@ -2,14 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/theme/status_colors.dart';
 
 void main() {
-  group('statusLabel matches the web StatusBadge labels', () {
+  group('statusLabel preserves mobile health distinctions', () {
     const Map<String?, String> cases = <String?, String>{
       'up': 'Up',
       'operational': 'Up',
       'down': 'Down',
       'degraded': 'Degraded',
-      'visual_regression': 'Degraded',
-      'partial_outage': 'Degraded',
+      'visual_regression': 'Changed',
+      'partial_outage': 'Partial outage',
       'paused': 'Paused',
       'disabled': 'Paused',
       'unknown': 'Unknown',

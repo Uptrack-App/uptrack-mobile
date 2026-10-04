@@ -1,3 +1,5 @@
+import '../../design/uptrack_design.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -84,7 +86,7 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
           Text(
             'Deleting your account soft-deletes you and your organization. '
             'Data is purged after 30 days. This cannot be undone.',
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
           TextField(
@@ -117,17 +119,13 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
-          FilledButton.tonalIcon(
+          UptrackButton(
             key: const ValueKey<String>('delete-account'),
-            onPressed: _confirmed && !_busy ? _delete : null,
-            icon: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.delete_forever_outlined),
-            label: const Text('Delete my account'),
+            label: 'Delete my account',
+            kind: UptrackButtonKind.destructive,
+            icon: Icons.delete_forever_outlined,
+            busy: _busy,
+            onPressed: _confirmed ? _delete : null,
           ),
         ],
       ),

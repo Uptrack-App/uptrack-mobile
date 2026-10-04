@@ -156,6 +156,7 @@ Future<void> _pumpGolden(
 /// This also fails the suite if a font asset is missing from the bundle.
 Future<void> _loadFonts() async {
   const families = <String, List<String>>{
+    'MaterialIcons': <String>['fonts/MaterialIcons-Regular.otf'],
     'IBMPlexSans': <String>[
       'assets/fonts/IBMPlexSans-Regular.ttf',
       'assets/fonts/IBMPlexSans-Medium.ttf',

@@ -11,6 +11,7 @@ import 'package:uptrack_mobile/data/local/app_database.dart';
 import 'package:uptrack_mobile/data/local/database_providers.dart';
 import 'package:uptrack_mobile/features/auth/auth_controller.dart';
 import 'package:uptrack_mobile/features/auth/login_screen.dart';
+import 'package:uptrack_mobile/features/auth/social_login.dart';
 import 'package:uptrack_mobile/features/auth/token_storage.dart';
 
 /// Fake [HttpClientAdapter] returning canned JSON without network access
@@ -104,6 +105,40 @@ void main() {
   });
 
   group('parseMagicLink', () {
+    test(
+      'accepts a pasted email link or raw token for the matching account',
+      () {
+        expect(
+          magicLinkInputToken(input: ' raw_token ', email: 'ada@example.com'),
+          'raw_token',
+        );
+        expect(
+          magicLinkInputToken(
+            input: 'https://uptrack.app/auth/verify-magic-link?email=ada%40example.com&token=abc',
+            email: 'Ada@example.com',
+          ),
+          'abc',
+        );
+        expect(
+          magicLinkInputToken(
+            input: 'https://uptrack.app/auth/verify-magic-link?email=other%40example.com&token=abc',
+            email: 'ada@example.com',
+          ),
+          isNull,
+        );
+        expect(
+          magicLinkInputToken(
+            input: 'https://uptrack.app/checkout?token=abc',
+            email: 'ada@example.com',
+          ),
+          isNull,
+        );
+        expect(
+          magicLinkInputToken(input: '', email: 'ada@example.com'),
+          isNull,
+        );
+      },
+    );
     test('extracts email + token', () {
       final ({String email, String token})? parsed = parseMagicLink(
         Uri.parse('uptrack://auth/magic?email=ada%40example.com&token=abc'),
@@ -295,6 +330,112 @@ void main() {
       expect(await store.readDeviceToken(), isNull);
     });
 
+    test(
+      'magic-link 2FA does not issue a device token until the code is verified',
+      () async {
+        final FakeAdapter magicAdapter = FakeAdapter((
+          RequestOptions options,
+        ) async {
+          if (options.path == kMagicLinkVerifyPath) {
+            final data = options.data as Map<String, Object?>;
+            expect(data['token'], 'magic_token');
+            if (data['totp_code'] != '123456') {
+              return jsonResponse(<String, Object?>{'totp_required': true});
+            }
+            return jsonResponse(meFixture(), 200, sessionCookieHeader);
+          }
+          return handler(options);
+        });
+        final ProviderContainer magicContainer = ProviderContainer(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(store),
+            authTokenHolderProvider.overrideWithValue(holder),
+            uptrackApiProvider.overrideWithValue(
+              UptrackApi(
+                dio: buildAppDio(
+                  holder: holder,
+                  onUnauthorized: () {},
+                  adapter: magicAdapter,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(magicContainer.dispose);
+        final AuthController controller = magicContainer.read(
+          authControllerProvider.notifier,
+        );
+        await controller.verifyMagicLink(
+          email: 'ada@example.com',
+          token: 'magic_token',
+        );
+        expect(
+          magicContainer.read(authControllerProvider).status,
+          AuthStatus.needsTwoFactor,
+        );
+        expect(await store.readDeviceToken(), isNull);
+        expect(
+          magicAdapter.seen.any(
+            (RequestOptions request) => request.path == kDeviceTokensPath,
+          ),
+          isFalse,
+        );
+        await controller.submitTwoFactorCode('000000');
+        expect(
+          magicContainer.read(authControllerProvider).status,
+          AuthStatus.needsTwoFactor,
+        );
+        expect(await store.readDeviceToken(), isNull);
+        await controller.submitTwoFactorCode('123456');
+        expect(
+          magicContainer.read(authControllerProvider).status,
+          AuthStatus.signedIn,
+        );
+        expect(await store.readDeviceToken(), 'udt_test_raw_token');
+      },
+    );
+
+    test(
+      'canceling magic-link 2FA discards the pending sign-in credential',
+      () async {
+        final FakeAdapter magicAdapter = FakeAdapter(
+          (RequestOptions options) async =>
+              jsonResponse(<String, Object?>{'totp_required': true}),
+        );
+        final ProviderContainer magicContainer = ProviderContainer(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(store),
+            authTokenHolderProvider.overrideWithValue(holder),
+            uptrackApiProvider.overrideWithValue(
+              UptrackApi(
+                dio: buildAppDio(
+                  holder: holder,
+                  onUnauthorized: () {},
+                  adapter: magicAdapter,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(magicContainer.dispose);
+        final AuthController controller = magicContainer.read(
+          authControllerProvider.notifier,
+        );
+        await controller.verifyMagicLink(
+          email: 'ada@example.com',
+          token: 'magic_token',
+        );
+        controller.cancelTwoFactor();
+        await controller.submitTwoFactorCode('123456');
+        expect(magicAdapter.seen, hasLength(1));
+        expect(
+          magicContainer.read(authControllerProvider).status,
+          AuthStatus.signedOut,
+        );
+        expect(await store.readDeviceToken(), isNull);
+      },
+    );
+
     test('failed login keeps the field-level error (no 401 loop)', () async {
       final FakeAdapter badCreds = FakeAdapter((RequestOptions options) async {
         return jsonResponse(<String, Object?>{
@@ -369,6 +510,77 @@ void main() {
   });
 
   group('LoginScreen widget', () {
+    testWidgets(
+      'a passwordless web customer can paste the emailed link after returning from checkout',
+      (WidgetTester tester) async {
+        String? verifiedToken;
+        final MemoryTokenStore store = MemoryTokenStore();
+        final AuthTokenHolder holder = AuthTokenHolder();
+        final FakeAdapter adapter = FakeAdapter((RequestOptions options) async {
+          if (options.path == kMagicLinkPath) {
+            expect(options.data, {
+              'email': 'ada@example.com',
+              'client': 'mobile',
+            });
+            return jsonResponse(<String, Object?>{'ok': true});
+          }
+          if (options.path == kMagicLinkVerifyPath) {
+            final data = options.data as Map<String, Object?>;
+            verifiedToken = data['token'] as String?;
+            return jsonResponse(meFixture(), 200, sessionCookieHeader);
+          }
+          if (options.path == kDeviceTokensPath) {
+            return jsonResponse(issuanceFixture(), 201);
+          }
+          return jsonResponse(meFixture());
+        });
+        final ProviderContainer container = ProviderContainer(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(store),
+            authTokenHolderProvider.overrideWithValue(holder),
+            uptrackApiProvider.overrideWithValue(
+              UptrackApi(
+                dio: buildAppDio(
+                  holder: holder,
+                  onUnauthorized: () {},
+                  adapter: adapter,
+                ),
+              ),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        await tester.pumpWidget(
+          UncontrolledProviderScope(
+            container: container,
+            child: const MaterialApp(
+              home: LoginScreen(returnLocation: '/billing/return?plan=pro'),
+            ),
+          ),
+        );
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Email'),
+          'ada@example.com',
+        );
+        await tester.tap(find.text('Email me a sign-in link'));
+        await tester.pumpAndSettle();
+        await tester.enterText(
+          find.widgetWithText(TextFormField, 'Sign-in link or code'),
+          'https://uptrack.app/auth/verify-magic-link?email=ada%40example.com&token=abc',
+        );
+        await tester.pumpAndSettle();
+        await tester.ensureVisible(find.text('Sign in'));
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Sign in'));
+        await tester.pumpAndSettle();
+        expect(verifiedToken, 'abc');
+        expect(
+          container.read(authControllerProvider).status,
+          AuthStatus.signedIn,
+        );
+        expect(await store.readDeviceToken(), 'udt_test_raw_token');
+      },
+    );
     testWidgets('empty submit shows validation errors', (
       WidgetTester tester,
     ) async {
@@ -376,6 +588,7 @@ void main() {
         ProviderScope(
           overrides: [
             tokenStoreProvider.overrideWithValue(MemoryTokenStore()),
+            socialProvidersProvider.overrideWith((ref) async => <String>{}),
             uptrackApiProvider.overrideWithValue(
               UptrackApi(dio: Dio(BaseOptions(baseUrl: 'http://localhost'))),
             ),
@@ -384,11 +597,12 @@ void main() {
         ),
       );
 
-      await tester.tap(find.text('Sign in'));
+      await tester.ensureVisible(find.text('Email me a sign-in link'));
+      await tester.tap(find.text('Email me a sign-in link'));
       await tester.pump();
 
       expect(find.text('Enter your email'), findsOneWidget);
-      expect(find.text('Enter your password'), findsOneWidget);
+      expect(find.widgetWithText(TextFormField, 'Password'), findsNothing);
     });
 
     testWidgets('valid submit signs in via the fake API', (
@@ -399,7 +613,7 @@ void main() {
       final FakeAdapter testAdapter = FakeAdapter((
         RequestOptions options,
       ) async {
-        if (options.method == 'POST' && options.path == kLoginPath) {
+        if (options.method == 'POST' && options.path == kMagicLinkVerifyPath) {
           return jsonResponse(meFixture(), 200, sessionCookieHeader);
         }
         if (options.method == 'POST' && options.path == kDeviceTokensPath) {
@@ -435,10 +649,15 @@ void main() {
         find.widgetWithText(TextFormField, 'Email'),
         'ada@example.com',
       );
+      await tester.tap(find.text('Email me a sign-in link'));
+      await tester.pumpAndSettle();
       await tester.enterText(
-        find.widgetWithText(TextFormField, 'Password'),
-        'secret',
+        find.widgetWithText(TextFormField, 'Sign-in link or code'),
+        'abc',
       );
+      await tester.pumpAndSettle();
+      await tester.ensureVisible(find.text('Sign in'));
+      await tester.pumpAndSettle();
       await tester.tap(find.text('Sign in'));
       await tester.pumpAndSettle();
 

@@ -417,11 +417,15 @@ void main() {
       await openDanger(tester, container);
 
       final Finder button = find.byKey(const ValueKey<String>('delete-account'));
-      expect(tester.widget<FilledButton>(button).enabled, isFalse);
+      expect(tester.widget<FilledButton>(find.descendant(
+        of: button, matching: find.byType(FilledButton),
+      )).enabled, isFalse);
 
       await tester.tap(find.byKey(const ValueKey<String>('delete-confirm')));
       await tester.pumpAndSettle();
-      expect(tester.widget<FilledButton>(button).enabled, isTrue);
+      expect(tester.widget<FilledButton>(find.descendant(
+        of: button, matching: find.byType(FilledButton),
+      )).enabled, isTrue);
     });
 
     testWidgets('live subscription surfaces the server message', (
