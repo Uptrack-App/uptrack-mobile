@@ -401,62 +401,59 @@ class _MagicLinkForm extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return AnimatedSize(
-      duration: MediaQuery.disableAnimationsOf(context)
-          ? Duration.zero
-          : const Duration(milliseconds: 220),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topCenter,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: <Widget>[
-          if (errorMessage != null) _ErrorText(message: errorMessage!),
-          TextFormField(
-            controller: email,
-            decoration: const InputDecoration(
-              labelText: 'Email',
-              prefixIcon: Icon(Icons.mail_outline, size: 20),
-            ),
-            keyboardType: TextInputType.emailAddress,
-            autofillHints: const <String>[AutofillHints.email],
-            validator: validateEmail,
+    final form = Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: <Widget>[
+        if (errorMessage != null) _ErrorText(message: errorMessage!),
+        TextFormField(
+          controller: email,
+          decoration: const InputDecoration(
+            labelText: 'Email',
+            prefixIcon: Icon(Icons.mail_outline, size: 20),
+          ),
+          keyboardType: TextInputType.emailAddress,
+          autofillHints: const <String>[AutofillHints.email],
+          validator: validateEmail,
+        ),
+        const SizedBox(height: 12),
+        UptrackButton(
+          label: 'Email me a sign-in link',
+          onPressed: onRequest,
+          busy: isLoading,
+        ),
+        if (magicLinkSent) ...<Widget>[
+          const SizedBox(height: 8),
+          const Text(
+            'Check your email and open the link, then tap Open Uptrack to finish signing in. You can also paste the link below.',
           ),
           const SizedBox(height: 12),
-          UptrackButton(
-            label: 'Email me a sign-in link',
-            onPressed: onRequest,
-            busy: isLoading,
+          TextFormField(
+            controller: magicToken,
+            decoration: const InputDecoration(
+              labelText: 'Sign-in link or code',
+            ),
+            autocorrect: false,
+            enableSuggestions: false,
+            obscureText: true,
+            validator: (String? value) =>
+                magicLinkInputToken(input: value ?? '', email: email.text) ==
+                    null
+                ? 'Paste the sign-in link for this email address'
+                : null,
+            onFieldSubmitted: (_) => onVerify(),
           ),
-          if (magicLinkSent) ...<Widget>[
-            const SizedBox(height: 8),
-            const Text(
-              'Check your email and open the link, then tap Open Uptrack to finish signing in. You can also paste the link below.',
-            ),
-            const SizedBox(height: 12),
-            TextFormField(
-              controller: magicToken,
-              decoration: const InputDecoration(
-                labelText: 'Sign-in link or code',
-              ),
-              autocorrect: false,
-              enableSuggestions: false,
-              obscureText: true,
-              validator: (String? value) =>
-                  magicLinkInputToken(input: value ?? '', email: email.text) ==
-                      null
-                  ? 'Paste the sign-in link for this email address'
-                  : null,
-              onFieldSubmitted: (_) => onVerify(),
-            ),
-            const SizedBox(height: 12),
-            UptrackButton(
-              label: 'Sign in',
-              onPressed: onVerify,
-              busy: isLoading,
-            ),
-          ],
+          const SizedBox(height: 12),
+          UptrackButton(label: 'Sign in', onPressed: onVerify, busy: isLoading),
         ],
-      ),
+      ],
+    );
+    final media = MediaQuery.of(context);
+    if (media.disableAnimations || media.accessibleNavigation) return form;
+    return AnimatedSize(
+      duration: const Duration(milliseconds: 220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topCenter,
+      child: form,
     );
   }
 }
@@ -507,9 +504,15 @@ class _SocialLoginButtons extends ConsumerWidget {
                       child: Row(
                         children: [
                           Expanded(child: Divider()),
-                          Padding(
-                            padding: EdgeInsets.symmetric(horizontal: 12),
-                            child: Text('or use email'),
+                          Flexible(
+                            flex: 4,
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(horizontal: 12),
+                              child: Text(
+                                'or use email',
+                                textAlign: TextAlign.center,
+                              ),
+                            ),
                           ),
                           Expanded(child: Divider()),
                         ],
