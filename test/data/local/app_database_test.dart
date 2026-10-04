@@ -24,6 +24,19 @@ Monitor _monitor(String id, {String status = 'up'}) => Monitor(
   ),
 );
 
+/// Writes incident rows under the repository's current fences, the way a
+/// loader that just fetched them would.
+Future<bool> _saveIncidents(
+  CacheRepository repo,
+  List<IncidentSnapshot> rows, {
+  int? revision,
+  int? session,
+}) => repo.saveIncidents(
+  rows,
+  revision: revision ?? repo.incidentRevision,
+  session: session ?? repo.sessionEpoch,
+);
+
 void main() {
   late AppDatabase db;
   late CacheRepository repo;
@@ -66,7 +79,7 @@ void main() {
   });
 
   test('incidents round-trip', () async {
-    await repo.saveIncidents(const <IncidentSnapshot>[
+    await _saveIncidents(repo, const <IncidentSnapshot>[
       IncidentSnapshot(
         id: 'i1',
         monitorId: 'm1',
@@ -131,7 +144,7 @@ void main() {
 
   test('clearAll wipes collections and freshness (R2.4)', () async {
     await repo.saveMonitors(<Monitor>[_monitor('m1')]);
-    await repo.saveIncidents(const <IncidentSnapshot>[
+    await _saveIncidents(repo, const <IncidentSnapshot>[
       IncidentSnapshot(
         id: 'i1',
         monitorId: 'm1',
@@ -146,5 +159,289 @@ void main() {
     expect((await repo.getIncidents()).data, isEmpty);
     expect(await repo.isStale(kMonitorsCacheKey), isTrue);
     expect(await repo.isStale(kIncidentsCacheKey), isTrue);
+  });
+
+  group('incident write fence', () {
+    test('clearAll advances the session epoch', () async {
+      final int before = repo.sessionEpoch;
+      await repo.clearAll();
+      expect(repo.sessionEpoch, greaterThan(before));
+    });
+
+    test('a list write captured before an upsert is rejected', () async {
+      final int revision = repo.incidentRevision;
+      final int session = repo.sessionEpoch;
+      await _saveIncidents(repo, const <IncidentSnapshot>[
+        IncidentSnapshot(
+          id: 'i1',
+          monitorId: 'm1',
+          status: 'ongoing',
+          insertedAt: '2026-09-27T10:00:00Z',
+        ),
+      ]);
+
+      // The acknowledge lands first and writes the authoritative row.
+      expect(
+        await repo.upsertIncident(
+          const IncidentSnapshot(
+            id: 'i1',
+            monitorId: 'm1',
+            status: 'ongoing',
+            acknowledgedAt: '2026-09-27T10:05:00Z',
+            insertedAt: '2026-09-27T10:00:00Z',
+          ),
+          session: session,
+        ),
+        isTrue,
+      );
+
+      // The older list response now lands and must be refused.
+      final bool applied = await repo.saveIncidentsIfCurrent(
+        const <IncidentSnapshot>[
+          IncidentSnapshot(
+            id: 'i1',
+            monitorId: 'm1',
+            status: 'ongoing',
+            insertedAt: '2026-09-27T10:00:00Z',
+          ),
+        ],
+        revision,
+        session: session,
+      );
+
+      expect(applied, isFalse);
+      expect(
+        (await repo.getIncidents()).data.single.acknowledgedAt,
+        '2026-09-27T10:05:00Z',
+      );
+    });
+
+    test('a write queued after clearAll is refused (logout fence)', () async {
+      final int session = repo.sessionEpoch;
+      await repo.clearAll();
+
+      final bool applied = await repo.saveIncidentsIfCurrent(
+        const <IncidentSnapshot>[
+          IncidentSnapshot(
+            id: 'i1',
+            monitorId: 'm1',
+            status: 'ongoing',
+            insertedAt: '2026-09-27T10:00:00Z',
+          ),
+        ],
+        repo.incidentRevision,
+        session: session,
+      );
+
+      expect(applied, isFalse);
+      expect((await repo.getIncidents()).data, isEmpty);
+    });
+
+    test(
+      'an upsert queued before clearAll does not survive the wipe',
+      () async {
+        final int session = repo.sessionEpoch;
+        // Queue the upsert, then wipe: the wipe is sequenced after it, so the
+        // cache ends up empty instead of holding a post-logout row.
+        final Future<bool> upsert = repo.upsertIncident(
+          const IncidentSnapshot(
+            id: 'i1',
+            monitorId: 'm1',
+            status: 'ongoing',
+            acknowledgedAt: '2026-09-27T10:05:00Z',
+            insertedAt: '2026-09-27T10:00:00Z',
+          ),
+          session: session,
+        );
+        final Future<void> wipe = repo.clearAll();
+        await Future.wait(<Future<void>>[upsert, wipe]);
+
+        expect((await repo.getIncidents()).data, isEmpty);
+      },
+    );
+
+    test(
+      'a failed write reports to its caller and leaves the queue usable',
+      () async {
+        // One successful write opens the connection, so closing it makes the
+        // following writes fail deterministically.
+        await _saveIncidents(repo, const <IncidentSnapshot>[
+          IncidentSnapshot(
+            id: 'i0',
+            monitorId: 'm1',
+            status: 'ongoing',
+            insertedAt: '2026-09-27T09:59:00Z',
+          ),
+        ]);
+        await db.close();
+
+        // The error reaches the caller instead of being swallowed or hanging.
+        await expectLater(
+          repo.saveIncidents(
+            const <IncidentSnapshot>[
+              IncidentSnapshot(
+                id: 'i1',
+                monitorId: 'm1',
+                status: 'ongoing',
+                insertedAt: '2026-09-27T10:00:00Z',
+              ),
+            ],
+            revision: repo.incidentRevision,
+            session: repo.sessionEpoch,
+          ),
+          throwsA(isA<Object>()),
+        );
+
+        // The queue tail still runs: this write resolves with its own error
+        // rather than deadlocking behind the failed one.
+        await expectLater(
+          repo.upsertIncident(
+            const IncidentSnapshot(
+              id: 'i2',
+              monitorId: 'm1',
+              status: 'ongoing',
+              insertedAt: '2026-09-27T10:01:00Z',
+            ),
+            session: repo.sessionEpoch,
+          ),
+          throwsA(isA<Object>()),
+        );
+
+        // A wipe after a failure also completes (surfacing its own error)
+        // instead of hanging, and the queue still accepts work afterwards.
+        await expectLater(repo.clearAll(), throwsA(isA<Object>()));
+        await expectLater(
+          repo.saveIncidentsIfCurrent(
+            const <IncidentSnapshot>[],
+            repo.incidentRevision,
+            session: repo.sessionEpoch,
+          ),
+          throwsA(isA<Object>()),
+        );
+      },
+    );
+
+    test('a fenced write leaves the queue usable', () async {
+      final int session = repo.sessionEpoch;
+      await _saveIncidents(repo, const <IncidentSnapshot>[
+        IncidentSnapshot(
+          id: 'i1',
+          monitorId: 'm1',
+          status: 'ongoing',
+          insertedAt: '2026-09-27T10:00:00Z',
+        ),
+      ]);
+
+      // A stale revision is refused (fence hit, no error), then a valid write
+      // still lands.
+      expect(
+        await repo.saveIncidentsIfCurrent(
+          const <IncidentSnapshot>[],
+          repo.incidentRevision - 1,
+          session: session,
+        ),
+        isFalse,
+      );
+      expect(
+        await _saveIncidents(repo, const <IncidentSnapshot>[
+          IncidentSnapshot(
+            id: 'i2',
+            monitorId: 'm1',
+            status: 'ongoing',
+            insertedAt: '2026-09-27T10:01:00Z',
+          ),
+        ], session: session),
+        isTrue,
+      );
+      expect((await repo.getIncidents()).data.single.id, 'i2');
+    });
+
+    test('a write queued during a logout is not applied', () async {
+      final int session = repo.sessionEpoch;
+      // Occupy the queue first so the logout lands before this write runs.
+      await _saveIncidents(repo, const <IncidentSnapshot>[
+        IncidentSnapshot(
+          id: 'i1',
+          monitorId: 'm1',
+          status: 'ongoing',
+          insertedAt: '2026-09-27T10:00:00Z',
+        ),
+      ]);
+
+      final Future<bool> late = repo.upsertIncident(
+        const IncidentSnapshot(
+          id: 'i2',
+          monitorId: 'm1',
+          status: 'ongoing',
+          insertedAt: '2026-09-27T10:01:00Z',
+        ),
+        session: session,
+      );
+      await repo.clearAll();
+
+      expect(await late, isFalse);
+      expect((await repo.getIncidents()).data, isEmpty);
+    });
+
+    test('monitor writes are refused after the session ends', () async {
+      final int session = repo.sessionEpoch;
+      await repo.clearAll();
+
+      final bool stored = await repo.saveMonitors(<Monitor>[
+        _monitor('m1'),
+      ], session: session);
+
+      expect(stored, isFalse);
+      expect((await repo.getMonitors()).data, isEmpty);
+    });
+
+    test('overlapping replace and upsert keep the confirmed row', () async {
+      final int session = repo.sessionEpoch;
+      await _saveIncidents(repo, const <IncidentSnapshot>[
+        IncidentSnapshot(
+          id: 'i1',
+          monitorId: 'm1',
+          status: 'ongoing',
+          insertedAt: '2026-09-27T10:00:00Z',
+        ),
+      ]);
+
+      // Both writes start from the same revision; the upsert (mutation) must
+      // win regardless of the order their transactions interleave in.
+      final int revision = repo.incidentRevision;
+      await Future.wait(<Future<void>>[
+        repo
+            .saveIncidents(
+              const <IncidentSnapshot>[
+                IncidentSnapshot(
+                  id: 'i1',
+                  monitorId: 'm1',
+                  status: 'ongoing',
+                  insertedAt: '2026-09-27T10:00:00Z',
+                ),
+              ],
+              revision: revision,
+              session: session,
+            )
+            .then((_) {}),
+        repo
+            .upsertIncident(
+              const IncidentSnapshot(
+                id: 'i1',
+                monitorId: 'm1',
+                status: 'ongoing',
+                acknowledgedAt: '2026-09-27T10:05:00Z',
+                insertedAt: '2026-09-27T10:00:00Z',
+              ),
+              session: session,
+            )
+            .then((_) {}),
+      ]);
+
+      expect(
+        (await repo.getIncidents()).data.single.acknowledgedAt,
+        '2026-09-27T10:05:00Z',
+      );
+    });
   });
 }

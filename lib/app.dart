@@ -10,6 +10,8 @@ import 'features/auth/login_screen.dart';
 import 'features/auth/demo_session.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/incidents/incident_detail_screen.dart';
+import 'features/incidents/incidents_controller.dart'
+    show incidentFilterFromQuery;
 import 'features/incidents/incidents_screen.dart';
 import 'features/monitors/monitor_detail_screen.dart';
 import 'features/monitors/monitors_screen.dart';
@@ -40,7 +42,8 @@ GoRouter createRouter({
       }
       final AuthStatus status = statusOf();
       final bool loggingIn = state.matchedLocation == '/login';
-      if (state.matchedLocation == '/demo' || state.matchedLocation == '/magic') {
+      if (state.matchedLocation == '/demo' ||
+          state.matchedLocation == '/magic') {
         return null;
       }
       if (status != AuthStatus.signedIn && !loggingIn) {
@@ -142,7 +145,12 @@ GoRouter createRouter({
               GoRoute(
                 path: '/incidents',
                 name: 'incidents',
-                builder: (context, state) => const IncidentsScreen(),
+                builder: (context, state) => IncidentsScreen(
+                  // A dashboard "view all" link names the filter it previews.
+                  filter: incidentFilterFromQuery(
+                    state.uri.queryParameters['filter'],
+                  ),
+                ),
                 routes: [
                   GoRoute(
                     path: ':id',

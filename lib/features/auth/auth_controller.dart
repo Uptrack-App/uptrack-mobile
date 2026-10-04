@@ -201,6 +201,14 @@ final Provider<UptrackApi> uptrackApiProvider = Provider<UptrackApi>(
 final NotifierProvider<AuthController, AuthState> authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
 
+/// Nullary wrapper so the widget wipe can be handed out as a plain callback.
+Future<void> _clearHomeWidgetData() => clearWidgetData();
+
+/// Seam for the home-widget wipe sign-out performs, so a test can hold
+/// sign-out open — or make it fail — after the session epoch has advanced.
+final Provider<Future<void> Function()> clearWidgetDataProvider =
+    Provider<Future<void> Function()>((Ref ref) => _clearHomeWidgetData);
+
 /// Owns the login → device-token → signed-in flow and logout revocation.
 class AuthController extends Notifier<AuthState> {
   String? _pendingEmail;
@@ -539,15 +547,34 @@ class AuthController extends Notifier<AuthState> {
     _pendingMagicToken = null;
     _pendingSocial = null;
     _socialAttempt++;
-    state = const AuthState();
     // R2.4: no signed-in incident may linger on the home widget, and no
     // cached monitors/incidents may survive for the next account.
-    await clearWidgetData();
+    //
+    // The wipe is *started* before signed-out is published, never awaited
+    // first: clearAll() advances the session epoch synchronously, so the
+    // moment anything can observe the new state (the router redirecting to
+    // /login, the user starting a fresh sign-in) every response still in
+    // flight from the old session is already fenced. Awaiting it before the
+    // state change would leave a window in which a new sign-in runs under the
+    // previous session's epoch.
+    //
+    // Error handling is attached immediately, and the future is awaited
+    // separately below so a slow — or failing — widget clear cannot skip the
+    // cache cleanup.
+    final Future<void> cacheWipe = ref
+        .read(cacheRepositoryProvider)
+        .clearAll()
+        .catchError((Object _) {
+          // Cache wipe is hygiene, not correctness of sign-out.
+        });
+    state = const AuthState();
     try {
-      await ref.read(cacheRepositoryProvider).clearAll();
+      await ref.read(clearWidgetDataProvider)();
     } catch (_) {
-      // Cache wipe is hygiene, not correctness of sign-out.
+      // Widget clearing is hygiene, not correctness of sign-out, and must not
+      // skip the cache cleanup awaited below.
     }
+    await cacheWipe;
     await clearSessionNotifications();
   }
 
@@ -560,7 +587,7 @@ class AuthController extends Notifier<AuthState> {
     }
     ref.read(authTokenHolderProvider).token = null;
     unawaited(ref.read(tokenStoreProvider).clear());
-    unawaited(clearWidgetData());
+    unawaited(ref.read(clearWidgetDataProvider)());
     unawaited(ref.read(cacheRepositoryProvider).clearAll().catchError((_) {}));
     unawaited(clearSessionNotifications());
     state = state.copyWith(

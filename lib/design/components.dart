@@ -14,33 +14,55 @@ class UptrackButton extends StatelessWidget {
     this.busy = false,
     this.kind = UptrackButtonKind.primary,
     this.icon,
+    this.semanticLabel,
   });
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
   final UptrackButtonKind kind;
   final IconData? icon;
+
+  /// Optional incident-specific label announced instead of [label].
+  ///
+  /// Applied to the label text *inside* the native button, so the announcement
+  /// lands on the actionable node itself (role, tap and enabled state
+  /// included) rather than on a wrapper that only repeats the label.
+  final String? semanticLabel;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (busy) ...[
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-        ] else if (icon != null) ...[
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-        ],
-        Flexible(child: Text(label, textAlign: TextAlign.center)),
-      ],
-    );
     final callback = busy ? null : onPressed;
+    // The busy announcement lives *inside* the native button, so it is carried
+    // by the actionable node itself — together with its label, button flag and
+    // tap action. A wrapper outside the button would be announced on its own,
+    // without any of them.
+    final Widget content = Semantics(
+      liveRegion: busy,
+      value: busy ? 'In progress' : null,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (busy) ...[
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+          ] else if (icon != null) ...[
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(
+              label,
+              semanticsLabel: semanticLabel,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
     final button = switch (kind) {
       UptrackButtonKind.secondary => OutlinedButton(
         onPressed: callback,
@@ -63,11 +85,7 @@ class UptrackButton extends StatelessWidget {
         child: content,
       ),
     };
-    return Semantics(
-      liveRegion: busy,
-      value: busy ? 'In progress' : null,
-      child: button,
-    );
+    return button;
   }
 }
 
@@ -401,6 +419,11 @@ class UptrackDataRow extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Semantics(
+    // A row is one focusable target, so it needs its own node: without a
+    // container here the row's label merges into whatever ancestor node exists
+    // (the section heading on the dashboard, for instance) and a screen reader
+    // announces the heading again on every row instead of one linkable row.
+    container: true,
     label: semanticLabel,
     excludeSemantics: semanticLabel != null,
     button: onTap != null,

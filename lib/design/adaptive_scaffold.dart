@@ -21,26 +21,34 @@ class UptrackAdaptiveScaffold extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
+      // Same 150% threshold the rail uses to stop extending: past it, four
+      // always-visible bar labels do not fit the width, so only the selected
+      // one is drawn. Semantics labels and tooltips are unaffected, so each
+      // destination is still announced by name and still discoverable by
+      // long-press.
+      final largeText = MediaQuery.textScalerOf(context).scale(14) > 21;
       if (constraints.maxWidth < 600 || constraints.maxHeight < 480) {
         return Scaffold(
           body: child,
           bottomNavigationBar: NavigationBar(
             selectedIndex: selectedIndex,
             onDestinationSelected: onDestinationSelected,
+            labelBehavior: largeText
+                ? NavigationDestinationLabelBehavior.onlyShowSelected
+                : NavigationDestinationLabelBehavior.alwaysShow,
             destinations: [
               for (var i = 0; i < labels.length; i++)
                 NavigationDestination(
                   key: ValueKey('destination-$i'),
                   icon: Icon(icons[i]),
                   label: labels[i],
+                  tooltip: labels[i],
                 ),
             ],
           ),
         );
       }
-      final extended =
-          constraints.maxWidth >= 840 &&
-          MediaQuery.textScalerOf(context).scale(14) <= 21;
+      final extended = constraints.maxWidth >= 840 && !largeText;
       return Scaffold(
         body: SafeArea(
           child: Row(
