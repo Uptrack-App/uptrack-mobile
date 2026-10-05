@@ -6,6 +6,7 @@ import 'package:uptrack_mobile/api/models/check.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/api/models/monitor.dart';
 import 'package:uptrack_mobile/api/models/monitor_analytics.dart';
+import 'package:uptrack_mobile/api/uptrack_api.dart';
 import 'package:uptrack_mobile/theme/app_theme.dart';
 import 'package:uptrack_mobile/features/dashboard/dashboard_controller.dart';
 import 'package:uptrack_mobile/features/dashboard/dashboard_screen.dart';
@@ -33,26 +34,50 @@ Monitor _monitor(String id, String name, {String status = 'up'}) => Monitor(
   uptimePercentage: 99.9,
 );
 
-Incident _incident(String id, String monitorName, {String status = 'open'}) =>
-    Incident(
-      id: id,
-      monitorId: 'monitor-$id',
-      status: status,
-      insertedAt: '2026-09-26T00:00:00Z',
-      monitorName: monitorName,
-      startedAt: '2026-09-26T00:00:00Z',
-    );
+Incident _incident(
+  String id,
+  String monitorName, {
+  String status = 'open',
+  String? startedAt = '2026-09-26T00:00:00Z',
+  String? acknowledgedAt,
+  String? resolvedAt,
+}) => Incident(
+  id: id,
+  monitorId: 'monitor-$id',
+  status: status,
+  insertedAt: '2026-09-26T00:00:00Z',
+  monitorName: monitorName,
+  startedAt: startedAt,
+  acknowledgedAt: acknowledgedAt,
+  resolvedAt: resolvedAt,
+);
 
 class _DashboardRepo implements DashboardRepository {
   @override
   Future<DashboardData> load() async => DashboardData(
     totalMonitors: 3,
+    loadedMonitors: 3,
+    totalMonitorsKnown: true,
     countsByStatus: const <String, int>{'up': 2, 'down': 1},
     averageUptime: 99.9,
-    recentIncidents: <Incident>[
-      _incident('i1', 'Homepage'),
-      _incident('i2', 'API'),
-    ],
+    // Two incidents still waiting on somebody (one older than the other), one
+    // acknowledged-but-open and one resolved, so the golden shows the real
+    // response-first section order.
+    incidents: partitionIncidents(<Incident>[
+      _incident('i1', 'Homepage', startedAt: '2026-09-26T00:00:00Z'),
+      _incident(
+        'i2',
+        'API',
+        status: 'resolved',
+        resolvedAt: '2026-09-26T02:00:00Z',
+      ),
+      _incident(
+        'i3',
+        'Checkout service',
+        acknowledgedAt: '2026-09-26T01:00:00Z',
+      ),
+      _incident('i4', 'Webhooks', startedAt: '2026-09-25T00:00:00Z'),
+    ]),
     offline: false,
   );
 }
@@ -122,6 +147,14 @@ class _IncidentDetailRepo implements IncidentDetailRepository {
 
   @override
   Future<IncidentDetailData> acknowledge(String id) => load(id);
+
+  @override
+  Future<EscalateResult> escalate(String id) async =>
+      const EscalateResult(escalated: true, stepsFired: 2);
+
+  @override
+  Future<SnoozeResult> snooze(String monitorId) async =>
+      const SnoozeResult(snoozedUntil: '2026-09-26T01:00:00Z');
 }
 
 Future<void> _pumpGolden(

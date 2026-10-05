@@ -1,3 +1,5 @@
+import 'push_channels.dart';
+
 /// A push alert parsed from a native payload.
 ///
 /// Pure data: parsing and deep-link routing are unit-testable without any
@@ -95,4 +97,67 @@ class PushMessage {
 
   /// P1/P2 alerts interrupt; anything else (or unknown) shows quietly.
   bool get isHighPriority => severity == 'p1' || severity == 'p2';
+
+  /// Notification channel this alert renders on (R3), from the shared
+  /// deterministic severity mapping — the same function the Kotlin receiver
+  /// uses, so a foreground re-display and a background render never disagree
+  /// about which channel an alert belongs on.
+  String get severityChannelId => PushSeverityChannels.idFor(severity);
+
+  /// Full channel definition for this alert.
+  PushChannelSpec get severityChannel => PushSeverityChannels.specFor(severity);
+
+  /// The entity this alert is about, or null when the payload names neither
+  /// (an alert with no target can be shown but nothing can be triaged).
+  ///
+  /// Incident wins over monitor, matching [routeLocation]. The id is
+  /// sanitized: a payload id that is not a plain server id yields null rather
+  /// than something that could be turned into an intent pointing elsewhere.
+  PushTarget? get target {
+    final String? incident = PushIntentIdentity.sanitizeId(incidentId);
+    if (incident != null) {
+      return PushTarget(kind: PushTargetKind.incident, id: incident);
+    }
+    final String? monitor = PushIntentIdentity.sanitizeId(monitorId);
+    if (monitor != null) {
+      return PushTarget(kind: PushTargetKind.monitor, id: monitor);
+    }
+    return null;
+  }
+
+  /// Deep-link route for [target]; null when there is no usable target.
+  String? get targetRoute {
+    final PushTarget? target = this.target;
+    if (target == null) {
+      return null;
+    }
+    return target.kind == PushTargetKind.incident
+        ? '/incidents/${target.id}'
+        : '/monitors/${target.id}';
+  }
+}
+
+/// The sanitized entity a notification (or an action on it) targets.
+///
+/// Immutable by construction: the id has already passed
+/// [PushIntentIdentity.sanitizeId], so it is always safe to put in an intent
+/// data URI or a `PendingIntent` extra.
+class PushTarget {
+  const PushTarget({required this.kind, required this.id});
+
+  final PushTargetKind kind;
+
+  /// Sanitized server id (`[A-Za-z0-9._-]`, at most
+  /// [PushIntentIdentity.maxIdLength] chars).
+  final String id;
+
+  @override
+  bool operator ==(Object other) =>
+      other is PushTarget && other.kind == kind && other.id == id;
+
+  @override
+  int get hashCode => Object.hash(kind, id);
+
+  @override
+  String toString() => 'PushTarget(${kind.wire}/$id)';
 }

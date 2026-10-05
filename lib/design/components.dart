@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import '../theme/status_colors.dart';
 import '../theme/tokens.dart';
+import '../util/date_format.dart';
 
 enum UptrackButtonKind { primary, secondary, quiet, destructive }
 
@@ -14,33 +15,55 @@ class UptrackButton extends StatelessWidget {
     this.busy = false,
     this.kind = UptrackButtonKind.primary,
     this.icon,
+    this.semanticLabel,
   });
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
   final UptrackButtonKind kind;
   final IconData? icon;
+
+  /// Optional incident-specific label announced instead of [label].
+  ///
+  /// Applied to the label text *inside* the native button, so the announcement
+  /// lands on the actionable node itself (role, tap and enabled state
+  /// included) rather than on a wrapper that only repeats the label.
+  final String? semanticLabel;
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final content = Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        if (busy) ...[
-          const SizedBox(
-            width: 18,
-            height: 18,
-            child: CircularProgressIndicator(strokeWidth: 2),
-          ),
-          const SizedBox(width: 8),
-        ] else if (icon != null) ...[
-          Icon(icon, size: 20),
-          const SizedBox(width: 8),
-        ],
-        Flexible(child: Text(label, textAlign: TextAlign.center)),
-      ],
-    );
     final callback = busy ? null : onPressed;
+    // The busy announcement lives *inside* the native button, so it is carried
+    // by the actionable node itself — together with its label, button flag and
+    // tap action. A wrapper outside the button would be announced on its own,
+    // without any of them.
+    final Widget content = Semantics(
+      liveRegion: busy,
+      value: busy ? 'In progress' : null,
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (busy) ...[
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
+            const SizedBox(width: 8),
+          ] else if (icon != null) ...[
+            Icon(icon, size: 20),
+            const SizedBox(width: 8),
+          ],
+          Flexible(
+            child: Text(
+              label,
+              semanticsLabel: semanticLabel,
+              textAlign: TextAlign.center,
+            ),
+          ),
+        ],
+      ),
+    );
     final button = switch (kind) {
       UptrackButtonKind.secondary => OutlinedButton(
         onPressed: callback,
@@ -63,11 +86,7 @@ class UptrackButton extends StatelessWidget {
         child: content,
       ),
     };
-    return Semantics(
-      liveRegion: busy,
-      value: busy ? 'In progress' : null,
-      child: button,
-    );
+    return button;
   }
 }
 
@@ -245,6 +264,66 @@ class UptrackNotice extends StatelessWidget {
   }
 }
 
+/// Quiet secondary text naming when a snapshot was actually last synced (R4).
+///
+/// Two rules it exists to enforce:
+///
+/// * the timestamp is the *stored* sync time of the write that produced the
+///   data, never the moment a cached row was read back, so a fallback read
+///   cannot make stale content look freshly synced;
+/// * an unknown time is stated ("Last sync time unavailable.") rather than
+///   silently omitted, so an absent timestamp is not mistaken for a fresh one.
+///
+/// [prefix] distinguishes two snapshots on one screen (an incident's summary
+/// and its updates), and both are rendered with the same styling so neither
+/// reads as more authoritative than the other. Not a live region: an unchanged
+/// timestamp must not be re-announced on every rebuild — transitions and errors
+/// go through [UptrackNotice], which is where the live-region semantics live.
+class UptrackSyncStamp extends StatelessWidget {
+  const UptrackSyncStamp({
+    super.key,
+    required this.syncedAt,
+    this.prefix = 'Last synced',
+  });
+
+  /// The stored sync instant of the snapshot being described, or null when
+  /// nothing has ever synced.
+  final DateTime? syncedAt;
+
+  /// Noun phrase this timestamp describes, e.g. `Updates last synced`.
+  final String prefix;
+
+  /// Copy used when no sync time is known. A missing timestamp is a fact worth
+  /// stating: it is the difference between "we know this is an hour old" and
+  /// "we do not know how old this is".
+  static const String unknownMessage = 'Last sync time unavailable.';
+
+  String get message =>
+      syncedAt == null ? unknownMessage : '$prefix ${formatInstant(syncedAt!)}';
+
+  @override
+  Widget build(BuildContext context) {
+    final ThemeData theme = Theme.of(context);
+    return Semantics(
+      // Reads as one sentence, and stays out of the live region so an
+      // unchanged stamp is not announced on every rebuild.
+      label: message,
+      excludeSemantics: true,
+      child: Text(
+        message,
+        style: theme.textTheme.bodySmall?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+        // Wraps onto as many lines as the width needs: no single-line
+        // truncation, so the timestamp stays readable at 200% text.
+        softWrap: true,
+        maxLines: null,
+        overflow: TextOverflow.visible,
+      ),
+    );
+  }
+}
+
 class UptrackStateView extends StatelessWidget {
   const UptrackStateView({
     super.key,
@@ -401,6 +480,11 @@ class UptrackDataRow extends StatelessWidget {
   final VoidCallback? onTap;
   @override
   Widget build(BuildContext context) => Semantics(
+    // A row is one focusable target, so it needs its own node: without a
+    // container here the row's label merges into whatever ancestor node exists
+    // (the section heading on the dashboard, for instance) and a screen reader
+    // announces the heading again on every row instead of one linkable row.
+    container: true,
     label: semanticLabel,
     excludeSemantics: semanticLabel != null,
     button: onTap != null,

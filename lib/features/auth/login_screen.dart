@@ -26,6 +26,11 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
   final TextEditingController _magicToken = TextEditingController();
   String? _linkError;
 
+  /// Address the last magic link was requested for. Captured when the request
+  /// is issued rather than read from [_email], so the sent confirmation names
+  /// the actual recipient after the field is edited again.
+  String? _sentToEmail;
+
   @override
   void initState() {
     super.initState();
@@ -228,9 +233,13 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                                 isLoading: auth.isLoading,
                                 errorMessage: _linkError ?? auth.errorMessage,
                                 magicLinkSent: auth.magicLinkSent,
+                                sentToEmail: _sentToEmail,
                                 onRequest: () {
                                   if (validateEmail(_email.text) == null) {
-                                    setState(() => _linkError = null);
+                                    setState(() {
+                                      _linkError = null;
+                                      _sentToEmail = _email.text.trim();
+                                    });
                                     controller.requestMagicLink(_email.text);
                                   } else {
                                     _formKey.currentState!.validate();
@@ -326,13 +335,19 @@ class _ErrorText extends StatelessWidget {
 
   final String message;
 
+  /// Live region: a failed request is announced as soon as it appears,
+  /// instead of waiting for a screen-reader swipe back to the top of the card.
   @override
   Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 12),
-      child: Text(
-        message,
-        style: TextStyle(color: Theme.of(context).colorScheme.error),
+    return Semantics(
+      container: true,
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Text(
+          message,
+          style: TextStyle(color: Theme.of(context).colorScheme.error),
+        ),
       ),
     );
   }
@@ -380,6 +395,28 @@ class _TwoFactorForm extends StatelessWidget {
   }
 }
 
+/// Sent confirmation for the magic link. Lives in a live region so the
+/// recipient is announced without the user hunting for the new block.
+class _SentNotice extends StatelessWidget {
+  const _SentNotice({required this.recipient});
+
+  final String? recipient;
+  static const String _body =
+      'Check your email and open the link, then tap Open Uptrack to finish '
+      'signing in. You can also paste the link below.';
+
+  @override
+  Widget build(BuildContext context) => Semantics(
+    container: true,
+    liveRegion: true,
+    child: Text(
+      recipient == null || recipient!.isEmpty
+          ? _body
+          : 'Sent to $recipient. $_body',
+    ),
+  );
+}
+
 class _MagicLinkForm extends StatelessWidget {
   const _MagicLinkForm({
     required this.email,
@@ -387,6 +424,7 @@ class _MagicLinkForm extends StatelessWidget {
     required this.isLoading,
     required this.errorMessage,
     required this.magicLinkSent,
+    required this.sentToEmail,
     required this.onRequest,
     required this.onVerify,
   });
@@ -396,6 +434,10 @@ class _MagicLinkForm extends StatelessWidget {
   final bool isLoading;
   final String? errorMessage;
   final bool magicLinkSent;
+
+  /// Recipient of the confirmed request, or null when this screen did not
+  /// issue the request that is being confirmed.
+  final String? sentToEmail;
   final VoidCallback onRequest;
   final VoidCallback onVerify;
 
@@ -412,20 +454,30 @@ class _MagicLinkForm extends StatelessWidget {
             prefixIcon: Icon(Icons.mail_outline, size: 20),
           ),
           keyboardType: TextInputType.emailAddress,
+          textInputAction: TextInputAction.send,
+          // An address must not be autocorrected or completed from the
+          // keyboard dictionary — a silently changed address breaks sign-in.
+          autocorrect: false,
+          enableSuggestions: false,
           autofillHints: const <String>[AutofillHints.email],
           validator: validateEmail,
+          onFieldSubmitted: (_) {
+            if (!isLoading) onRequest();
+          },
         ),
         const SizedBox(height: 12),
+        // One primary action, relabelled once a link is out: resending is the
+        // same request, so it keeps the original target and busy semantics.
         UptrackButton(
-          label: 'Email me a sign-in link',
+          label: magicLinkSent
+              ? 'Resend sign-in link'
+              : 'Email me a sign-in link',
           onPressed: onRequest,
           busy: isLoading,
         ),
         if (magicLinkSent) ...<Widget>[
           const SizedBox(height: 8),
-          const Text(
-            'Check your email and open the link, then tap Open Uptrack to finish signing in. You can also paste the link below.',
-          ),
+          _SentNotice(recipient: sentToEmail),
           const SizedBox(height: 12),
           TextFormField(
             controller: magicToken,
