@@ -23,4 +23,4 @@ DATA SAFETY SUMMARY
 - Required-reason APIs: file timestamps and system boot time via the Flutter engine only (mirrors the engine's own privacy manifest; reasons 0A2A.1, C617.1, 35F9.1). No UserDefaults/file-timestamp/disk-space/boot-time access in app code. The PostHog SDK ships its own manifest (UserDefaults CA92.1, analytics data types).
 
 BILLING
-- No in-app purchases anywhere in the binary (no StoreKit IAP code). Native checkout and external purchase links are disabled; the mobile billing approach remains undecided.
+- No in-app purchases anywhere in the binary (no StoreKit IAP code). Native checkout and external purchase links are disabled. The browser-checkout return screen is unreachable: a link to /billing/return opens the home screen. Settings shows the current plan, read-only. Decision D6 (2026-10-06): the external link stays off.

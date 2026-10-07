@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 
+import 'api/models/billing_subscription.dart' show kBillingExternalLinkEnabled;
 import 'obs/observability.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
@@ -22,17 +23,29 @@ import 'push/push_providers.dart';
 import 'theme/app_theme.dart';
 import 'design/adaptive_scaffold.dart';
 
+/// [checkoutReturnEnabled] keeps the browser-checkout return screen
+/// (`/billing/return`) off unless the billing link is on (D6 in
+/// `uptrack-spec/docs/mobile/ios-release-plan.md`). With it off, a link such as
+/// `uptrack://app/billing/return?plan=pro` lands on the home screen, so the app
+/// shows no purchase flow that the store listing does not describe.
 GoRouter createRouter({
   AuthStatus Function()? authStatusOf,
   String initialLocation = '/',
   List<NavigatorObserver>? observers,
   Listenable? refreshListenable,
+  bool checkoutReturnEnabled = kBillingExternalLinkEnabled,
 }) {
+  String? checkoutReturnOf(Uri? uri) =>
+      checkoutReturnEnabled ? checkoutReturnLocation(uri) : null;
+
   return GoRouter(
     initialLocation: initialLocation,
     observers: observers,
     refreshListenable: refreshListenable,
     redirect: (BuildContext context, GoRouterState state) {
+      if (!checkoutReturnEnabled && state.matchedLocation == '/billing/return') {
+        return '/';
+      }
       if (state.matchedLocation == '/demo' && !isAndroidDemoAvailable) {
         return '/login';
       }
@@ -47,7 +60,7 @@ GoRouter createRouter({
         return null;
       }
       if (status != AuthStatus.signedIn && !loggingIn) {
-        final String? checkoutReturn = checkoutReturnLocation(state.uri);
+        final String? checkoutReturn = checkoutReturnOf(state.uri);
         return checkoutReturn == null
             ? '/login'
             : Uri(
@@ -56,7 +69,7 @@ GoRouter createRouter({
               ).toString();
       }
       if (status == AuthStatus.signedIn && loggingIn) {
-        return checkoutReturnLocation(
+        return checkoutReturnOf(
               Uri.tryParse(state.uri.queryParameters['next'] ?? '/'),
             ) ??
             '/';
@@ -86,7 +99,7 @@ GoRouter createRouter({
         name: 'login',
         builder: (BuildContext context, GoRouterState state) => LoginScreen(
           returnLocation:
-              checkoutReturnLocation(
+              checkoutReturnOf(
                 Uri.tryParse(state.uri.queryParameters['next'] ?? '/'),
               ) ??
               '/',
@@ -185,6 +198,12 @@ GoRouter createRouter({
   );
 }
 
+/// Whether the browser-checkout return screen may open. Off while the billing
+/// link is off (D6); a provider so tests can turn it on.
+final Provider<bool> checkoutReturnEnabledProvider = Provider<bool>(
+  (Ref ref) => kBillingExternalLinkEnabled,
+);
+
 final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
   // Keep the same router through restore/login. Recreating it loses a cold
   // checkout return before the stored device token has finished restoring.
@@ -196,6 +215,7 @@ final Provider<GoRouter> routerProvider = Provider<GoRouter>((Ref ref) {
     if (previous?.status != next.status) refresh.value += 1;
   });
   final GoRouter router = createRouter(
+    checkoutReturnEnabled: ref.read(checkoutReturnEnabledProvider),
     authStatusOf: () => ref.read(authControllerProvider).status,
     refreshListenable: refresh,
     observers: buildAppObservers(),
