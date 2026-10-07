@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -269,6 +270,40 @@ void main() {
         false,
       );
       expect(await store.readDeviceToken(), isNull);
+    });
+  });
+
+  // App Store Guideline 4.8: Google/GitHub login on iOS also needs a
+  // privacy-focused login such as Sign in with Apple. Until that exists, iOS
+  // offers email only.
+  group('social providers by platform', () {
+    Future<(Set<String>, int)> providersOn(TargetPlatform platform) async {
+      debugDefaultTargetPlatformOverride = platform;
+      addTearDown(() => debugDefaultTargetPlatformOverride = null);
+      final adapter = FakeAdapter(
+        (options) async => jsonResponse(<String, Object?>{
+          'providers': <String, Object?>{'google': true, 'github': true},
+        }),
+      );
+      final dio = Dio(BaseOptions(baseUrl: 'https://api.uptrack.app'))
+        ..httpClientAdapter = adapter;
+      final container = ProviderContainer(
+        overrides: [uptrackApiProvider.overrideWithValue(UptrackApi(dio: dio))],
+      );
+      addTearDown(container.dispose);
+      final providers = await container.read(socialProvidersProvider.future);
+      return (providers, adapter.seen.length);
+    }
+
+    test('iOS offers no social login and does not ask the server', () async {
+      final (providers, requests) = await providersOn(TargetPlatform.iOS);
+      expect(providers, isEmpty);
+      expect(requests, 0);
+    });
+
+    test('Android keeps the configured providers', () async {
+      final (providers, _) = await providersOn(TargetPlatform.android);
+      expect(providers, <String>{'google', 'github'});
     });
   });
 

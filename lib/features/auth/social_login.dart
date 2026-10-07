@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:math';
 
 import 'package:crypto/crypto.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -9,8 +10,15 @@ import 'auth_controller.dart';
 
 const socialCallbackScheme = 'app.uptrack.mobile.auth';
 
+/// iOS offers email sign-in only. App Store Guideline 4.8 requires an
+/// equivalent privacy-focused login (such as Sign in with Apple) next to
+/// Google/GitHub, and the app has none yet.
+bool get isSocialLoginAvailable => defaultTargetPlatform != TargetPlatform.iOS;
+
 final socialProvidersProvider = FutureProvider<Set<String>>(
-  (ref) => ref.watch(uptrackApiProvider).getAuthProviders(),
+  (ref) async => isSocialLoginAvailable
+      ? ref.watch(uptrackApiProvider).getAuthProviders()
+      : const <String>{},
 );
 
 class SocialLoginCancelled implements Exception {}
