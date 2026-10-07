@@ -24,6 +24,12 @@ typedef LiveActivityTokenRegistration = Future<void> Function(
   LiveActivityRegisterRequest request,
 );
 
+/// Removes an ended activity's token from the backend
+/// (`DELETE /api/push/live-activities`).
+typedef LiveActivityTokenRemoval = Future<void> Function(
+  LiveActivityRemoveRequest request,
+);
+
 /// Deep-link navigation for a notification tap, e.g. `router.go`.
 typedef PushNavigation = void Function(String location);
 
@@ -296,6 +302,7 @@ class PushService {
     this.actionHandler,
     this.onForegroundData,
     this.registerLiveActivity,
+    this.unregisterLiveActivity,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
@@ -317,6 +324,14 @@ class PushService {
   /// Null when unwired — `onLiveActivityToken` arrivals are then parked
   /// (push-to-start) or dropped, never crash.
   final LiveActivityTokenRegistration? registerLiveActivity;
+
+  /// Removes an ended activity's token (`onLiveActivityEnded`). Null when
+  /// unwired; the server prunes resolved incidents' rows anyway.
+  final LiveActivityTokenRemoval? unregisterLiveActivity;
+
+  /// `token|incident` pairs the server accepted, so a token that arrives
+  /// twice (start-up pull plus the live event) is posted once.
+  final Set<String> _registeredLiveActivityTokens = <String>{};
 
   /// FCM data-message handler (T056, Android): when present, foreground
   /// messages delegate here (widget refresh + local display) instead of the
@@ -352,6 +367,30 @@ class PushService {
       _navigateFor(initial);
     }
     await registerCurrentToken();
+    await _drainLiveActivityTokens();
+  }
+
+  /// Registers the Live Activity tokens the native host saw before
+  /// [_handleMethodCall] was set. Best-effort.
+  Future<void> _drainLiveActivityTokens() async {
+    final Object? raw;
+    try {
+      raw = await _tokenChannel.invokeMethod<Object?>(
+        PushTokenMethods.getLiveActivityTokens,
+      );
+    } on MissingPluginException {
+      return;
+    } on PlatformException {
+      return;
+    }
+    if (raw is! List) {
+      return;
+    }
+    for (final Object? entry in raw) {
+      if (entry is Map<Object?, Object?>) {
+        await _handleLiveActivityToken(entry);
+      }
+    }
   }
 
   /// Asks the native host for its current push token and registers it.
@@ -412,6 +451,8 @@ class PushService {
         }
       case PushEventMethods.onLiveActivityToken:
         await _handleLiveActivityToken(map);
+      case PushEventMethods.onLiveActivityEnded:
+        await _handleLiveActivityEnded(map);
       case PushEventMethods.onNotificationAction:
         final PushActionRequest? request = PushActionRequest.fromMap(map);
         if (request == null) {
@@ -511,14 +552,46 @@ class PushService {
 
   /// Best-effort server registration: provider-side pruning covers missed
   /// tokens, so failures (offline, 404 unknown incident, 422 resolved)
-  /// never surface to the platform channel.
+  /// never surface to the platform channel. A pair the server already
+  /// accepted is not posted again; a failed one is retried on the next
+  /// delivery.
   Future<void> _registerLiveActivity(
     LiveActivityRegisterRequest request,
   ) async {
+    final LiveActivityTokenRegistration? register = registerLiveActivity;
+    if (register == null) {
+      return;
+    }
+    final String key = '${request.token}|${request.incidentId}';
+    if (_registeredLiveActivityTokens.contains(key)) {
+      return;
+    }
     try {
-      await registerLiveActivity?.call(request);
+      await register(request);
+      _registeredLiveActivityTokens.add(key);
     } catch (_) {
       // Best-effort only.
+    }
+  }
+
+  /// Handles one native `onLiveActivityEnded` call (`{token?,
+  /// incident_id?}`): removes the ended activity's token from the server.
+  /// Never throws.
+  Future<void> _handleLiveActivityEnded(Map<Object?, Object?>? map) async {
+    final Object? rawToken = map?['token'];
+    if (rawToken is! String || rawToken.trim().isEmpty) {
+      return;
+    }
+    _registeredLiveActivityTokens.removeWhere(
+      (String key) => key.startsWith('$rawToken|'),
+    );
+    final LiveActivityRemoveRequest request = LiveActivityRemoveRequest(
+      token: rawToken,
+    );
+    try {
+      await unregisterLiveActivity?.call(request);
+    } catch (_) {
+      // Best-effort: the server prunes rows of resolved incidents.
     }
   }
 

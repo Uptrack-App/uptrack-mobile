@@ -52,6 +52,11 @@ abstract final class PushEventMethods {
   /// exists); Dart registers immediately when scoped, otherwise parks the
   /// token until the next incident push arrives.
   static const String onLiveActivityToken = 'onLiveActivityToken';
+
+  /// An incident Live Activity ended or was dismissed on the device:
+  /// `{token?, incident_id?}`. Dart removes the activity's update token from
+  /// the server (`DELETE /api/push/live-activities`).
+  static const String onLiveActivityEnded = 'onLiveActivityEnded';
 }
 
 /// Method names on [PushChannels.token] (Dart → native).
@@ -63,6 +68,12 @@ abstract final class PushTokenMethods {
   /// Notification that cold-started the app (`{incident_id?, monitor_id?}`),
   /// or null for a normal launch.
   static const String getInitialNotification = 'getInitialNotification';
+
+  /// Live Activity tokens the native host already holds, as a list of
+  /// `onLiveActivityToken` payloads. Pulled once at start-up, because tokens
+  /// that ActivityKit reports before Dart sets its handler are otherwise
+  /// lost.
+  static const String getLiveActivityTokens = 'getLiveActivityTokens';
 }
 
 /// Android notification **channel** ids (R3).
