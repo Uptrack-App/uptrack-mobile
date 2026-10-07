@@ -50,6 +50,15 @@
                 <data android:scheme="uptrack" android:host="auth" android:path="/magic" />
             </intent-filter>
         </activity>
+        <!-- Lock-screen action buttons. Not exported, no intent filter: only
+             this app's immutable PendingIntents can start it, so no other
+             app can make Uptrack acknowledge, escalate or snooze. -->
+        <activity android:name=".UptrackActionActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".AuthBrowserActivity" android:exported="true"
             android:launchMode="singleTask" android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar"

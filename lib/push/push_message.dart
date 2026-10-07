@@ -104,16 +104,10 @@ class PushMessage {
   );
 
   /// Deep-link target for a notification tap: incident detail wins over
-  /// monitor detail; null when the payload names neither.
-  String? get routeLocation {
-    if (incidentId != null) {
-      return '/incidents/$incidentId';
-    }
-    if (monitorId != null) {
-      return '/monitors/$monitorId';
-    }
-    return null;
-  }
+  /// monitor detail; null when the payload names neither usable id. A tap
+  /// payload can be forged (Android launcher intents are public), so only a
+  /// sanitized server id ever becomes part of a route.
+  String? get routeLocation => targetRoute;
 
   /// Stable Android notification id so repeat alerts for one incident
   /// collapse onto a single notification (server collapse key when present).

@@ -204,8 +204,11 @@ object UptrackNotificationIntents {
     }
 
     /**
-     * Action PendingIntent: explicit component, per-action action, per
-     * action+target data URI, and `uptrack_*` extras only.
+     * Action PendingIntent: explicit component ([UptrackActionActivity], not
+     * exported), `FLAG_IMMUTABLE`, per-action action, per action+target data
+     * URI, and `uptrack_*` extras only. Only this app can create it, so only
+     * this app can start a triage action; the exported [MainActivity] never
+     * reads an action from its intent.
      *
      * Deliberately carries **no** `incident_id`/`monitor_id` and no
      * `CATEGORY_LAUNCHER`, so no current consumer can mistake it for a body tap;
@@ -221,7 +224,9 @@ object UptrackNotificationIntents {
         val intentAction = intentActionFor(action) ?: return null
         val safeTarget = sanitizeId(targetId) ?: return null
         val data = actionData(action, kind, safeTarget) ?: return null
-        val intent = Intent(context, MainActivity::class.java).apply {
+        // Never MainActivity: it is exported, so an action it accepted from an
+        // intent could be forged by any app. The trampoline is not exported.
+        val intent = Intent(context, UptrackActionActivity::class.java).apply {
             // `this.` is required and load-bearing: the `action` parameter and
             // the local `data` both shadow the Intent properties, so unqualified
             // assignments would target the vals. The `putExtra` reads below

@@ -27,13 +27,15 @@ class MainActivity : FlutterActivity() {
         // If it does not exist yet, Android files the alert under FCM's
         // generic fallback channel, which the user never configured.
         UptrackNotificationChannels.ensureAll(this)
-        pendingTap = tapPayload(intent)
+        // An action comes only from the non-exported trampoline, in memory;
+        // this activity is exported, so its intent is never read as an action.
+        pendingTap = PushActionInbox.take() ?: tapPayload(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val payload = tapPayload(intent) ?: return
+        val payload = PushActionInbox.take() ?: tapPayload(intent) ?: return
         if (!flushTap(payload)) {
             pendingTap = payload
         }
@@ -94,40 +96,19 @@ class MainActivity : FlutterActivity() {
 
     private fun tapPayload(intent: Intent?): Map<String, String>? {
         if (intent == null) return null
-        actionPayload(intent)?.let { return it }
-        val incidentId = intent.getStringExtra(
-            UptrackDataMessageReceiver.EXTRA_INCIDENT_ID,
+        // Navigation only (any app can send this intent): sanitized ids, and
+        // never an action.
+        val incidentId = UptrackNotificationIntents.sanitizeId(
+            intent.getStringExtra(UptrackDataMessageReceiver.EXTRA_INCIDENT_ID),
         )
-        val monitorId = intent.getStringExtra(
-            UptrackDataMessageReceiver.EXTRA_MONITOR_ID,
+        val monitorId = UptrackNotificationIntents.sanitizeId(
+            intent.getStringExtra(UptrackDataMessageReceiver.EXTRA_MONITOR_ID),
         )
         if (incidentId.isNullOrEmpty() && monitorId.isNullOrEmpty()) return null
         val payload = mutableMapOf<String, String>()
         if (!incidentId.isNullOrEmpty()) payload["incident_id"] = incidentId
         if (!monitorId.isNullOrEmpty()) payload["monitor_id"] = monitorId
         return payload
-    }
-
-    /**
-     * Action button on a notification [UptrackDataMessageReceiver] rendered
-     * (plan 4.6): `{action, incident_id | monitor_id}` for Dart's
-     * `onNotificationAction`, or null when [intent] is not a well-formed
-     * action intent. The intent action must match the payload action, so a
-     * body tap can never be read as an action (and the other way round).
-     */
-    private fun actionPayload(intent: Intent): Map<String, String>? {
-        val action = intent.getStringExtra(UptrackNotificationIntents.EXTRA_ACTION)
-        if (action.isNullOrEmpty()) return null
-        if (UptrackNotificationIntents.intentActionFor(action) != intent.action) return null
-        val targetId = UptrackNotificationIntents.sanitizeId(
-            intent.getStringExtra(UptrackNotificationIntents.EXTRA_TARGET_ID),
-        ) ?: return null
-        val key = when (intent.getStringExtra(UptrackNotificationIntents.EXTRA_TARGET_KIND)) {
-            UptrackNotificationIntents.KIND_INCIDENT -> "incident_id"
-            UptrackNotificationIntents.KIND_MONITOR -> "monitor_id"
-            else -> return null
-        }
-        return mapOf("action" to action, key to targetId)
     }
 
     private fun flushTap(payload: Map<String, String>): Boolean {

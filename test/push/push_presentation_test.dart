@@ -331,6 +331,44 @@ void main() {
       expect(onCreate, contains('UptrackNotificationChannels.ensureAll(this)'));
     });
 
+    test('foreground pushes are drawn natively (safe action buttons)', () {
+      // In the foreground the native receiver draws the alert, so its action
+      // buttons use the non-exported trampoline; Dart only refreshes the
+      // widget (presented_by_os) and shows no plugin copy.
+      const String dir =
+          'android/app/src/main/kotlin/app/uptrack/uptrack_mobile/';
+      final String service = File('${dir}UptrackFirebaseMessagingService.kt')
+          .readAsStringSync();
+      final String fn = RegExp(
+        r'override fun onMessageReceived[\s\S]*?\n    \}',
+      ).firstMatch(service)!.group(0)!;
+      expect(fn, contains('payload["presented_by_os"] = "true"'));
+      final String foreground = fn.substring(
+        fn.indexOf('MainActivity.isForeground'),
+        fn.indexOf('sendBroadcast(forward)'),
+      );
+      expect(
+        foreground,
+        isNot(contains('return')),
+        reason: 'the foreground path must still draw the native alert',
+      );
+      expect(fn, contains('sendBroadcast(forward)'));
+      expect(
+        fn,
+        contains('UptrackDataMessageReceiver.EXTRA_INTERRUPTION_LEVEL'),
+      );
+      final String receiver = File('${dir}UptrackDataMessageReceiver.kt')
+          .readAsStringSync();
+      expect(
+        receiver,
+        matches(
+          RegExp(
+            r'EXTRA_INTERRUPTION_LEVEL\)\s*==\s*"passive"[\s\S]{0,80}setSilent\(true\)',
+          ),
+        ),
+      );
+    });
+
     test('Kotlin forwards NORMAL priority as passive', () {
       final String service = File(
         'android/app/src/main/kotlin/app/uptrack/uptrack_mobile/'

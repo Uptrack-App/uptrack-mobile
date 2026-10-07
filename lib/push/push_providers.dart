@@ -30,14 +30,12 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
   // Foreground path (T056): FCM data messages refresh the Glance/WidgetKit
   // home widget from the Drift cache best-effort, then display locally.
   // The refresher closure is lazy — no DB access until a push arrives.
-  // Buttons on a notification the Dart renderer showed (Android) run
-  // through the same action path as the native ones (plan 4.6).
-  late final PushService service;
+  // No `onAction` on purpose: the plugin reads its responses from intents
+  // sent to the exported launcher activity, which any app can forge. Triage
+  // actions come only from the native hosts (iOS system responses, Android's
+  // non-exported UptrackActionActivity), so the renderer offers no buttons.
   final FlutterLocalNotificationsNotifier notifier =
-      FlutterLocalNotificationsNotifier(
-        onAction: (PushActionRequest request) =>
-            unawaited(service.handleAction(request)),
-      );
+      FlutterLocalNotificationsNotifier();
   final FcmDataHandler fcmData = FcmDataHandler(
     notifier: notifier,
     refresher: WidgetRefresher.fromCache(
@@ -45,7 +43,7 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
       store: const HomeWidgetStore(),
     ),
   );
-  service = PushService(
+  return PushService(
     registerToken:
         ({
           required String platform,
@@ -76,7 +74,6 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
       return ref.read(authControllerProvider).status == AuthStatus.signedIn;
     },
   );
-  return service;
 });
 
 /// Retry waits for a lock-screen action that could not reach the server.

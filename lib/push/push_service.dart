@@ -121,7 +121,12 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
         // A `passive` push (user override or info) keeps its severity
         // channel but must not make a sound or vibrate (plan 4.5).
         silent: PushPresentation.silentOnAndroid(message.interruption),
-        actions: androidActionsFor(message),
+        // Buttons only with an owner for their taps. The app wires none: a
+        // plugin response arrives through the exported launcher activity and
+        // can be forged, so triage buttons are drawn natively instead.
+        actions: onAction == null
+            ? const <AndroidNotificationAction>[]
+            : androidActionsFor(message),
       ),
       iOS: darwinDetailsFor(message),
     );

@@ -236,36 +236,24 @@ void main() {
 
   tearDown(() => debugDefaultTargetPlatformOverride = previous);
 
-  group('Android: buttons on a notification the Dart renderer showed', () {
-    test('Acknowledge runs the API call (foreground)', () async {
+  group('Android: plugin notification responses are not trusted', () {
+    // flutter_local_notifications reads its responses from intents sent to
+    // the exported launcher activity (action SELECT_FOREGROUND_NOTIFICATION_
+    // ACTION + extras). Any app can send that intent, so a plugin response
+    // must never run a triage call. Android action buttons go through the
+    // non-exported UptrackActionActivity instead (push_action_origin_test).
+    test('a forged plugin action response runs no API call', () async {
       final _App app = _App();
       await app.start();
       await app.restore();
 
       await _pluginActionTap(PushIntentIdentity.acknowledge);
-      await pumpEventQueue();
-
-      expect(app.server.calls, <String>[
-        'POST /api/incidents/$_incident/acknowledge',
-      ]);
-      expect(app.router.gone, <String>['/incidents/$_incident']);
-    });
-
-    test('Escalate and Snooze run their API calls', () async {
-      final _App app = _App();
-      await app.start();
-      await app.restore();
-
       await _pluginActionTap(PushIntentIdentity.escalate);
       await _pluginActionTap(PushIntentIdentity.snooze);
       await pumpEventQueue();
 
-      expect(app.server.calls, <String>[
-        'POST /api/incidents/$_incident/escalate',
-        // Snooze is monitor-scoped: the monitor comes from the incident.
-        'GET /api/incidents/$_incident',
-        'POST /api/monitors/mon-1/snooze',
-      ]);
+      expect(app.server.calls, isEmpty);
+      expect(app.server.unauthorized, isEmpty);
     });
   });
 
@@ -487,9 +475,16 @@ void main() {
       );
     });
 
-    test('Android MainActivity forwards action intents to Dart', () {
-      expect(activity, contains('UptrackNotificationIntents.EXTRA_ACTION'));
+    test('Android hands trampoline actions to Dart as actions', () {
+      // Cold start: onCreate keeps it for getInitialNotification. Warm:
+      // onNewIntent sends onNotificationAction. The action never comes from
+      // MainActivity's own (exported) intent (push_action_origin_test).
+      expect(activity, contains('pendingTap = PushActionInbox.take()'));
       expect(activity, contains('"onNotificationAction"'));
+      expect(
+        activity,
+        contains('if (payload.containsKey("action")) METHOD_ACTION'),
+      );
     });
   });
 }
