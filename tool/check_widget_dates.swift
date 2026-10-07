@@ -47,6 +47,11 @@ struct CheckWidgetDates {
     expect(UptrackWidgetData.updatedLine(from: "", now: at(5)), nil, "unknown hides line")
     expect(UptrackWidgetData.updatedLine(from: "garbage", now: at(5)), nil, "garbage hides line")
 
+    // Empty state: "No ongoing incidents" only with Dart's all-clear mark.
+    expect(UptrackWidgetData.emptyText(feedState: "all_clear").detail, "No ongoing incidents", "all clear")
+    expect(UptrackWidgetData.emptyText(feedState: nil).detail, "Open Uptrack to see incidents", "no data")
+    expect(UptrackWidgetData.emptyText(feedState: "other").detail, "Open Uptrack to see incidents", "unknown mark")
+
     if failures == 0 { print("all widget date checks passed") } else { exit(1) }
   }
 }

@@ -43,7 +43,8 @@ GoRouter createRouter({
     observers: observers,
     refreshListenable: refreshListenable,
     redirect: (BuildContext context, GoRouterState state) {
-      if (!checkoutReturnEnabled && state.matchedLocation == '/billing/return') {
+      if (!checkoutReturnEnabled &&
+          state.matchedLocation == '/billing/return') {
         return '/';
       }
       if (state.matchedLocation == '/demo' && !isDemoAvailable) {
@@ -235,12 +236,44 @@ class UptrackApp extends ConsumerStatefulWidget {
 }
 
 class _UptrackAppState extends ConsumerState<UptrackApp> {
+  AppLifecycleListener? _lifecycle;
+
   @override
   void initState() {
     super.initState();
     // Best-effort push plumbing (token registration, cold-start deep link,
     // foreground display); never blocks the first frame.
     unawaited(initializePush(ref));
+    // Home widget + Live Activity refresh: after every applied incident
+    // write and on every resume. Attached only once signed in, so a
+    // signed-out launch never opens the offline database for it.
+    ref.listenManual<AuthStatus>(
+      authControllerProvider.select((AuthState s) => s.status),
+      (AuthStatus? _, AuthStatus status) {
+        if (status == AuthStatus.signedIn) {
+          _attachLiveSurfaces();
+        }
+      },
+      fireImmediately: true,
+    );
+  }
+
+  void _attachLiveSurfaces() {
+    if (_lifecycle != null) {
+      return;
+    }
+    // Reading the provider attaches it to the cache's change stream; the
+    // first incident sync after sign-in then refreshes both surfaces.
+    ref.read(liveSurfaceSyncProvider);
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(ref.read(liveSurfaceSyncProvider).run()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    super.dispose();
   }
 
   @override

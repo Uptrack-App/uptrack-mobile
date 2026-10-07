@@ -338,7 +338,9 @@ void main() {
         'prefs-live-activity-hint',
       );
 
-      testWidgets('iOS below 17.2 sees the hint', (WidgetTester tester) async {
+      testWidgets('iOS 16.1 to 17.1 sees the app-open hint', (
+        WidgetTester tester,
+      ) async {
         await pumpWithOs(
           tester,
           platform: TargetPlatform.iOS,
@@ -346,7 +348,22 @@ void main() {
         );
         expect(find.byKey(hintKey), findsOneWidget);
         expect(
-          find.textContaining('Live Activities need iOS 17.2'),
+          find.textContaining('starts only while Uptrack is open'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('iOS 16.0 sees the no-Live-Activity hint', (
+        WidgetTester tester,
+      ) async {
+        await pumpWithOs(
+          tester,
+          platform: TargetPlatform.iOS,
+          osVersion: 'Version 16.0 (Build 20A362)',
+        );
+        expect(find.byKey(hintKey), findsOneWidget);
+        expect(
+          find.textContaining('Live Activities need iOS 16.1'),
           findsOneWidget,
         );
       });

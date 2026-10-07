@@ -152,6 +152,7 @@ Future<void> clearWidgetData([
         for (final String key in WidgetDataKeys.all) {
           await store.save<String>(key, null);
         }
+        await store.save<String>(WidgetDataKeys.feedState, null);
         await store.refresh();
       },
     );
@@ -250,6 +251,10 @@ class WidgetRefresher {
   final WidgetPublishGate publishable;
 
   final CandidateLoader _loadCandidates;
+
+  /// The candidate set this refresher selects from (shared with the Live
+  /// Activity reconcile, so both surfaces read the same feed).
+  Future<WidgetCandidateLoad> loadCandidates() => _loadCandidates();
 
   /// The next incident the widget should show, or null when there is nothing
   /// open to show.
@@ -437,7 +442,14 @@ class WidgetRefresher {
         for (final String key in WidgetDataKeys.all) {
           await store.save<String>(key, null);
         }
+        // In the app only a proven all-clear reaches this branch:
+        // [applyCandidates] writes nothing for an unknown or partial feed.
+        await store.save<String>(
+          WidgetDataKeys.feedState,
+          WidgetDataKeys.feedAllClear,
+        );
       } else {
+        await store.save<String>(WidgetDataKeys.feedState, null);
         final Map<String, Object?> data = effective.toWidgetData();
         for (final MapEntry<String, Object?> entry in data.entries) {
           final Object? value = entry.value;
