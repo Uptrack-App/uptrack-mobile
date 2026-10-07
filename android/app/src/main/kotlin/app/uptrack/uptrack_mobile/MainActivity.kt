@@ -23,6 +23,10 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // The server's FCM notification block names the `incidents` channel.
+        // If it does not exist yet, Android files the alert under FCM's
+        // generic fallback channel, which the user never configured.
+        UptrackNotificationChannels.ensureAll(this)
         pendingTap = tapPayload(intent)
     }
 

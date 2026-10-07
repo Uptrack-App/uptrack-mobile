@@ -177,12 +177,30 @@ import AuthenticationServices
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification
   ) async -> UNNotificationPresentationOptions {
+    guard notification.request.trigger is UNPushNotificationTrigger else {
+      // A local notification, not a server push: show it plainly and do not
+      // echo it to Dart as a push.
+      return [.banner, .list, .sound]
+    }
     let message = Self.messagePayload(from: notification.request.content.userInfo)
     eventsChannel?.invokeMethod("onForegroundMessage", arguments: message)
-    // The OS suppresses remote banners while foregrounded; Dart re-displays
-    // locally via flutter_local_notifications, but present natively as well so
-    // nothing is lost when the Dart isolate is paused.
-    return [.banner, .list, .sound, .badge]
+    // The OS presents the push itself, with the interruption level the server
+    // resolved from severity, the user's overrides and quiet hours (plan 4.5).
+    // Dart refreshes the widget and shows no second copy (`presented_by_os`).
+    return Self.presentationOptions(
+      forInterruptionLevel: message["interruption_level"])
+  }
+
+  /// Foreground presentation for one push. Mirrors
+  /// `PushPresentation.iosForegroundOptions` in Dart (a contract test compares
+  /// them): `passive` goes to the list only, as it would in the background.
+  static func presentationOptions(forInterruptionLevel level: String?)
+    -> UNNotificationPresentationOptions
+  {
+    switch level {
+    case "passive": return [.list]
+    default: return [.banner, .list, .sound, .badge]
+    }
   }
 
   override func userNotificationCenter(
@@ -301,9 +319,16 @@ import AuthenticationServices
     if let severity = userInfo["severity"] as? String, !severity.isEmpty {
       payload["severity"] = severity
     }
+    if let aps = userInfo["aps"] as? [AnyHashable: Any],
+      let level = aps["interruption-level"] as? String, !level.isEmpty
+    {
+      payload["interruption_level"] = level
+    }
     if let incidentId = payload["incident_id"] {
       payload["collapse_key"] = incidentId
     }
+    // `willPresent` presents it natively; Dart must not show a copy.
+    payload["presented_by_os"] = "true"
     return payload
   }
 

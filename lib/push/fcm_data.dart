@@ -31,7 +31,11 @@ class FcmDataHandler {
       return null;
     }
     await refresher.applyPush(message);
-    await notifier.showForeground(message);
+    // iOS `willPresent` already presented it with the server's interruption
+    // level; a local copy would double the banner (plan 4.5).
+    if (!message.presentedByOs) {
+      await notifier.showForeground(message);
+    }
     return message;
   }
 }

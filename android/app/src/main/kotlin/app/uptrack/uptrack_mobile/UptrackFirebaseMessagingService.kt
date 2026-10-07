@@ -32,6 +32,12 @@ class UptrackFirebaseMessagingService : FirebaseMessagingService() {
         putIfPresent(payload, "monitor_id", data["monitor_id"])
         putIfPresent(payload, "severity", data["severity"])
         putIfPresent(payload, "collapse_key", data["collapse_key"])
+        // The server sends NORMAL priority only for a `passive` push (user
+        // override or info; `fcm_priority` in push_fcm.rs). Forward it so the
+        // foreground copy is silent too (plan 4.5).
+        if (message.originalPriority == RemoteMessage.PRIORITY_NORMAL) {
+            payload["interruption_level"] = "passive"
+        }
         if (payload["incident_id"].isNullOrEmpty() &&
             payload["monitor_id"].isNullOrEmpty()
         ) {

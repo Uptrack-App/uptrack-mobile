@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'push_channels.dart';
 import 'push_actions.dart';
 import 'push_message.dart';
+import 'push_presentation.dart';
 import 'push_registration.dart';
 import '../widgets/live_activity.dart';
 
@@ -117,9 +118,12 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
         // No DND claim: this app never requests a bypass, so the user's own
         // Do Not Disturb / channel settings always win.
         channelBypassDnd: false,
+        // A `passive` push (user override or info) keeps its severity
+        // channel but must not make a sound or vibrate (plan 4.5).
+        silent: PushPresentation.silentOnAndroid(message.interruption),
         actions: androidActionsFor(message),
       ),
-      iOS: const DarwinNotificationDetails(),
+      iOS: darwinDetailsFor(message),
     );
     await _plugin.show(
       id: message.notificationId,
@@ -157,6 +161,33 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
     }
     return _messageFromPayload(response?.payload);
   }
+
+  /// iOS details for a local copy of [message].
+  ///
+  /// On iOS the OS presents remote pushes itself (`willPresent`), so this is
+  /// a fallback only; it still keeps the level, the triage actions and the
+  /// per-incident thread.
+  static DarwinNotificationDetails darwinDetailsFor(PushMessage message) {
+    final PushInterruptionLevel level = message.interruption;
+    final bool loud = level != PushInterruptionLevel.passive;
+    return DarwinNotificationDetails(
+      presentBanner: loud,
+      presentList: true,
+      presentSound: loud,
+      interruptionLevel: switch (level) {
+        PushInterruptionLevel.passive => InterruptionLevel.passive,
+        PushInterruptionLevel.active => InterruptionLevel.active,
+        PushInterruptionLevel.timeSensitive => InterruptionLevel.timeSensitive,
+      },
+      categoryIdentifier: message.target?.kind == PushTargetKind.incident
+          ? _iosTriageCategory
+          : null,
+      threadIdentifier: message.target?.id,
+    );
+  }
+
+  /// `UNNotificationCategory` with the triage actions (`AppDelegate`).
+  static const String _iosTriageCategory = 'UPTRACK_INCIDENT';
 
   /// Android importance for a channel definition.
   ///
@@ -474,7 +505,8 @@ class PushService {
             await onData(map);
           } else {
             final PushMessage? message = PushMessage.fromMap(map);
-            if (message != null) {
+            // iOS presented it already (willPresent): no second copy.
+            if (message != null && !message.presentedByOs) {
               await _notifier.showForeground(message);
             }
           }
