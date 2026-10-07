@@ -251,6 +251,10 @@ class WidgetRefresher {
 
   final CandidateLoader _loadCandidates;
 
+  /// The candidate set this refresher selects from (shared with the Live
+  /// Activity reconcile, so both surfaces read the same feed).
+  Future<WidgetCandidateLoad> loadCandidates() => _loadCandidates();
+
   /// The next incident the widget should show, or null when there is nothing
   /// open to show.
   ///

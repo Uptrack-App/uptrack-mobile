@@ -248,6 +248,21 @@ class CacheRepository {
   /// Epoch to capture before starting any network request.
   int get sessionEpoch => _sessionEpoch;
 
+  final StreamController<void> _incidentsChanged =
+      StreamController<void>.broadcast();
+
+  /// Fires after an incident write was applied (list sync, detail read or
+  /// action upsert). A fenced or refused write does not fire. The home
+  /// widget and the Live Activities refresh from this (`LiveSurfaceSync`).
+  Stream<void> get incidentsChanged => _incidentsChanged.stream;
+
+  bool _notifyIncidentsChanged(bool applied) {
+    if (applied && !_incidentsChanged.isClosed) {
+      _incidentsChanged.add(null);
+    }
+    return applied;
+  }
+
   /// Tail of the serialized incident-write queue.
   ///
   /// Incident writes are chained so a replace, an upsert and a wipe can never
@@ -441,7 +456,7 @@ class CacheRepository {
       revision: revision,
       readGeneration: readGeneration,
     );
-    return applied ?? false;
+    return _notifyIncidentsChanged(applied ?? false);
   }
 
   /// Replaces the cached incident list only if [revision], [session] and
@@ -487,7 +502,7 @@ class CacheRepository {
       // No revision fence: a mutation is the newest fact there is.
       revision: null,
     );
-    return applied ?? false;
+    return _notifyIncidentsChanged(applied ?? false);
   }
 
   /// Stores the authoritative incident summary, its posted updates and the
@@ -573,7 +588,7 @@ class CacheRepository {
       revision: revision,
       readGeneration: readGeneration,
     );
-    return applied ?? false;
+    return _notifyIncidentsChanged(applied ?? false);
   }
 
   /// Whether [readGeneration] has been superseded by a confirmed action.
