@@ -401,7 +401,7 @@ class PushService {
 
   /// Live Activity token registration (T061): `POST
   /// /api/push/live-activities` via [UptrackApi.registerLiveActivity].
-  /// Null when unwired — `onLiveActivityToken` arrivals are then parked
+  /// Null when unwired — `onLiveActivityToken` arrivals are then kept
   /// (push-to-start) or dropped, never crash.
   final LiveActivityTokenRegistration? registerLiveActivity;
 
@@ -409,8 +409,9 @@ class PushService {
   /// unwired; the server prunes resolved incidents' rows anyway.
   final LiveActivityTokenRemoval? unregisterLiveActivity;
 
-  /// `token|incident` pairs the server accepted, so a token that arrives
-  /// twice (start-up pull plus the live event) is posted once.
+  /// Update `token|incident` pairs the server accepted in this session, so
+  /// a token that arrives twice (start-up pull plus the live event) is posted
+  /// once. Cleared on sign-out.
   final Set<String> _registeredLiveActivityTokens = <String>{};
 
   /// FCM data-message handler (T056, Android): when present, foreground
@@ -423,11 +424,18 @@ class PushService {
   /// Visible for testing.
   bool get isInitialized => _initialized;
 
-  /// Parked push-to-start token: the native host (T055) reports it before
-  /// any incident exists, but `POST /api/push/live-activities` requires an
-  /// `incident_id` — so it waits here until the next incident-scoped push
-  /// arrives, then registers once. Visible for testing.
-  LiveActivityRegisterRequest? pendingLiveActivityToken;
+  /// Newest push-to-start token the native host reported (iOS 17.2+), and
+  /// the APNs environment it came with. The server keeps one per signed-in
+  /// device, so it is posted as soon as a session exists, once per token per
+  /// session ([PushRegistrationStore.registeredPushToStart]).
+  String? _pushToStartToken;
+  String? _pushToStartEnvironment;
+
+  /// The push-to-start token being posted now, if any.
+  String? _pushToStartInFlight;
+
+  /// Visible for testing.
+  String? get pushToStartToken => _pushToStartToken;
 
   /// Arms the native→Dart handler, the local-notification plugin, drains any
   /// cold-start tap (killed state), and registers the current token.
@@ -482,15 +490,25 @@ class PushService {
   }
 
   /// Follows the auth session (plan 4.3): a sign-in (or a restored session)
-  /// registers the device. Sign-out is handled by `AuthController.signOut`,
-  /// which unregisters the token recorded in [PushRegistrationStore].
+  /// registers the device and the Live Activity tokens. Sign-out is handled
+  /// by `AuthController.signOut`, which unregisters the token recorded in
+  /// [PushRegistrationStore]; here it only forgets what this session posted,
+  /// so the next session posts again.
   Future<void> onAuthChanged({required bool signedIn}) async {
-    if (!signedIn || !_initialized) {
+    if (!signedIn) {
+      _registeredLiveActivityTokens.clear();
+      _store.clearRegistered();
+      return;
+    }
+    if (!_initialized) {
       // Not initialized yet: [initialize] registers when it runs.
       return;
     }
     await registerCurrentToken();
     await _drainLiveActivityTokens();
+    // A token seen while signed out (or a failed post) when the native pull
+    // has nothing new.
+    await _postPushToStart();
   }
 
   /// Registers the Live Activity tokens the native host saw before
@@ -586,7 +604,8 @@ class PushService {
         }
       case PushEventMethods.onForegroundMessage:
         if (map != null) {
-          await _flushPendingLiveActivityToken(map);
+          // An incoming push is a chance to retry a failed post.
+          await _postPushToStart();
           final Future<void> Function(Map<Object?, Object?> data)? onData =
               onForegroundData;
           if (onData != null) {
@@ -602,9 +621,7 @@ class PushService {
       case PushEventMethods.onNotificationTap:
         final PushMessage? message = PushMessage.fromMap(map);
         if (message != null) {
-          if (map != null) {
-            await _flushPendingLiveActivityToken(map);
-          }
+          await _postPushToStart();
           _navigateFor(message);
         }
       case PushEventMethods.onLiveActivityToken:
@@ -621,13 +638,15 @@ class PushService {
   }
 
   /// Handles one native `onLiveActivityToken` call (T055 contract):
-  /// `{token, kind?, incident_id?, expires_in_seconds?}`.
+  /// `{token, kind?, incident_id?, expires_in_seconds?, environment?}`.
   ///
-  /// The `POST /api/push/live-activities` endpoint requires an
-  /// `incident_id`, but the push-to-start bootstrap token arrives before any
-  /// incident exists — so an unscoped token is parked in
-  /// [pendingLiveActivityToken] and flushed on the next incident push.
-  /// Malformed payloads are dropped silently (never throws).
+  /// * `push_to_start` (the default kind) belongs to the install, not to an
+  ///   incident: it is kept and posted as soon as a session exists. An
+  ///   `incident_id` on it (old native payload) is ignored.
+  /// * `update` names one running activity and needs its `incident_id`.
+  ///
+  /// Nothing is posted while signed out. Malformed payloads are dropped
+  /// silently (never throws).
   Future<void> _handleLiveActivityToken(Map<Object?, Object?>? map) async {
     if (map == null) {
       return;
@@ -640,70 +659,85 @@ class PushService {
     final String kind = rawKind is String && rawKind.isNotEmpty
         ? rawKind
         : 'push_to_start';
-    final Object? rawIncident = map['incident_id'];
-    final String? incidentId = rawIncident is String && rawIncident.isNotEmpty
-        ? rawIncident
-        : null;
-    final Object? rawTtl = map['expires_in_seconds'];
-    final int? expiresInSeconds = rawTtl is num ? rawTtl.toInt() : null;
-    if (incidentId == null) {
-      // Bootstrap token with no incident to scope it to: park it for the
-      // flush, but only for push_to_start (an unscoped `update` token names
-      // no locally-started activity and is useless).
-      if (kind == 'push_to_start') {
-        pendingLiveActivityToken = LiveActivityRegisterRequest(
-          incidentId: '',
-          token: rawToken,
-          kind: kind,
-          expiresInSeconds: expiresInSeconds,
-        );
-      }
+    final String? environment = _knownEnvironment(map['environment']);
+    if (kind == 'push_to_start') {
+      _pushToStartToken = rawToken;
+      _pushToStartEnvironment = environment;
+      await _postPushToStart();
       return;
     }
+    final Object? rawIncident = map['incident_id'];
+    final Object? rawTtl = map['expires_in_seconds'];
     final LiveActivityRegisterRequest request = LiveActivityRegisterRequest(
-      incidentId: incidentId,
+      incidentId: rawIncident is String && rawIncident.isNotEmpty
+          ? rawIncident
+          : null,
       token: rawToken,
       kind: kind,
-      expiresInSeconds: expiresInSeconds,
+      expiresInSeconds: rawTtl is num ? rawTtl.toInt() : null,
+      environment: environment ?? _registrationEnvironment(),
     );
-    if (request.validate().isNotEmpty) {
+    if (request.validate().isNotEmpty || !_canRegister) {
       return;
     }
     await _registerLiveActivity(request);
   }
 
-  /// Registers a parked push-to-start token against the incident named by
-  /// an incoming push (`onForegroundMessage` / `onNotificationTap`); a
-  /// no-op without a parked token or without an `incident_id`. One-shot:
-  /// the server upserts on `(token)`, so the parked copy is cleared after
-  /// the attempt regardless of outcome.
-  Future<void> _flushPendingLiveActivityToken(Map<Object?, Object?> map) async {
-    final LiveActivityRegisterRequest? pending = pendingLiveActivityToken;
-    if (pending == null) {
+  /// Posts the push-to-start token once per token per session: only with a
+  /// session, only when the server does not have this token for it yet, and
+  /// never twice at once. A failure leaves it unrecorded, so the next
+  /// opportunity (token event, incoming push, sign-in, app start) retries.
+  Future<void> _postPushToStart() async {
+    final LiveActivityTokenRegistration? register = registerLiveActivity;
+    final String? token = _pushToStartToken;
+    if (register == null ||
+        token == null ||
+        !_canRegister ||
+        _pushToStartInFlight != null ||
+        _store.registeredPushToStart == token) {
       return;
     }
-    final Object? rawIncident = map['incident_id'];
-    if (rawIncident is! String || rawIncident.isEmpty) {
-      return;
+    _pushToStartInFlight = token;
+    try {
+      await register(
+        LiveActivityRegisterRequest(
+          token: token,
+          kind: 'push_to_start',
+          environment: _pushToStartEnvironment ?? _registrationEnvironment(),
+        ),
+      );
+      if (_canRegister) {
+        _store.markPushToStartRegistered(token);
+      }
+    } catch (error) {
+      debugPrint('push: push-to-start registration failed: $error');
+    } finally {
+      _pushToStartInFlight = null;
     }
-    pendingLiveActivityToken = null;
-    final LiveActivityRegisterRequest request = LiveActivityRegisterRequest(
-      incidentId: rawIncident,
-      token: pending.token,
-      kind: pending.kind,
-      expiresInSeconds: pending.expiresInSeconds,
-    );
-    if (request.validate().isNotEmpty) {
-      return;
+    if (_pushToStartToken != token) {
+      // The token rotated during the post.
+      await _postPushToStart();
     }
-    await _registerLiveActivity(request);
   }
 
-  /// Best-effort server registration: provider-side pruning covers missed
-  /// tokens, so failures (offline, 404 unknown incident, 422 resolved)
-  /// never surface to the platform channel. A pair the server already
-  /// accepted is not posted again; a failed one is retried on the next
-  /// delivery.
+  /// `sandbox` | `production`, or null for anything else.
+  static String? _knownEnvironment(Object? raw) =>
+      raw is String && kApnsEnvironments.contains(raw) ? raw : null;
+
+  /// The APNs environment of the iOS push-token registration (same
+  /// install, same build), for a Live Activity payload without one.
+  String? _registrationEnvironment() {
+    final PushRegistration? latest = _store.latest;
+    return latest?.platform == 'ios'
+        ? _knownEnvironment(latest?.environment)
+        : null;
+  }
+
+  /// Best-effort server registration of an `update` token: provider-side
+  /// pruning covers missed tokens, so failures (offline, 404 unknown
+  /// incident, 422 resolved) never surface to the platform channel. A pair
+  /// the server already accepted in this session is not posted again; a
+  /// failed one is retried on the next delivery.
   Future<void> _registerLiveActivity(
     LiveActivityRegisterRequest request,
   ) async {
@@ -759,10 +793,13 @@ class PushService {
   }
 
   /// Records a token from the native host; registers it when signed in.
+  /// The APNs token also brings the environment a push-to-start post may be
+  /// missing, so a failed one is retried here too.
   Future<void> _seen(PushRegistration registration) async {
     _store.markSeen(registration);
     if (_canRegister) {
       await _register(registration);
+      await _postPushToStart();
     }
   }
 
