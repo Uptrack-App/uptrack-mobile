@@ -20,6 +20,9 @@ const String kLiveActivitiesPath = '/api/push/live-activities';
 /// or remotely-started one).
 const Set<String> kLiveActivityKinds = <String>{'push_to_start', 'update'};
 
+/// APNs environments the server accepts for a token (`environment`).
+const Set<String> kApnsEnvironments = <String>{'sandbox', 'production'};
+
 /// Client-reported token lifetime bounds enforced by the server
 /// (`expires_in_seconds`: at least a minute, at most 7 days).
 const int kLiveActivityMinTtlSeconds = 60;
@@ -206,25 +209,36 @@ Map<String, Object?> buildLiveActivityPayload({
   };
 }
 
-/// `POST /api/push/live-activities` body — registers the activity push
-/// token when a Live Activity starts. [kind] is `push_to_start` (remote
-/// start, iOS 17.2+) or `update`; [expiresInSeconds] optionally bounds the
-/// row lifetime.
+/// `POST /api/push/live-activities` body (`RegisterLiveActivity` in
+/// `crates/api/src/push_live_activity.rs`).
+///
+/// * `push_to_start` (iOS 17.2+): `{token, kind, environment?}`. The server
+///   keeps one row per signed-in device and starts the activity itself when
+///   an incident opens, so no [incidentId] is sent.
+/// * `update`: `{incident_id, token, kind, expires_in_seconds?,
+///   environment?}` — the token of one running activity.
+///
+/// [environment] is the APNs environment of the build (`sandbox` |
+/// `production`); null means not reported (the server then falls back to the
+/// environment of the latest iOS push device).
 class LiveActivityRegisterRequest {
   const LiveActivityRegisterRequest({
-    required this.incidentId,
+    this.incidentId,
     required this.token,
     required this.kind,
     this.expiresInSeconds,
+    this.environment,
   });
 
-  final String incidentId;
+  final String? incidentId;
   final String token;
   final String kind;
   final int? expiresInSeconds;
+  final String? environment;
 
-  /// Mirrors the server validation: non-empty token, known kind, TTL within
-  /// 60s..7d when present. Returns the field errors (empty = valid).
+  /// Mirrors the server validation: non-empty token, known kind, an incident
+  /// for `update`, TTL within 60s..7d and a known environment when present.
+  /// Returns the field errors (empty = valid).
   List<String> validate() {
     final List<String> errors = <String>[];
     if (token.trim().isEmpty) {
@@ -233,21 +247,32 @@ class LiveActivityRegisterRequest {
     if (!kLiveActivityKinds.contains(kind)) {
       errors.add('kind: must be one of: push_to_start, update');
     }
+    if (kind == 'update' && (incidentId?.trim().isEmpty ?? true)) {
+      errors.add('incident_id: is required for kind update');
+    }
     final int? ttl = expiresInSeconds;
     if (ttl != null &&
         (ttl < kLiveActivityMinTtlSeconds ||
             ttl > kLiveActivityMaxTtlSeconds)) {
       errors.add('expires_in_seconds: must be between 60 and 604800');
     }
+    final String? env = environment;
+    if (env != null && !kApnsEnvironments.contains(env)) {
+      errors.add('environment: must be one of: sandbox, production');
+    }
     return errors;
   }
 
-  Map<String, Object?> toJson() => <String, Object?>{
-    'incident_id': incidentId,
-    'token': token,
-    if (expiresInSeconds != null) 'expires_in_seconds': expiresInSeconds,
-    'kind': kind,
-  };
+  Map<String, Object?> toJson() {
+    final String? incident = incidentId;
+    return <String, Object?>{
+      if (incident != null && incident.isNotEmpty) 'incident_id': incident,
+      'token': token,
+      if (expiresInSeconds != null) 'expires_in_seconds': expiresInSeconds,
+      'kind': kind,
+      if (environment != null) 'environment': environment,
+    };
+  }
 }
 
 /// `DELETE /api/push/live-activities` body — the activity is identified by

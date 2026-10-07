@@ -176,6 +176,76 @@ void main() {
     });
   });
 
+  group('LiveActivityRegisterRequest (push-to-start contract)', () {
+    test('push_to_start needs no incident and sends none', () {
+      const LiveActivityRegisterRequest request = LiveActivityRegisterRequest(
+        token: 'pts-1',
+        kind: 'push_to_start',
+        environment: 'sandbox',
+      );
+      expect(request.validate(), isEmpty);
+      expect(request.toJson(), <String, Object?>{
+        'token': 'pts-1',
+        'kind': 'push_to_start',
+        'environment': 'sandbox',
+      });
+    });
+
+    test('update requires an incident', () {
+      expect(
+        const LiveActivityRegisterRequest(
+          token: 't',
+          kind: 'update',
+        ).validate(),
+        isNotEmpty,
+      );
+      expect(
+        const LiveActivityRegisterRequest(
+          incidentId: '  ',
+          token: 't',
+          kind: 'update',
+        ).validate(),
+        isNotEmpty,
+      );
+    });
+
+    test('update sends incident, TTL and environment', () {
+      const LiveActivityRegisterRequest request = LiveActivityRegisterRequest(
+        incidentId: 'inc-1',
+        token: 'upd-1',
+        kind: 'update',
+        expiresInSeconds: 43200,
+        environment: 'production',
+      );
+      expect(request.validate(), isEmpty);
+      expect(request.toJson(), <String, Object?>{
+        'incident_id': 'inc-1',
+        'token': 'upd-1',
+        'expires_in_seconds': 43200,
+        'kind': 'update',
+        'environment': 'production',
+      });
+    });
+
+    test('environment is sandbox or production; absent is not sent', () {
+      expect(
+        const LiveActivityRegisterRequest(
+          token: 't',
+          kind: 'push_to_start',
+          environment: 'staging',
+        ).validate(),
+        isNotEmpty,
+      );
+      expect(
+        const LiveActivityRegisterRequest(
+          token: 't',
+          kind: 'push_to_start',
+        ).toJson().containsKey('environment'),
+        isFalse,
+      );
+    });
+  });
+
   group('LiveActivityRemoveRequest', () {
     test('requires a token and encodes it', () {
       expect(const LiveActivityRemoveRequest(token: 'abc').validate(), isEmpty);
