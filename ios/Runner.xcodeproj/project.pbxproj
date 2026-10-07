@@ -7,20 +7,24 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
-        B7AC00010000000100000010 /* UptrackInk.g.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000010 /* UptrackInk.g.swift */; };
 		1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */ = {isa = PBXBuildFile; fileRef = 1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */; };
+		18547BDEA57C55CD2046D80B /* UptrackIncidentAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C82AF98DABD4EB5C2FE37D9A /* UptrackIncidentAttributes.swift */; };
 		331C808B294A63AB00263BE5 /* RunnerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = 331C807B294A618700263BE5 /* RunnerTests.swift */; };
 		3B3967161E833CAA004F5970 /* AppFrameworkInfo.plist in Resources */ = {isa = PBXBuildFile; fileRef = 3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */; };
+		3DA8A89DF8BF5D6A51ABB40A /* UptrackLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000003 /* UptrackLiveActivity.swift */; };
 		74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 74858FAE1ED2DC5600515810 /* AppDelegate.swift */; };
 		7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */; };
-		B7AC00010000000100000001 /* UptrackWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000001 /* UptrackWidgetData.swift */; };
-		B7AC00010000000100000002 /* UptrackStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000002 /* UptrackStatusWidget.swift */; };
-		B7AC00010000000100000003 /* UptrackLiveActivity.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000003 /* UptrackLiveActivity.swift */; };
-		B7AC00010000000100000004 /* UptrackWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000004 /* UptrackWidgets.swift */; };
 		78A318202AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage in Frameworks */ = {isa = PBXBuildFile; productRef = 78A3181F2AECB46A00862997 /* FlutterGeneratedPluginSwiftPackage */; };
+		79E3615AA60E98CF5823203E /* UptrackInk.g.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000010 /* UptrackInk.g.swift */; };
+		845024F0C93B9832BF1CDB03 /* UptrackStatusWidget.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000002 /* UptrackStatusWidget.swift */; };
 		97C146FC1CF9000F007C117D /* Main.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FA1CF9000F007C117D /* Main.storyboard */; };
 		97C146FE1CF9000F007C117D /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FD1CF9000F007C117D /* Assets.xcassets */; };
 		97C147011CF9000F007C117D /* LaunchScreen.storyboard in Resources */ = {isa = PBXBuildFile; fileRef = 97C146FF1CF9000F007C117D /* LaunchScreen.storyboard */; };
+		9986E2D86A9636666D434104 /* UptrackWidgets.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000004 /* UptrackWidgets.swift */; };
+		A9CC70FB2A4CFE7ED0E97356 /* UptrackWidgetData.swift in Sources */ = {isa = PBXBuildFile; fileRef = B7AC00020000000100000001 /* UptrackWidgetData.swift */; };
+		CE4574D8238BA8DB4C106332 /* UptrackWidgets.appex in Embed Foundation Extensions */ = {isa = PBXBuildFile; fileRef = 9CE15122EC74D3D2578C4B26 /* UptrackWidgets.appex */; settings = {ATTRIBUTES = (RemoveHeadersOnCopy, ); }; };
+		F2CD3DBEE44372C84DA72098 /* UptrackIncidentAttributes.swift in Sources */ = {isa = PBXBuildFile; fileRef = C82AF98DABD4EB5C2FE37D9A /* UptrackIncidentAttributes.swift */; };
+		FF093AB2B87A44228D967F49 /* Foundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = E42491A02E48D803174CBE45 /* Foundation.framework */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -30,6 +34,13 @@
 			proxyType = 1;
 			remoteGlobalIDString = 97C146ED1CF9000F007C117D;
 			remoteInfo = Runner;
+		};
+		E95B8B4BD42362C5A8569EA8 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 97C146E61CF9000F007C117D /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 8F5E37F79585C1A09B470D13;
+			remoteInfo = UptrackWidgets;
 		};
 /* End PBXContainerItemProxy section */
 
@@ -44,23 +55,29 @@
 			name = "Embed Frameworks";
 			runOnlyForDeploymentPostprocessing = 0;
 		};
+		D4DBCE615E35321D7A4B532F /* Embed Foundation Extensions */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "";
+			dstSubfolderSpec = 13;
+			files = (
+				CE4574D8238BA8DB4C106332 /* UptrackWidgets.appex in Embed Foundation Extensions */,
+			);
+			name = "Embed Foundation Extensions";
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
-        B7AC00020000000100000010 /* UptrackInk.g.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UptrackInk.g.swift; sourceTree = "<group>"; };
 		1498D2321E8E86230040F4C2 /* GeneratedPluginRegistrant.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = GeneratedPluginRegistrant.h; sourceTree = "<group>"; };
 		1498D2331E8E89220040F4C2 /* GeneratedPluginRegistrant.m */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.objc; path = GeneratedPluginRegistrant.m; sourceTree = "<group>"; };
 		331C807B294A618700263BE5 /* RunnerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RunnerTests.swift; sourceTree = "<group>"; };
 		331C8081294A63A400263BE5 /* RunnerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = RunnerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		3B3967151E833CAA004F5970 /* AppFrameworkInfo.plist */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.plist.xml; name = AppFrameworkInfo.plist; path = Flutter/AppFrameworkInfo.plist; sourceTree = "<group>"; };
+		69B2FEB16CDAD8B37C4C0ECF /* UptrackWidgets.entitlements */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.entitlements; path = UptrackWidgets.entitlements; sourceTree = "<group>"; };
 		74858FAD1ED2DC5600515810 /* Runner-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "Runner-Bridging-Header.h"; sourceTree = "<group>"; };
 		74858FAE1ED2DC5600515810 /* AppDelegate.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = AppDelegate.swift; sourceTree = "<group>"; };
 		7884E8672EC3CC0400C636F2 /* SceneDelegate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SceneDelegate.swift; sourceTree = "<group>"; };
-		B7AC00020000000100000001 /* UptrackWidgetData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackWidgetData.swift; sourceTree = "<group>"; };
-		B7AC00020000000100000002 /* UptrackStatusWidget.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackStatusWidget.swift; sourceTree = "<group>"; };
-		B7AC00020000000100000003 /* UptrackLiveActivity.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackLiveActivity.swift; sourceTree = "<group>"; };
-		B7AC00020000000100000004 /* UptrackWidgets.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackWidgets.swift; sourceTree = "<group>"; };
-		B7AC00020000000100000006 /* UptrackMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UptrackMobile.entitlements; sourceTree = "<group>"; };
 		78E0A7A72DC9AD7400C4905E /* FlutterGeneratedPluginSwiftPackage */ = {isa = PBXFileReference; lastKnownFileType = wrapper; name = FlutterGeneratedPluginSwiftPackage; path = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage; sourceTree = "<group>"; };
 		7AFA3C8E1D35360C0083082E /* Release.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; name = Release.xcconfig; path = Flutter/Release.xcconfig; sourceTree = "<group>"; };
 		9740EEB21CF90195004384FC /* Debug.xcconfig */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text.xcconfig; name = Debug.xcconfig; path = Flutter/Debug.xcconfig; sourceTree = "<group>"; };
@@ -70,9 +87,27 @@
 		97C146FD1CF9000F007C117D /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		97C147001CF9000F007C117D /* Base */ = {isa = PBXFileReference; lastKnownFileType = file.storyboard; name = Base; path = Base.lproj/LaunchScreen.storyboard; sourceTree = "<group>"; };
 		97C147021CF9000F007C117D /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		9CE15122EC74D3D2578C4B26 /* UptrackWidgets.appex */ = {isa = PBXFileReference; explicitFileType = "wrapper.app-extension"; includeInIndex = 0; path = UptrackWidgets.appex; sourceTree = BUILT_PRODUCTS_DIR; };
+		B7AC00020000000100000001 /* UptrackWidgetData.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackWidgetData.swift; sourceTree = "<group>"; };
+		B7AC00020000000100000002 /* UptrackStatusWidget.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackStatusWidget.swift; sourceTree = "<group>"; };
+		B7AC00020000000100000003 /* UptrackLiveActivity.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackLiveActivity.swift; sourceTree = "<group>"; };
+		B7AC00020000000100000004 /* UptrackWidgets.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = UptrackWidgets.swift; sourceTree = "<group>"; };
+		B7AC00020000000100000006 /* UptrackMobile.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = UptrackMobile.entitlements; sourceTree = "<group>"; };
+		B7AC00020000000100000010 /* UptrackInk.g.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UptrackInk.g.swift; sourceTree = "<group>"; };
+		C82AF98DABD4EB5C2FE37D9A /* UptrackIncidentAttributes.swift */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = sourcecode.swift; path = UptrackIncidentAttributes.swift; sourceTree = "<group>"; };
+		E42491A02E48D803174CBE45 /* Foundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = Foundation.framework; path = Platforms/iPhoneOS.platform/Developer/SDKs/iPhoneOS26.0.sdk/System/Library/Frameworks/Foundation.framework; sourceTree = DEVELOPER_DIR; };
+		F586E345C5E1FD53DD233284 /* Info.plist */ = {isa = PBXFileReference; includeInIndex = 1; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
+		043787D109EB06E86E64A46A /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FF093AB2B87A44228D967F49 /* Foundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		97C146EB1CF9000F007C117D /* Frameworks */ = {
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
@@ -111,6 +146,9 @@
 				97C146F01CF9000F007C117D /* Runner */,
 				97C146EF1CF9000F007C117D /* Products */,
 				331C8082294A63A400263BE5 /* RunnerTests */,
+				DB51D5177ED90ED5E5DADD23 /* Frameworks */,
+				AA1E1EE416039216CB24FB9E /* Shared */,
+				AABA51E7176D8E9FFC509572 /* UptrackWidgets */,
 			);
 			sourceTree = "<group>";
 		};
@@ -119,6 +157,7 @@
 			children = (
 				97C146EE1CF9000F007C117D /* Runner.app */,
 				331C8081294A63A400263BE5 /* RunnerTests.xctest */,
+				9CE15122EC74D3D2578C4B26 /* UptrackWidgets.appex */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -141,16 +180,51 @@
 			path = Runner;
 			sourceTree = "<group>";
 		};
+		AA1E1EE416039216CB24FB9E /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				C82AF98DABD4EB5C2FE37D9A /* UptrackIncidentAttributes.swift */,
+			);
+			name = Shared;
+			path = Shared;
+			sourceTree = "<group>";
+		};
+		AABA51E7176D8E9FFC509572 /* UptrackWidgets */ = {
+			isa = PBXGroup;
+			children = (
+				F586E345C5E1FD53DD233284 /* Info.plist */,
+				69B2FEB16CDAD8B37C4C0ECF /* UptrackWidgets.entitlements */,
+			);
+			name = UptrackWidgets;
+			path = UptrackWidgets;
+			sourceTree = "<group>";
+		};
 		B7AC00030000000100000001 /* Widget */ = {
 			isa = PBXGroup;
 			children = (
 				B7AC00020000000100000001 /* UptrackWidgetData.swift */,
 				B7AC00020000000100000002 /* UptrackStatusWidget.swift */,
-                B7AC00020000000100000010 /* UptrackInk.g.swift */,
+				B7AC00020000000100000010 /* UptrackInk.g.swift */,
 				B7AC00020000000100000003 /* UptrackLiveActivity.swift */,
 				B7AC00020000000100000004 /* UptrackWidgets.swift */,
 			);
 			path = Widget;
+			sourceTree = "<group>";
+		};
+		CC1C9F7A058FCC5655CAE8E5 /* iOS */ = {
+			isa = PBXGroup;
+			children = (
+				E42491A02E48D803174CBE45 /* Foundation.framework */,
+			);
+			name = iOS;
+			sourceTree = "<group>";
+		};
+		DB51D5177ED90ED5E5DADD23 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				CC1C9F7A058FCC5655CAE8E5 /* iOS */,
+			);
+			name = Frameworks;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -173,6 +247,23 @@
 			productReference = 331C8081294A63A400263BE5 /* RunnerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
+		8F5E37F79585C1A09B470D13 /* UptrackWidgets */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5B2D3CF63B6AEB43972B25FC /* Build configuration list for PBXNativeTarget "UptrackWidgets" */;
+			buildPhases = (
+				ABF30EC72F6B58D440DA1D0D /* Sources */,
+				043787D109EB06E86E64A46A /* Frameworks */,
+				5271ECFEBDBDC1D8A9C0E0E0 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = UptrackWidgets;
+			productName = UptrackWidgets;
+			productReference = 9CE15122EC74D3D2578C4B26 /* UptrackWidgets.appex */;
+			productType = "com.apple.product-type.app-extension";
+		};
 		97C146ED1CF9000F007C117D /* Runner */ = {
 			isa = PBXNativeTarget;
 			buildConfigurationList = 97C147051CF9000F007C117D /* Build configuration list for PBXNativeTarget "Runner" */;
@@ -182,11 +273,13 @@
 				97C146EB1CF9000F007C117D /* Frameworks */,
 				97C146EC1CF9000F007C117D /* Resources */,
 				9705A1C41CF9048500538489 /* Embed Frameworks */,
+				D4DBCE615E35321D7A4B532F /* Embed Foundation Extensions */,
 				3B06AD1E1E4923F5004D2608 /* Thin Binary */,
 			);
 			buildRules = (
 			);
 			dependencies = (
+				882555901E831E9C701D98C2 /* PBXTargetDependency */,
 			);
 			name = Runner;
 			packageProductDependencies = (
@@ -226,7 +319,7 @@
 			);
 			mainGroup = 97C146E51CF9000F007C117D;
 			packageReferences = (
-				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */,
+				781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */,
 			);
 			productRefGroup = 97C146EF1CF9000F007C117D /* Products */;
 			projectDirPath = "";
@@ -234,12 +327,20 @@
 			targets = (
 				97C146ED1CF9000F007C117D /* Runner */,
 				331C8080294A63A400263BE5 /* RunnerTests */,
+				8F5E37F79585C1A09B470D13 /* UptrackWidgets */,
 			);
 		};
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
 		331C807F294A63A400263BE5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		5271ECFEBDBDC1D8A9C0E0E0 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
@@ -309,11 +410,20 @@
 				74858FAF1ED2DC5600515810 /* AppDelegate.swift in Sources */,
 				1498D2341E8E89220040F4C2 /* GeneratedPluginRegistrant.m in Sources */,
 				7884E8682EC3CC0700C636F2 /* SceneDelegate.swift in Sources */,
-				B7AC00010000000100000001 /* UptrackWidgetData.swift in Sources */,
-				B7AC00010000000100000002 /* UptrackStatusWidget.swift in Sources */,
-                B7AC00010000000100000010 /* UptrackInk.g.swift in Sources */,
-				B7AC00010000000100000003 /* UptrackLiveActivity.swift in Sources */,
-				B7AC00010000000100000004 /* UptrackWidgets.swift in Sources */,
+				18547BDEA57C55CD2046D80B /* UptrackIncidentAttributes.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		ABF30EC72F6B58D440DA1D0D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A9CC70FB2A4CFE7ED0E97356 /* UptrackWidgetData.swift in Sources */,
+				845024F0C93B9832BF1CDB03 /* UptrackStatusWidget.swift in Sources */,
+				79E3615AA60E98CF5823203E /* UptrackInk.g.swift in Sources */,
+				3DA8A89DF8BF5D6A51ABB40A /* UptrackLiveActivity.swift in Sources */,
+				9986E2D86A9636666D434104 /* UptrackWidgets.swift in Sources */,
+				F2CD3DBEE44372C84DA72098 /* UptrackIncidentAttributes.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -324,6 +434,12 @@
 			isa = PBXTargetDependency;
 			target = 97C146ED1CF9000F007C117D /* Runner */;
 			targetProxy = 331C8085294A63A400263BE5 /* PBXContainerItemProxy */;
+		};
+		882555901E831E9C701D98C2 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			name = UptrackWidgets;
+			target = 8F5E37F79585C1A09B470D13 /* UptrackWidgets */;
+			targetProxy = E95B8B4BD42362C5A8569EA8 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
 
@@ -347,6 +463,53 @@
 /* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
+		047653F2895C183005798182 /* Profile */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = UptrackWidgets/UptrackWidgets.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				INFOPLIST_FILE = UptrackWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Profile;
+		};
+		09D4D9D67F07DE5695818123 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 9740EEB21CF90195004384FC /* Debug.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = UptrackWidgets/UptrackWidgets.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				INFOPLIST_FILE = UptrackWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
 		249021D3217E4FDB00AE95B9 /* Profile */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
@@ -390,7 +553,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -419,7 +582,7 @@
 					"-weak_framework",
 					ActivityKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.uptrackMobile;
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
@@ -435,7 +598,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.uptrackMobile.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -452,7 +615,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.uptrackMobile.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -467,7 +630,7 @@
 				CURRENT_PROJECT_VERSION = 1;
 				GENERATE_INFOPLIST_FILE = YES;
 				MARKETING_VERSION = 1.0;
-				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.uptrackMobile.RunnerTests;
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile.RunnerTests;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_VERSION = 5.0;
 				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Runner.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/Runner";
@@ -523,7 +686,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = YES;
 				ONLY_ACTIVE_ARCH = YES;
 				SDKROOT = iphoneos;
@@ -575,7 +738,7 @@
 				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
 				GCC_WARN_UNUSED_FUNCTION = YES;
 				GCC_WARN_UNUSED_VARIABLE = YES;
-				IPHONEOS_DEPLOYMENT_TARGET = 15.0;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
 				MTL_ENABLE_DEBUG_INFO = NO;
 				SDKROOT = iphoneos;
 				STRING_CATALOG_GENERATE_SYMBOLS = YES;
@@ -606,7 +769,7 @@
 					"-weak_framework",
 					ActivityKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.uptrackMobile;
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
@@ -634,11 +797,35 @@
 					"-weak_framework",
 					ActivityKit,
 				);
-				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.uptrackMobile;
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_OBJC_BRIDGING_HEADER = "Runner/Runner-Bridging-Header.h";
 				SWIFT_VERSION = 5.0;
 				VERSIONING_SYSTEM = "apple-generic";
+			};
+			name = Release;
+		};
+		A9520E5168AB2F4B3642A414 /* Release */ = {
+			isa = XCBuildConfiguration;
+			baseConfigurationReference = 7AFA3C8E1D35360C0083082E /* Release.xcconfig */;
+			buildSettings = {
+				CLANG_ENABLE_OBJC_WEAK = NO;
+				CODE_SIGN_ENTITLEMENTS = UptrackWidgets/UptrackWidgets.entitlements;
+				CURRENT_PROJECT_VERSION = "$(FLUTTER_BUILD_NUMBER)";
+				INFOPLIST_FILE = UptrackWidgets/Info.plist;
+				IPHONEOS_DEPLOYMENT_TARGET = 16.0;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+					"@executable_path/../../Frameworks",
+				);
+				PRODUCT_BUNDLE_IDENTIFIER = app.uptrack.mobile.widgets;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = iphoneos;
+				SKIP_INSTALL = YES;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				VALIDATE_PRODUCT = YES;
 			};
 			name = Release;
 		};
@@ -651,6 +838,16 @@
 				331C8088294A63A400263BE5 /* Debug */,
 				331C8089294A63A400263BE5 /* Release */,
 				331C808A294A63A400263BE5 /* Profile */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		5B2D3CF63B6AEB43972B25FC /* Build configuration list for PBXNativeTarget "UptrackWidgets" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A9520E5168AB2F4B3642A414 /* Release */,
+				09D4D9D67F07DE5695818123 /* Debug */,
+				047653F2895C183005798182 /* Profile */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
@@ -678,7 +875,7 @@
 /* End XCConfigurationList section */
 
 /* Begin XCLocalSwiftPackageReference section */
-		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage" */ = {
+		781AD8BC2B33823900A9FFBB /* XCLocalSwiftPackageReference "FlutterGeneratedPluginSwiftPackage" */ = {
 			isa = XCLocalSwiftPackageReference;
 			relativePath = Flutter/ephemeral/Packages/FlutterGeneratedPluginSwiftPackage;
 		};

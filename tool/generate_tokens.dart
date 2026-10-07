@@ -98,7 +98,16 @@ void main(List<String> args) {
     final swift = StringBuffer(
       '// Generated from shared Uptrack tokens. Do not edit.\nimport SwiftUI\nimport UIKit\n\nenum UptrackInk {\n',
     );
-    for (final role in nativeRoles.entries) {
+    // Status colors for the Live Activity and widget (design A). iOS only:
+    // the Android widget keeps its own layout, so its resources do not change.
+    const iosStatusRoles = {
+      'primary': 'primary',
+      'up': 'status-up',
+      'upSoft': 'status-up-soft',
+      'down': 'status-down',
+      'downSoft': 'status-down-soft',
+    };
+    for (final role in [...nativeRoles.entries, ...iosStatusRoles.entries]) {
       swift.writeln(
         '  static let ${role.key} = Color(uiColor: UIColor { traits in\n    traits.userInterfaceStyle == .dark ? ${uiColor(role.value, 'dark')} : ${uiColor(role.value, 'light')}\n  })',
       );

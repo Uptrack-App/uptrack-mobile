@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:dio/dio.dart';
 import 'package:drift/native.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -14,6 +16,7 @@ import 'package:uptrack_mobile/data/local/database_providers.dart';
 import 'package:uptrack_mobile/features/auth/auth_controller.dart';
 import 'package:uptrack_mobile/features/auth/token_storage.dart';
 import 'package:uptrack_mobile/features/settings/settings_screen.dart';
+import 'package:uptrack_mobile/push/live_activity_support.dart';
 
 /// Fake [HttpClientAdapter] returning canned JSON without network access
 /// (same pattern as `test/api/uptrack_api_test.dart`).
@@ -164,8 +167,9 @@ void main() {
 
   group('SettingsScreen new sections', () {
     ProviderContainer makeContainer(
-      Future<ResponseBody> Function(RequestOptions) handler,
-    ) {
+      Future<ResponseBody> Function(RequestOptions) handler, {
+      String? osVersion,
+    }) {
       final AuthTokenHolder holder = AuthTokenHolder()..token = 'udt_test';
       final ProviderContainer container = ProviderContainer(
         overrides: [
@@ -178,6 +182,7 @@ void main() {
               adapter: FakeAdapter(handler),
             ),
           ),
+          if (osVersion != null) osVersionProvider.overrideWithValue(osVersion),
         ],
       );
       return container;
@@ -304,6 +309,69 @@ void main() {
       expect((data! as Map<String, Object?>)['mobile_push_enabled'], isFalse);
       await scrollTo(tester, find.text('Preferences saved.'));
       expect(find.text('Preferences saved.'), findsOneWidget);
+    });
+
+    group('Live Activity hint (D9)', () {
+      Future<void> pumpWithOs(
+        WidgetTester tester, {
+        required TargetPlatform platform,
+        required String osVersion,
+      }) async {
+        debugDefaultTargetPlatformOverride = platform;
+        try {
+          final ProviderContainer container = makeContainer(
+            fullHandler,
+            osVersion: osVersion,
+          );
+          addTearDown(container.dispose);
+          await pumpSettings(tester, container);
+          await scrollTo(
+            tester,
+            find.byKey(const ValueKey<String>('prefs-mobile-push')),
+          );
+        } finally {
+          debugDefaultTargetPlatformOverride = null;
+        }
+      }
+
+      const ValueKey<String> hintKey = ValueKey<String>(
+        'prefs-live-activity-hint',
+      );
+
+      testWidgets('iOS below 17.2 sees the hint', (WidgetTester tester) async {
+        await pumpWithOs(
+          tester,
+          platform: TargetPlatform.iOS,
+          osVersion: 'Version 16.4 (Build 20E247)',
+        );
+        expect(find.byKey(hintKey), findsOneWidget);
+        expect(
+          find.textContaining('Live Activities need iOS 17.2'),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('iOS 17.2 and later sees no hint', (
+        WidgetTester tester,
+      ) async {
+        await pumpWithOs(
+          tester,
+          platform: TargetPlatform.iOS,
+          osVersion: 'Version 17.2 (Build 21C62)',
+        );
+        expect(find.byKey(hintKey), findsNothing);
+      });
+
+      testWidgets('Android sees no hint whatever the version text says', (
+        WidgetTester tester,
+      ) async {
+        await pumpWithOs(
+          tester,
+          platform: TargetPlatform.android,
+          osVersion: 'Version 16.0',
+        );
+        expect(find.byKey(hintKey), findsNothing);
+      });
     });
 
     testWidgets('invalid quiet-hours blocks the save with a message', (

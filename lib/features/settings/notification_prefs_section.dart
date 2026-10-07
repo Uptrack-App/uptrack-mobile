@@ -3,10 +3,12 @@ import '../../design/uptrack_design.dart';
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/notification_preferences.dart';
+import '../../push/live_activity_support.dart';
 import '../auth/auth_controller.dart';
 
 /// Editable copy of the notification prefs (plain state — `copyWith`
@@ -297,6 +299,16 @@ class _NotificationPrefsSectionState
                       form.copyWith(mobilePushEnabled: value),
                     ),
             ),
+            if (liveActivityHint(
+                  platform: defaultTargetPlatform,
+                  osVersion: ref.watch(osVersionProvider),
+                )
+                case final String hint)
+              Padding(
+                key: const ValueKey<String>('prefs-live-activity-hint'),
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(hint, style: theme.textTheme.bodySmall),
+              ),
             for (final String severity in kSeverities)
               _SeverityRow(
                 severity: severity,
