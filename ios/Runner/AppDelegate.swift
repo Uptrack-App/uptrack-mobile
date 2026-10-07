@@ -1,7 +1,6 @@
 import Flutter
 import UIKit
 import UserNotifications
-import ActivityKit
 import AuthenticationServices
 
 /// Native APNs host for the Dart push layer (T028).
@@ -48,6 +47,10 @@ import AuthenticationServices
   /// implicit engine vends its messenger.
   private var initialNotification: [String: String]?
 
+  /// `UptrackLiveActivityBridge` on iOS 16.1+, nil on 16.0 (no ActivityKit).
+  /// Typed `AnyObject` because the bridge class is availability-gated.
+  private var liveActivityBridge: AnyObject?
+
   override func application(
     _ application: UIApplication,
     didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
@@ -71,7 +74,7 @@ import AuthenticationServices
       initialNotification = Self.tapPayload(from: remote)
     }
 
-    observeLiveActivityPushToStart()
+    startLiveActivityBridge()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -128,21 +131,42 @@ import AuthenticationServices
         let pending = self.initialNotification
         self.initialNotification = nil
         result(pending)
+      case "getLiveActivityTokens":
+        // Tokens ActivityKit reported before Dart set its handler.
+        if #available(iOS 16.1, *),
+          let bridge = self.liveActivityBridge as? UptrackLiveActivityBridge
+        {
+          result(bridge.currentTokens())
+        } else {
+          result([])
+        }
       case "clearSessionNotifications":
         // R2.4 logout/401 hygiene: no old-account banners, badges or Live
         // Activities may linger for the next account on this device.
         let center = UNUserNotificationCenter.current()
         center.removeAllDeliveredNotifications()
         center.removeAllPendingNotificationRequests()
-        if #available(iOS 16.2, *) {
-          for activity in Activity<UptrackIncident>.activities {
-            Task { await activity.end(nil, dismissalPolicy: .immediate) }
-          }
+        // iOS 16.1 has activities too; the bridge ends them with the API
+        // each version has (the old 16.2-only check left 16.1 ones running).
+        if #available(iOS 16.1, *) {
+          UptrackLiveActivityBridge.endAll()
         }
         UIApplication.shared.applicationIconBadgeNumber = 0
         result(true)
       default:
         result(FlutterMethodNotImplemented)
+      }
+    }
+    FlutterMethodChannel(
+      name: UptrackLiveActivityLogic.channelName, binaryMessenger: messenger
+    ).setMethodCallHandler { [weak self] call, result in
+      if #available(iOS 16.1, *),
+        let bridge = self?.liveActivityBridge as? UptrackLiveActivityBridge
+      {
+        bridge.handle(call, result: result)
+      } else {
+        // iOS 16.0: no ActivityKit. Nothing runs and nothing can start.
+        result(call.method == "list" ? [] : "unsupported")
       }
     }
     // A tap may have arrived before the engine existed; keep it buffered as
@@ -205,28 +229,22 @@ import AuthenticationServices
     }
   }
 
-  // MARK: - Live Activity push-to-start (T055)
+  // MARK: - Live Activity (T055, I2.2)
 
-  /// Observes ActivityKit push-to-start tokens (iOS 17.2+) and forwards them
-  /// to Dart over the `push/events` channel as `onLiveActivityToken`
-  /// `{token, kind: push_to_start}`. Dart registers the token with
-  /// `POST /api/push/live-activities` (see `LiveActivityRegisterRequest` in
-  /// `lib/widgets/live_activity.dart`); the current Dart `_handleMethodCall`
-  /// ignores unknown methods, so a Dart handler can land as a follow-up
-  /// without breaking this build. Update-token rotation for already-running
-  /// activities is out of scope (the server prunes stale rows).
-  private func observeLiveActivityPushToStart() {
-    if #available(iOS 17.2, *) {
-      Task {
-        for await data in Activity<UptrackIncident>.pushToStartTokenUpdates {
-          let hex = data.map { String(format: "%02x", $0) }.joined()
-          let payload = ["token": hex, "kind": "push_to_start"]
-          await MainActor.run {
-            self.eventsChannel?.invokeMethod("onLiveActivityToken", arguments: payload)
-          }
-        }
+  /// Starts the Live Activity bridge on iOS 16.1+: update and push-to-start
+  /// tokens go to Dart as `onLiveActivityToken`, ended activities as
+  /// `onLiveActivityEnded` (see `UptrackLiveActivityBridge`). Events sent
+  /// before the engine exists are not lost: Dart pulls the tokens with
+  /// `getLiveActivityTokens`.
+  private func startLiveActivityBridge() {
+    guard #available(iOS 16.1, *) else { return }
+    let bridge = UptrackLiveActivityBridge { [weak self] method, payload in
+      DispatchQueue.main.async {
+        self?.eventsChannel?.invokeMethod(method, arguments: payload)
       }
     }
+    liveActivityBridge = bridge
+    bridge.start()
   }
 
   // MARK: - Helpers
