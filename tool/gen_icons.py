@@ -233,6 +233,8 @@ def web(public: Path) -> None:
     write(public / "uptrack-logo.svg", icon)
     for px in (16, 32):
         save_png(render(small, px), public / f"favicon-{px}.png")
+    # Google Search wants a favicon that is a multiple of 48 px.
+    save_png(render(rounded(icon), 96), public / "favicon-96.png")
     ico = render(small, 256)
     buf = io.BytesIO()
     ico.save(buf, "ICO", sizes=[(16, 16), (32, 32), (48, 48)])
