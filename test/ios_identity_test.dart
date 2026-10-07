@@ -68,4 +68,23 @@ void main() {
     final String shared = _read('ios/Shared/UptrackIncidentAttributes.swift');
     expect(shared, contains('struct UptrackIncident: ActivityAttributes'));
   });
+
+  // v1 ships for iPhone only. An iPad target makes App Store Connect require
+  // iPad screenshots and App Review test the iPad layout.
+  test('every target builds for iPhone only', () {
+    final Set<String> families = RegExp(
+      r'TARGETED_DEVICE_FAMILY = ([^;]+);',
+    ).allMatches(pbxproj).map((RegExpMatch m) => m.group(1)!.trim()).toSet();
+    expect(families, <String>{'1'});
+  });
+
+  // The app uses only HTTPS (exempt encryption). Without this key App Store
+  // Connect asks the export-compliance question on every upload.
+  test('the app declares exempt encryption', () {
+    final String plist = _read('ios/Runner/Info.plist');
+    expect(
+      plist,
+      matches(RegExp(r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false/>')),
+    );
+  });
 }
