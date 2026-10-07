@@ -87,4 +87,11 @@ void main() {
       matches(RegExp(r'<key>ITSAppUsesNonExemptEncryption</key>\s*<false/>')),
     );
   });
+
+  // A file on disk is not enough: Xcode copies only files that the Runner
+  // target's resources phase lists. Without it the app ships no manifest.
+  test('the Runner target bundles the app privacy manifest', () {
+    expect(File('ios/Runner/PrivacyInfo.xcprivacy').existsSync(), isTrue);
+    expect(pbxproj, contains('PrivacyInfo.xcprivacy in Resources'));
+  });
 }
