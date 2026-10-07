@@ -60,6 +60,30 @@ void main() {
     }
   });
 
+  test('Live Activity tokens carry the APNs environment of the build', () {
+    // One source for the environment: the push-token payload and the bridge
+    // both use AppDelegate.apnsEnvironment() (Debug = sandbox).
+    expect(logic, contains('"environment": environment'));
+    expect(
+      RegExp(r'"environment": environment').allMatches(logic).length,
+      2,
+      reason: 'update and push-to-start payloads',
+    );
+    expect(
+      appDelegate,
+      contains(
+        'UptrackLiveActivityBridge(environment: Self.apnsEnvironment())',
+      ),
+    );
+    expect(
+      appDelegate,
+      matches(
+        RegExp(r'#if DEBUG\s*return "sandbox"\s*#else\s*return "production"'),
+      ),
+    );
+    expect(bridge, contains('environment: environment'));
+  });
+
   test('the attributes type and keys match the server payload', () {
     expect(
       attributes,

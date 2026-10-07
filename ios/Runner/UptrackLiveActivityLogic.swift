@@ -19,19 +19,25 @@ enum UptrackLiveActivityLogic {
   }
 
   /// `onLiveActivityToken` payload for one activity's update token.
-  static func updateTokenPayload(token: String, incidentId: String) -> [String: Any] {
+  /// [environment] is the APNs environment of the build (`sandbox` |
+  /// `production`), sent to the server with the token.
+  static func updateTokenPayload(
+    token: String, incidentId: String, environment: String
+  ) -> [String: Any] {
     [
       "token": token,
       "kind": "update",
       "incident_id": incidentId,
       "expires_in_seconds": updateTokenTtlSeconds,
+      "environment": environment,
     ]
   }
 
   /// `onLiveActivityToken` payload for the push-to-start token (iOS 17.2+).
-  /// It has no incident yet; Dart parks it until an incident push arrives.
-  static func pushToStartPayload(token: String) -> [String: Any] {
-    ["token": token, "kind": "push_to_start"]
+  /// It names no incident: the server keeps one per signed-in device, and
+  /// Dart posts it as soon as a session exists.
+  static func pushToStartPayload(token: String, environment: String) -> [String: Any] {
+    ["token": token, "kind": "push_to_start", "environment": environment]
   }
 
   /// The local start exists for iOS 16.1 to 17.1 only. On 17.2 and later the

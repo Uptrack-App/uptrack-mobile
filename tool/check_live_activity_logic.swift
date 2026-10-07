@@ -35,16 +35,18 @@ struct CheckLiveActivityLogic {
     // Token payloads match the Dart onLiveActivityToken contract and the
     // server's 60 s .. 7 d TTL bounds.
     expect(L.hex(Data([0x00, 0xab, 0x10])), "00ab10", "hex")
-    let update = L.updateTokenPayload(token: "abc", incidentId: "inc-1")
+    let update = L.updateTokenPayload(token: "abc", incidentId: "inc-1", environment: "sandbox")
     expect(update["token"] as? String, "abc", "update token")
     expect(update["kind"] as? String, "update", "update kind")
     expect(update["incident_id"] as? String, "inc-1", "update incident")
     let ttl = update["expires_in_seconds"] as? Int ?? 0
     expect(ttl >= 60 && ttl <= 604_800, true, "update ttl in server bounds")
     expect(ttl >= 8 * 3600, true, "update ttl covers the 8 h live window")
-    let pts = L.pushToStartPayload(token: "p")
+    expect(update["environment"] as? String, "sandbox", "update environment")
+    let pts = L.pushToStartPayload(token: "p", environment: "production")
     expect(pts["kind"] as? String, "push_to_start", "pts kind")
     expect(pts["incident_id"] == nil, true, "pts has no incident")
+    expect(pts["environment"] as? String, "production", "pts environment")
 
     // start arguments (LiveActivityStart.toMap in Dart).
     let start = L.startRequest(from: [
