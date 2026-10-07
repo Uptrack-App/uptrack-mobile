@@ -220,6 +220,23 @@ def on_background(im: Image.Image, size: tuple[int, int], bg: str, height: int) 
     return out
 
 
+def play_feature_graphic() -> None:
+    """Play Store feature graphic, 1024x500: icon tile, name and tagline on ink."""
+    from PIL import ImageDraw, ImageFont
+
+    k = 2
+    out = Image.new("RGB", (1024 * k, 500 * k), "#0A0E14")
+    tile = render(rounded(svg("app-icon.svg")), 240 * k)
+    out.paste(tile, (96 * k, 130 * k), tile)
+    draw = ImageDraw.Draw(out)
+    title = ImageFont.truetype(str(FONT), 92 * k)
+    body = ImageFont.truetype(str(ROOT / "assets/fonts/IBMPlexSans-Regular.ttf"), 32 * k)
+    draw.text((384 * k, 252 * k), "Uptrack", font=title, fill=DARK_UI_INK, anchor="ls")
+    draw.text((386 * k, 306 * k), "Uptime monitoring and", font=body, fill="#BAC5D2", anchor="ls")
+    draw.text((386 * k, 348 * k), "incident response", font=body, fill="#BAC5D2", anchor="ls")
+    save_png(out.resize((1024, 500), Image.LANCZOS), ROOT / "store/icon/play-feature-1024x500.png")
+
+
 def mobile_brand() -> None:
     for name, ink in {"light": LIGHT_UI_INK, "dark": DARK_UI_INK}.items():
         save_png(wordmark(144, ink), ROOT / f"assets/brand/uptrack-wordmark-{name}.png")
@@ -264,5 +281,6 @@ if __name__ == "__main__":
     ios()
     android()
     mobile_brand()
+    play_feature_graphic()
     if len(sys.argv) > 1:
         web(Path(sys.argv[1]).resolve())
