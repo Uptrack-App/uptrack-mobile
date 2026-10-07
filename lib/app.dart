@@ -46,7 +46,7 @@ GoRouter createRouter({
       if (!checkoutReturnEnabled && state.matchedLocation == '/billing/return') {
         return '/';
       }
-      if (state.matchedLocation == '/demo' && !isAndroidDemoAvailable) {
+      if (state.matchedLocation == '/demo' && !isDemoAvailable) {
         return '/login';
       }
       final AuthStatus Function()? statusOf = authStatusOf;

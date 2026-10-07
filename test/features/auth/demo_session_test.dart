@@ -386,9 +386,13 @@ void main() {
       expect(find.text('Demo · sample data'), findsNothing);
       expect(await store.readDeviceToken(), isNull);
     },
-    variant: TargetPlatformVariant.only(TargetPlatform.android),
+    // App Review needs a no-account way in on iOS too (store review notes).
+    variant: TargetPlatformVariant(<TargetPlatform>{
+      TargetPlatform.android,
+      TargetPlatform.iOS,
+    }),
   );
-  testWidgets('iOS has normal login and cannot enter demo through a link', (
+  testWidgets('desktop builds have normal login and cannot enter demo', (
     tester,
   ) async {
     final router = createRouter(
@@ -410,5 +414,5 @@ void main() {
     expect(find.byKey(const ValueKey<String>('try-demo')), findsNothing);
     expect(find.text('Demo · sample data'), findsNothing);
     expect(router.routeInformationProvider.value.uri.path, '/login');
-  }, variant: TargetPlatformVariant.only(TargetPlatform.iOS));
+  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }

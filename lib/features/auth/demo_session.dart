@@ -18,8 +18,12 @@ import '../../push/push_service.dart';
 import '../../theme/app_theme.dart';
 import 'auth_controller.dart';
 
-bool get isAndroidDemoAvailable =>
-    !kIsWeb && defaultTargetPlatform == TargetPlatform.android;
+/// The sample workspace on the phone apps. iOS needs it too: App Review
+/// must reach the app without an account (see store/metadata/review-notes.txt).
+bool get isDemoAvailable =>
+    !kIsWeb &&
+    (defaultTargetPlatform == TargetPlatform.android ||
+        defaultTargetPlatform == TargetPlatform.iOS);
 
 /// A disposable workspace. Its adapter never forwards a request to a server.
 class DemoAdapter implements HttpClientAdapter {

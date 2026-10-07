@@ -1,11 +1,15 @@
 Uptrack review notes (v1.0.0)
 
-ANDROID DEMO ACCESS
-- On Android, on the welcome screen, tap "Try demo". No account, password or payment is required. iOS has no demo button.
+SIGN-IN FOR REVIEW (iOS and Android)
+- Reviewer account: sign in with the email given in App Store Connect / Play Console "Sign-in information". Enter the email, tap "Email me a sign-in link", type the review code from the same field into "Sign-in link or code", then tap "Sign in". No inbox is needed. The code works only for that one account and is never stored in this repository.
+- This account has sample monitors, including one that fails on demand, so a real push alert and lock-screen Acknowledge/Snooze can be tested.
+- Account deletion: Settings -> Danger zone. For safety, the app deletes an account only within 15 minutes of a sign-in; otherwise it asks you to sign in again. No password is needed for this account.
+
+DEMO ACCESS (no account)
+- On the welcome screen, tap "Try demo". No account, password or payment is required.
 - The demo contains sample monitors, check history, charts and incidents. Acknowledgement and notification-preference edits apply only to the current sample session.
 - The "Demo · sample data" banner remains visible. Tap "Exit demo" to return to normal sign-in.
-- Demo data uses a separate in-memory database and an adapter that never forwards API requests to a server. It does not create credentials or register push tokens.
-- Real account login, push delivery, device revocation and public status pages require a separately provisioned reviewer account; the demo does not verify these live services.
+- Demo data uses a separate in-memory database and an adapter that never forwards API requests to a server. It does not create credentials or register push tokens, so push, device revocation and account deletion need the reviewer account above.
 
 WHAT TO EXERCISE
 - Log in → dashboard (status counts, uptime summary, recent incidents).
