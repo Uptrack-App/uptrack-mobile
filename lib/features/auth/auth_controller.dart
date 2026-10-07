@@ -252,6 +252,10 @@ class AuthController extends Notifier<AuthState> {
     await verifyMagicLink(email: email, token: token);
   }
 
+  /// Completes when the stored session (if any) has been read at start-up.
+  /// Push actions wait for it so they never run without the bearer.
+  Future<void> get restored => _initialRestore;
+
   /// Explicit restore for tests/app start when deterministic timing matters.
   Future<void> restore() => _restore();
 

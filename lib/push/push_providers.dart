@@ -30,8 +30,14 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
   // Foreground path (T056): FCM data messages refresh the Glance/WidgetKit
   // home widget from the Drift cache best-effort, then display locally.
   // The refresher closure is lazy — no DB access until a push arrives.
+  // Buttons on a notification the Dart renderer showed (Android) run
+  // through the same action path as the native ones (plan 4.6).
+  late final PushService service;
   final FlutterLocalNotificationsNotifier notifier =
-      FlutterLocalNotificationsNotifier();
+      FlutterLocalNotificationsNotifier(
+        onAction: (PushActionRequest request) =>
+            unawaited(service.handleAction(request)),
+      );
   final FcmDataHandler fcmData = FcmDataHandler(
     notifier: notifier,
     refresher: WidgetRefresher.fromCache(
@@ -39,7 +45,7 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
       store: const HomeWidgetStore(),
     ),
   );
-  return PushService(
+  service = PushService(
     registerToken:
         ({
           required String platform,
@@ -51,7 +57,11 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
           environment: environment,
         ),
     onNavigate: navigate,
-    actionHandler: PushActionHandler(api: api, onNavigate: navigate),
+    actionHandler: PushActionHandler(
+      api: api,
+      onNavigate: navigate,
+      retryDelays: ref.watch(pushActionRetryDelaysProvider),
+    ),
     registerLiveActivity: api.registerLiveActivity,
     notifier: notifier,
     onForegroundData: (Map<Object?, Object?> data) async {
@@ -61,8 +71,18 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
     isSignedIn: () =>
         ref.read(authControllerProvider).status == AuthStatus.signedIn,
     requestPermission: notifier.requestAndroidPermission,
+    waitForSession: () async {
+      await ref.read(authControllerProvider.notifier).restored;
+      return ref.read(authControllerProvider).status == AuthStatus.signedIn;
+    },
   );
+  return service;
 });
+
+/// Retry waits for a lock-screen action that could not reach the server.
+/// A provider so tests can make them instant.
+final Provider<List<Duration>> pushActionRetryDelaysProvider =
+    Provider<List<Duration>>((Ref ref) => PushActionHandler.defaultRetryDelays);
 
 /// Parks notification deep links until a session exists (plan 4.2).
 final Provider<PushRouteGate> pushRouteGateProvider = Provider<PushRouteGate>(

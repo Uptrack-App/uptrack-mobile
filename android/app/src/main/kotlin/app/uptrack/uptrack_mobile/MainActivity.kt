@@ -94,6 +94,7 @@ class MainActivity : FlutterActivity() {
 
     private fun tapPayload(intent: Intent?): Map<String, String>? {
         if (intent == null) return null
+        actionPayload(intent)?.let { return it }
         val incidentId = intent.getStringExtra(
             UptrackDataMessageReceiver.EXTRA_INCIDENT_ID,
         )
@@ -107,11 +108,33 @@ class MainActivity : FlutterActivity() {
         return payload
     }
 
+    /**
+     * Action button on a notification [UptrackDataMessageReceiver] rendered
+     * (plan 4.6): `{action, incident_id | monitor_id}` for Dart's
+     * `onNotificationAction`, or null when [intent] is not a well-formed
+     * action intent. The intent action must match the payload action, so a
+     * body tap can never be read as an action (and the other way round).
+     */
+    private fun actionPayload(intent: Intent): Map<String, String>? {
+        val action = intent.getStringExtra(UptrackNotificationIntents.EXTRA_ACTION)
+        if (action.isNullOrEmpty()) return null
+        if (UptrackNotificationIntents.intentActionFor(action) != intent.action) return null
+        val targetId = UptrackNotificationIntents.sanitizeId(
+            intent.getStringExtra(UptrackNotificationIntents.EXTRA_TARGET_ID),
+        ) ?: return null
+        val key = when (intent.getStringExtra(UptrackNotificationIntents.EXTRA_TARGET_KIND)) {
+            UptrackNotificationIntents.KIND_INCIDENT -> "incident_id"
+            UptrackNotificationIntents.KIND_MONITOR -> "monitor_id"
+            else -> return null
+        }
+        return mapOf("action" to action, key to targetId)
+    }
+
     private fun flushTap(payload: Map<String, String>): Boolean {
         val messenger = flutterEngine?.dartExecutor?.binaryMessenger
             ?: return false
-        MethodChannel(messenger, CHANNEL_EVENTS)
-            .invokeMethod(METHOD_TAP, payload)
+        val method = if (payload.containsKey("action")) METHOD_ACTION else METHOD_TAP
+        MethodChannel(messenger, CHANNEL_EVENTS).invokeMethod(method, payload)
         return true
     }
 
@@ -119,6 +142,7 @@ class MainActivity : FlutterActivity() {
         // Mirrors `PushChannels.events` / `PushEventMethods.onNotificationTap`.
         const val CHANNEL_EVENTS = "app.uptrack.mobile/push/events"
         const val METHOD_TAP = "onNotificationTap"
+        const val METHOD_ACTION = "onNotificationAction"
         // Mirrors `PushChannels.token` / `PushTokenMethods`.
         const val CHANNEL_TOKEN = "app.uptrack.mobile/push/token"
         const val METHOD_GET_TOKEN = "getToken"

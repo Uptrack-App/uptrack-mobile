@@ -221,9 +221,13 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
   /// * No usable target → no actions. An alert with nothing to triage gets a
   ///   body tap only.
   ///
-  /// `showsUserInterface: false`: this renderer only serves the foreground
-  /// path, where the app is already in front, and an action must not pull the
-  /// UI forward on its own.
+  /// `showsUserInterface: true` (plan 4.6): with `false` the plugin's
+  /// `ActionBroadcastReceiver` starts a background engine for a
+  /// background-isolate callback that this app does not register, so the
+  /// plugin drops the action ("Callback information could not be
+  /// retrieved"). With `true` the tap opens the app and reaches the
+  /// main-isolate callback, which hands it to [onAction]; this matches the
+  /// iOS actions (`.foreground`) and the native Android action intents.
   static List<AndroidNotificationAction> androidActionsFor(
     PushMessage message,
   ) {
@@ -306,19 +310,19 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
       AndroidNotificationAction(
         PushIntentIdentity.acknowledge,
         'Acknowledge',
-        showsUserInterface: false,
+        showsUserInterface: true,
       );
   static const AndroidNotificationAction _escalateAction =
       AndroidNotificationAction(
         PushIntentIdentity.escalate,
         'Escalate',
-        showsUserInterface: false,
+        showsUserInterface: true,
       );
   static const AndroidNotificationAction _snoozeAction =
       AndroidNotificationAction(
         PushIntentIdentity.snooze,
         'Snooze',
-        showsUserInterface: false,
+        showsUserInterface: true,
       );
 }
 
@@ -344,6 +348,7 @@ class PushService {
     PushRegistrationStore? registrationStore,
     this.isSignedIn,
     this.requestPermission,
+    this.waitForSession,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
@@ -370,6 +375,13 @@ class PushService {
   final Future<bool> Function()? requestPermission;
 
   bool get _canRegister => isSignedIn?.call() ?? true;
+
+  /// Completes with true once a session is known to exist (the stored device
+  /// token was restored, or the user signed in). A lock-screen action waits
+  /// for it: on a cold start it arrives before the restore, and a call with
+  /// no bearer is a 401 that drops the action. Null means no wait (tests of
+  /// the plain plumbing).
+  final Future<bool> Function()? waitForSession;
 
   /// Lock-screen triage executor (T031). Null in tests that only cover the
   /// T027 plumbing — action taps then fall back to a plain deep-link.
@@ -408,13 +420,40 @@ class PushService {
     _initialized = true;
     _events.setMethodCallHandler(_handleMethodCall);
     await _notifier.initialize(onTap: _navigateFor);
-    final PushMessage? initial =
-        await _nativeInitialNotification() ??
-        await _notifier.initialNotification();
-    if (initial != null) {
-      _navigateFor(initial);
+    final Map<Object?, Object?>? native = await _invokeToken(
+      PushTokenMethods.getInitialNotification,
+    );
+    // The native hosts keep the action of an action button that launched the
+    // app (killed state); run it instead of treating it as a body tap.
+    final PushActionRequest? initialAction = PushActionRequest.fromMap(native);
+    if (initialAction != null) {
+      await handleAction(initialAction);
+    } else {
+      final PushMessage? initial =
+          PushMessage.fromMap(native) ?? await _notifier.initialNotification();
+      if (initial != null) {
+        _navigateFor(initial);
+      }
     }
     await registerCurrentToken();
+  }
+
+  /// Runs one lock-screen action (plan 4.6) from any source: the native
+  /// `onNotificationAction` event, the native cold-start payload, or a button
+  /// on a notification the Dart renderer showed. Waits for the session first;
+  /// with no session nothing runs and the target opens after sign-in.
+  Future<void> handleAction(PushActionRequest request) async {
+    final Future<bool> Function()? wait = waitForSession;
+    final PushActionHandler? handler = actionHandler;
+    if (handler == null || (wait != null && !await wait())) {
+      // Deep-link so the user can triage manually (after sign-in).
+      final String? location = request.routeLocation;
+      if (location != null) {
+        onNavigate(location);
+      }
+      return;
+    }
+    await handler.handle(request);
   }
 
   /// Follows the auth session (plan 4.3): a sign-in (or a restored session)
@@ -526,16 +565,7 @@ class PushService {
         if (request == null) {
           return;
         }
-        final PushActionHandler? handler = actionHandler;
-        if (handler != null) {
-          await handler.handle(request);
-        } else {
-          // Pre-wiring fallback: deep-link so the user can triage manually.
-          final String? location = request.routeLocation;
-          if (location != null) {
-            onNavigate(location);
-          }
-        }
+        await handleAction(request);
     }
   }
 
@@ -730,12 +760,5 @@ class PushService {
     } on PlatformException {
       return null;
     }
-  }
-
-  Future<PushMessage?> _nativeInitialNotification() async {
-    final Map<Object?, Object?>? result = await _invokeToken(
-      PushTokenMethods.getInitialNotification,
-    );
-    return PushMessage.fromMap(result);
   }
 }
