@@ -493,6 +493,21 @@ void main() {
       expect(h.removed, isEmpty);
     });
 
+    test('an activity that ends while signed out sends no DELETE', () async {
+      // Logout ends every activity after the session is gone; the server
+      // already dropped the tokens with the device (push unregister/revoke).
+      final LiveActivityHarness h = LiveActivityHarness();
+      await h.service.initialize();
+      await h.signOut();
+
+      await h.sendEvent(PushEventMethods.onLiveActivityEnded, <String, Object?>{
+        'token': 'upd-1',
+        'incident_id': 'inc-1',
+      });
+
+      expect(h.removed, isEmpty);
+    });
+
     test('a failed removal never escapes', () async {
       final LiveActivityHarness h = LiveActivityHarness(throwOnRegister: true);
       await h.service.initialize();

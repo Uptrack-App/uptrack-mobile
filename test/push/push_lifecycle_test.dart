@@ -17,6 +17,7 @@ import 'package:uptrack_mobile/push/push_message.dart';
 import 'package:uptrack_mobile/push/push_providers.dart';
 import 'package:uptrack_mobile/push/push_registration.dart';
 import 'package:uptrack_mobile/push/push_service.dart';
+import 'package:uptrack_mobile/widgets/live_activity.dart';
 
 /// Plan item 4.3: the push device follows the signed-in session.
 ///
@@ -68,11 +69,21 @@ class _Server implements HttpClientAdapter {
     if (key == 'DELETE $kPushDevicesPath' || key == 'POST $kPushDevicesPath') {
       return _json(<String, Object?>{'ok': true});
     }
+    if (key == 'DELETE $kLiveActivitiesPath' ||
+        key == 'POST $kLiveActivitiesPath') {
+      return _json(<String, Object?>{'ok': true});
+    }
     return _json(<String, Object?>{'error': 'unexpected $key'}, 500);
   }
 
   @override
   void close({bool force = false}) {}
+}
+
+/// A session stored before the device-token id was kept: nothing to revoke.
+class _NoIdTokenStore extends MemoryTokenStore {
+  @override
+  Future<String?> readDeviceTokenId() async => null;
 }
 
 ResponseBody _json(
@@ -212,6 +223,79 @@ void main() {
       expect(server.calls, isNot(contains('DELETE $kPushDevicesPath')));
     });
 
+    test('a posted push-to-start token adds no call: the push unregister and '
+        'the device revoke delete it on the server', () async {
+      await signIn();
+      final PushRegistrationStore store = container.read(
+        pushRegistrationStoreProvider,
+      );
+      store
+        ..markRegistered(
+          const PushRegistration(platform: 'ios', token: 'apns-hex-1'),
+        )
+        ..markPushToStartRegistered('pts-1');
+
+      await container.read(authControllerProvider.notifier).signOut();
+
+      expect(server.calls, contains('DELETE $kPushDevicesPath'));
+      expect(
+        server.calls,
+        contains(
+          'DELETE $kDeviceTokensPath/44444444-4444-4444-8444-444444444444',
+        ),
+      );
+      expect(server.calls, isNot(contains('DELETE $kLiveActivitiesPath')));
+      expect(store.registeredPushToStart, isNull);
+    });
+
+    test('with no push device and no device-token id, sign-out deletes the '
+        'push-to-start token itself, with the bearer', () async {
+      final AuthTokenHolder holder = AuthTokenHolder();
+      final MemoryTokenStore tokens = _NoIdTokenStore();
+      await tokens.writeDeviceToken(token: 'udt_test_raw_token', id: 'x');
+      late final ProviderContainer legacy;
+      legacy = ProviderContainer(
+        overrides: [
+          tokenStoreProvider.overrideWithValue(tokens),
+          authTokenHolderProvider.overrideWithValue(holder),
+          dioProvider.overrideWithValue(
+            buildAppDio(
+              holder: holder,
+              onUnauthorized: () => legacy
+                  .read(authControllerProvider.notifier)
+                  .handleUnauthorized(),
+              adapter: server,
+            ),
+          ),
+          appDatabaseProvider.overrideWithValue(
+            AppDatabase.forTesting(NativeDatabase.memory()),
+          ),
+        ],
+      );
+      addTearDown(() {
+        legacy.read(appDatabaseProvider).close();
+        legacy.dispose();
+      });
+      await legacy.read(authControllerProvider.notifier).restored;
+      expect(legacy.read(authControllerProvider).deviceTokenId, isNull);
+      legacy
+          .read(pushRegistrationStoreProvider)
+          .markPushToStartRegistered('pts-1');
+
+      await legacy.read(authControllerProvider.notifier).signOut();
+
+      final RequestOptions delete = server.seen.singleWhere(
+        (RequestOptions o) =>
+            o.method == 'DELETE' && o.path == kLiveActivitiesPath,
+      );
+      expect(delete.data, <String, Object?>{'token': 'pts-1'});
+      expect(delete.headers['Authorization'], 'Bearer udt_test_raw_token');
+      expect(
+        legacy.read(pushRegistrationStoreProvider).registeredPushToStart,
+        isNull,
+      );
+    });
+
     test('a 401 drops the registration record locally', () async {
       await signIn();
       container
@@ -219,8 +303,15 @@ void main() {
           .markRegistered(
             const PushRegistration(platform: 'android', token: 'fcm-1'),
           );
+      container
+          .read(pushRegistrationStoreProvider)
+          .markPushToStartRegistered('pts-1');
       container.read(authControllerProvider.notifier).handleUnauthorized();
       expect(container.read(pushRegistrationStoreProvider).registered, isNull);
+      expect(
+        container.read(pushRegistrationStoreProvider).registeredPushToStart,
+        isNull,
+      );
     });
   });
 
@@ -297,6 +388,54 @@ void main() {
           ),
         ),
       );
+    });
+
+    test('the push-to-start token posts once after login, with the bearer; '
+        'nothing while signed out', () async {
+      container.read(pushAuthBindingProvider);
+      await container.read(pushServiceProvider).initialize();
+      Future<void> sendToken() {
+        final ByteData message = const StandardMethodCodec().encodeMethodCall(
+          const MethodCall(
+            PushEventMethods.onLiveActivityToken,
+            <String, Object?>{
+              'token': 'pts-live',
+              'kind': 'push_to_start',
+              'environment': 'sandbox',
+            },
+          ),
+        );
+        return TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .handlePlatformMessage(PushChannels.events, message, (_) {});
+      }
+
+      await sendToken();
+      expect(server.calls, isNot(contains('POST $kLiveActivitiesPath')));
+
+      await signIn();
+      await pumpEventQueue();
+      await sendToken();
+
+      final RequestOptions post = server.seen.singleWhere(
+        (RequestOptions o) =>
+            o.method == 'POST' && o.path == kLiveActivitiesPath,
+      );
+      expect(post.headers['Authorization'], 'Bearer udt_test_raw_token');
+      expect(post.data, <String, Object?>{
+        'token': 'pts-live',
+        'kind': 'push_to_start',
+        'environment': 'sandbox',
+      });
+
+      await container.read(authControllerProvider.notifier).signOut();
+      await pumpEventQueue();
+      await sendToken();
+
+      expect(
+        server.calls.where((String c) => c == 'POST $kLiveActivitiesPath'),
+        hasLength(1),
+      );
+      expect(server.calls, isNot(contains('DELETE $kLiveActivitiesPath')));
     });
   });
 

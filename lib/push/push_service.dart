@@ -759,7 +759,8 @@ class PushService {
 
   /// Handles one native `onLiveActivityEnded` call (`{token?,
   /// incident_id?}`): removes the ended activity's token from the server.
-  /// Never throws.
+  /// Not while signed out: logout ends every activity after the session is
+  /// gone, and the server already deleted the device's tokens. Never throws.
   Future<void> _handleLiveActivityEnded(Map<Object?, Object?>? map) async {
     final Object? rawToken = map?['token'];
     if (rawToken is! String || rawToken.trim().isEmpty) {
@@ -768,6 +769,9 @@ class PushService {
     _registeredLiveActivityTokens.removeWhere(
       (String key) => key.startsWith('$rawToken|'),
     );
+    if (!_canRegister) {
+      return;
+    }
     final LiveActivityRemoveRequest request = LiveActivityRemoveRequest(
       token: rawToken,
     );
