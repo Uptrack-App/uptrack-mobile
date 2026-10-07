@@ -94,4 +94,29 @@ void main() {
     expect(File('ios/Runner/PrivacyInfo.xcprivacy').existsSync(), isTrue);
     expect(pbxproj, contains('PrivacyInfo.xcprivacy in Resources'));
   });
+
+  // Universal links: iOS opens https://uptrack.app links in the app only when
+  // the app entitles the domain AND uptrack.app serves a matching
+  // apple-app-site-association file for team 243QZUX78K.
+  test('the app entitles universal links for uptrack.app', () {
+    final String app = _read('ios/Runner/UptrackMobile.entitlements');
+    expect(
+      app,
+      matches(
+        RegExp(
+          r'<key>com\.apple\.developer\.associated-domains</key>\s*'
+          r'<array>\s*<string>applinks:uptrack\.app</string>\s*</array>',
+        ),
+      ),
+    );
+  });
+
+  test('every Runner build configuration signs with that entitlements file', () {
+    expect(
+      RegExp(
+        r'CODE_SIGN_ENTITLEMENTS = Runner/UptrackMobile\.entitlements;',
+      ).allMatches(pbxproj).length,
+      3,
+    );
+  });
 }
