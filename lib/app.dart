@@ -21,6 +21,7 @@ import 'features/settings/checkout_return_screen.dart';
 import 'features/status/status_page_screen.dart';
 import 'push/push_providers.dart';
 import 'theme/app_theme.dart';
+import 'util/universal_links.dart';
 import 'design/adaptive_scaffold.dart';
 
 /// [checkoutReturnEnabled] keeps the browser-checkout return screen
@@ -43,6 +44,12 @@ GoRouter createRouter({
     observers: observers,
     refreshListenable: refreshListenable,
     redirect: (BuildContext context, GoRouterState state) {
+      // A universal link (iOS) or app link (Android) arrives as the full
+      // https URL. Map it to an app screen. An unknown link lands on home;
+      // it must never match an app route by its path alone.
+      if (state.uri.scheme == 'https' || state.uri.scheme == 'http') {
+        return universalLinkLocation(state.uri) ?? '/';
+      }
       if (!checkoutReturnEnabled &&
           state.matchedLocation == '/billing/return') {
         return '/';
