@@ -10,7 +10,6 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
-import 'package:uptrack_mobile/api/uptrack_api.dart';
 import 'package:uptrack_mobile/app.dart' show routerProvider;
 import 'package:uptrack_mobile/data/local/app_database.dart';
 import 'package:uptrack_mobile/data/local/database_providers.dart';
