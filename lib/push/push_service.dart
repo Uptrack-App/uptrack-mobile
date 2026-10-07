@@ -8,6 +8,7 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'push_channels.dart';
 import 'push_actions.dart';
 import 'push_message.dart';
+import 'push_registration.dart';
 import '../widgets/live_activity.dart';
 
 /// Registers (or re-registers after a token refresh) the native push token
@@ -82,6 +83,19 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
       settings: settings,
       onDidReceiveNotificationResponse: _handleResponse,
     );
+  }
+
+  /// Android 13+ `POST_NOTIFICATIONS` runtime prompt (no-op elsewhere).
+  /// Returns whether notifications are allowed.
+  Future<bool> requestAndroidPermission() async {
+    final AndroidFlutterLocalNotificationsPlugin? android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) {
+      return true;
+    }
+    return await android.requestNotificationsPermission() ?? false;
   }
 
   @override
@@ -296,10 +310,14 @@ class PushService {
     this.actionHandler,
     this.onForegroundData,
     this.registerLiveActivity,
+    PushRegistrationStore? registrationStore,
+    this.isSignedIn,
+    this.requestPermission,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
-       _platformOverride = platform;
+       _platformOverride = platform,
+       _store = registrationStore ?? PushRegistrationStore();
 
   final PushTokenRegistration registerToken;
   final PushNavigation onNavigate;
@@ -307,6 +325,20 @@ class PushService {
   final MethodChannel _tokenChannel;
   final LocalNotifier _notifier;
   final TargetPlatform? _platformOverride;
+  final PushRegistrationStore _store;
+
+  /// True while a device-token session exists. `POST /api/push/devices`
+  /// needs that bearer, so tokens seen while signed out are only recorded
+  /// and registered at the next sign-in ([onAuthChanged]). Null (tests of
+  /// the plain plumbing) means always signed in.
+  final bool Function()? isSignedIn;
+
+  /// Asks for the Android 13+ `POST_NOTIFICATIONS` runtime permission. Without
+  /// a grant Android drops every notification, FCM ones included. iOS asks in
+  /// the native `getToken` handler instead, so this runs on Android only.
+  final Future<bool> Function()? requestPermission;
+
+  bool get _canRegister => isSignedIn?.call() ?? true;
 
   /// Lock-screen triage executor (T031). Null in tests that only cover the
   /// T027 plumbing — action taps then fall back to a plain deep-link.
@@ -354,16 +386,50 @@ class PushService {
     await registerCurrentToken();
   }
 
+  /// Follows the auth session (plan 4.3): a sign-in (or a restored session)
+  /// registers the device. Sign-out is handled by `AuthController.signOut`,
+  /// which unregisters the token recorded in [PushRegistrationStore].
+  Future<void> onAuthChanged({required bool signedIn}) async {
+    if (!signedIn || !_initialized) {
+      // Not initialized yet: [initialize] registers when it runs.
+      return;
+    }
+    await registerCurrentToken();
+  }
+
   /// Asks the native host for its current push token and registers it.
-  /// No-op when push is unavailable or the host side is not implemented yet.
+  /// No-op while signed out (no permission prompt on the login screen),
+  /// when push is unavailable, or when the host side is not implemented.
+  /// Falls back to the last token the host reported (iOS delivers the APNs
+  /// token asynchronously, after the permission prompt).
   Future<void> registerCurrentToken() async {
+    if (!_canRegister) {
+      return;
+    }
+    if (_currentPlatform() == 'android') {
+      await _requestPermission();
+    }
     final Map<Object?, Object?>? result = await _invokeToken(
       PushTokenMethods.getToken,
     );
-    if (result == null) {
+    final PushRegistration? current = result == null
+        ? _store.latest
+        : _registrationFromMap(result);
+    if (current == null) {
       return;
     }
-    await _registerFromMap(result);
+    await _register(current);
+  }
+
+  Future<void> _requestPermission() async {
+    try {
+      await requestPermission?.call();
+    } on PlatformException {
+      // A denied or failed prompt still lets the token register: the user
+      // can enable notifications in Settings later.
+    } on MissingPluginException {
+      // No plugin host (tests).
+    }
   }
 
   /// Handles one native→Dart call on [PushChannels.events] (also invoked
@@ -385,7 +451,18 @@ class PushService {
         if (token != null && token.isNotEmpty) {
           final String? platform = _currentPlatform();
           if (platform != null) {
-            await registerToken(platform: platform, token: token);
+            // The refresh event carries only the token: keep the
+            // environment of the token it replaces (same install).
+            final PushRegistration? previous = _store.latest;
+            await _seen(
+              PushRegistration(
+                platform: platform,
+                token: token,
+                environment: previous?.platform == platform
+                    ? previous?.environment
+                    : null,
+              ),
+            );
           }
         }
       case PushEventMethods.onForegroundMessage:
@@ -530,9 +607,44 @@ class PushService {
   }
 
   Future<void> _registerFromMap(Map<Object?, Object?> map) async {
+    final PushRegistration? registration = _registrationFromMap(map);
+    if (registration != null) {
+      await _seen(registration);
+    }
+  }
+
+  /// Records a token from the native host; registers it when signed in.
+  Future<void> _seen(PushRegistration registration) async {
+    _store.markSeen(registration);
+    if (_canRegister) {
+      await _register(registration);
+    }
+  }
+
+  /// Best-effort `POST /api/push/devices`. A failure (offline, 5xx) never
+  /// escapes into a platform-channel reply or an unawaited future; the next
+  /// sign-in or token event tries again.
+  Future<void> _register(PushRegistration registration) async {
+    if (_store.registered == registration) {
+      return;
+    }
+    try {
+      await registerToken(
+        platform: registration.platform,
+        token: registration.token,
+        environment: registration.environment,
+      );
+    } on Exception catch (error) {
+      debugPrint('push: device registration failed: $error');
+      return;
+    }
+    _store.markRegistered(registration);
+  }
+
+  PushRegistration? _registrationFromMap(Map<Object?, Object?> map) {
     final Object? rawToken = map['token'];
     if (rawToken is! String || rawToken.isEmpty) {
-      return;
+      return null;
     }
     final Object? rawPlatform = map['platform'];
     final String? platform = rawPlatform is String && rawPlatform.isNotEmpty
@@ -544,10 +656,10 @@ class PushService {
     } else {
       // The backend only accepts ios|android; anything else (desktop builds,
       // simulators without push) must not reach `POST /api/push/devices`.
-      return;
+      return null;
     }
     final Object? rawEnvironment = map['environment'];
-    await registerToken(
+    return PushRegistration(
       platform: platformName,
       token: rawToken,
       environment: rawEnvironment is String && rawEnvironment.isNotEmpty
