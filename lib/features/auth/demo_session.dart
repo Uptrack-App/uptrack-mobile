@@ -440,6 +440,7 @@ class _UptrackDemoAppState extends State<UptrackDemoApp> {
     container: container,
     child: MaterialApp.router(
       title: 'Uptrack Demo',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,

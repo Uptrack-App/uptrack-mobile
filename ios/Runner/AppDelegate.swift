@@ -55,11 +55,15 @@ import AuthenticationServices
     let center = UNUserNotificationCenter.current()
     center.delegate = self
     center.setNotificationCategories([Self.triageCategory()])
-    center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-      if granted {
-        DispatchQueue.main.async {
-          application.registerForRemoteNotifications()
-        }
+    // The permission prompt is raised by Dart's push setup (`getToken`), not
+    // here, so the demo app (which never starts push) shows no prompt. An
+    // existing grant still refreshes the APNs token on every launch.
+    center.getNotificationSettings { settings in
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral:
+        DispatchQueue.main.async { application.registerForRemoteNotifications() }
+      default:
+        break
       }
     }
 
@@ -111,6 +115,14 @@ import AuthenticationServices
       }
       switch call.method {
       case "getToken":
+        // Asks only while undecided; once granted, APNs delivers the token
+        // through `onPushToken` on the events channel.
+        UNUserNotificationCenter.current()
+          .requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+            if granted {
+              DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+            }
+          }
         result(self.currentTokenPayload())
       case "getInitialNotification":
         let pending = self.initialNotification

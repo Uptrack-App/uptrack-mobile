@@ -248,6 +248,7 @@ class _UptrackAppState extends ConsumerState<UptrackApp> {
     final GoRouter router = ref.watch(routerProvider);
     return MaterialApp.router(
       title: 'Uptrack',
+      debugShowCheckedModeBanner: false,
       theme: AppTheme.light,
       darkTheme: AppTheme.dark,
       themeMode: ThemeMode.system,
