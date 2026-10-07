@@ -422,7 +422,9 @@ void main() {
       );
       final Map<Object?, Object?> settings =
           initialize.arguments as Map<Object?, Object?>;
-      expect(settings['defaultIcon'], '@mipmap/ic_launcher');
+      // A white silhouette: Android draws status-bar icons from alpha only, so
+      // the full-colour launcher icon would show as a white square.
+      expect(settings['defaultIcon'], '@drawable/ic_notification');
       // The deferred runtime gate, asserted so it cannot be forgotten: the
       // renderer registers **no** background response callback, and passes no
       // `onDidReceiveBackgroundNotificationResponse`. An installed

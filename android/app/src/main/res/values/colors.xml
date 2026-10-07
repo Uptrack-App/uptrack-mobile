@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <!-- Uptrack brand navy (logo background) for the adaptive icon. -->
-    <color name="ic_launcher_background">#222F35</color>
+    <color name="ic_launcher_background">#F5F7FA</color>
 </resources>

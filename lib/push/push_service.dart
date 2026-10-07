@@ -75,7 +75,7 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
   }) async {
     _onTap = onTap;
     const InitializationSettings settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings('@drawable/ic_notification'),
       iOS: DarwinInitializationSettings(),
     );
     await _plugin.initialize(

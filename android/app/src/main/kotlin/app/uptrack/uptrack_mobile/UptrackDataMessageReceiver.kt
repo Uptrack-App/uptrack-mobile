@@ -59,7 +59,7 @@ class UptrackDataMessageReceiver : BroadcastReceiver() {
         val monitorId = UptrackNotificationIntents.sanitizeId(rawMonitorId)
 
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(intent.getStringExtra(EXTRA_TITLE) ?: "Uptrack")
             .setContentText(intent.getStringExtra(EXTRA_BODY) ?: "")
             .setPriority(UptrackNotificationChannels.priorityFor(severity))
@@ -110,7 +110,7 @@ class UptrackDataMessageReceiver : BroadcastReceiver() {
             target.targetId,
         ) ?: return
         builder.addAction(
-            R.mipmap.ic_launcher,
+            R.drawable.ic_notification,
             UptrackNotificationIntents.titleFor(target.action),
             pendingIntent,
         )
