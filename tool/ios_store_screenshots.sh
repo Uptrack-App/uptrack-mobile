@@ -1,5 +1,6 @@
 #!/usr/bin/env bash
-# App Store screenshots from the iOS simulator (6.9" class by default).
+# App Store screenshots from the iOS simulator. App Store Connect (2026) requires
+# the 6.1"/6.3" set (iPhone 18 Pro, 1206x2622); 6.9" is optional.
 # Usage: tool/ios_store_screenshots.sh ["iPhone 18 Pro Max"] [out_dir]
 # Runs integration_test/app_store_screenshots_test.dart and captures the
 # simulator each time the test prints SHOT_READY <name>.
