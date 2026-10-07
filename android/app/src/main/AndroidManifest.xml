@@ -41,6 +41,25 @@
                 <category android:name="android.intent.category.BROWSABLE" />
                 <data android:scheme="uptrack" android:host="auth" android:path="/magic" />
             </intent-filter>
+            <!-- App links (I3.2): the emailed magic link and the alert-email
+                 incident and monitor links open the app. Verification needs
+                 https://uptrack.app/.well-known/assetlinks.json with the
+                 release signing certificate. Keep the paths in step with
+                 universalLinkLocation (lib/util/universal_links.dart) and
+                 the apple-app-site-association file. Ids are UUIDs, so
+                 /dashboard/monitors/new and .../edit stay on the web.
+                 Android cannot filter on the query before API 35, so a
+                 web-requested magic link also opens the app (iOS opens only
+                 links with client=mobile). -->
+            <intent-filter android:autoVerify="true">
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="https" android:host="uptrack.app" />
+                <data android:path="/auth/verify-magic-link" />
+                <data android:pathPattern="/dashboard/incidents/........-....-....-....-............" />
+                <data android:pathPattern="/dashboard/monitors/........-....-....-....-............" />
+            </intent-filter>
         </activity>
         <activity android:name=".AuthBrowserActivity" android:exported="true"
             android:launchMode="singleTask" android:taskAffinity=""
