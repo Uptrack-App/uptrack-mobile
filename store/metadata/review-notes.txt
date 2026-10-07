@@ -2,7 +2,7 @@ Uptrack review notes (v1.0.0)
 
 SIGN-IN FOR REVIEW (iOS and Android)
 - Reviewer account: sign in with the email given in App Store Connect / Play Console "Sign-in information". Enter the email, tap "Email me a sign-in link", type the review code from the same field into "Sign-in link or code", then tap "Sign in". No inbox is needed. The code works only for that one account and is never stored in this repository.
-- This account has sample monitors, including one that fails on demand, so a real push alert and lock-screen Acknowledge/Snooze can be tested.
+- This account has three sample monitors. "Checkout API (sample outage)" is always down, so there is always an open incident to open, acknowledge, escalate or snooze, and allowing notifications on the device delivers its alerts.
 - Account deletion: Settings -> Danger zone. For safety, the app deletes an account only within 15 minutes of a sign-in; otherwise it asks you to sign in again. No password is needed for this account.
 
 DEMO ACCESS (no account)
