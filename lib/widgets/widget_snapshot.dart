@@ -18,6 +18,15 @@ abstract final class WidgetDataKeys {
   /// arrived before the next sync); cleared on the next successful refresh.
   static const String pendingIncidentId = '${prefix}pending_incident_id';
 
+  /// Set to [feedAllClear] only when a complete feed proved that nothing is
+  /// open; removed by any incident write and by logout. The iOS widget says
+  /// "No ongoing incidents" only with this mark. Without it (signed out, new
+  /// install, never synced) the widget asks the user to open the app, so it
+  /// never claims an all-clear it does not know. Not in [all]: an all-clear
+  /// write clears [all] and then sets this key.
+  static const String feedState = '${prefix}feed_state';
+  static const String feedAllClear = 'all_clear';
+
   static const List<String> all = <String>[
     incidentId,
     monitorId,

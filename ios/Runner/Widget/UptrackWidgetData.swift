@@ -22,6 +22,27 @@ enum UptrackWidgetData {
   private static let startedAtKey = prefix + "started_at"
   private static let acknowledgedKey = prefix + "acknowledged"
   private static let updatedAtKey = prefix + "updated_at"
+  private static let feedStateKey = prefix + "feed_state"
+
+  /// `WidgetDataKeys.feedAllClear`: Dart writes it only when a complete feed
+  /// proved that nothing is open.
+  static let feedAllClear = "all_clear"
+
+  /// Text for the widget when there is no incident to show. "No ongoing
+  /// incidents" is a claim, so it needs Dart's all-clear mark. Without the
+  /// mark (signed out, new install, never synced) the widget asks the user
+  /// to open the app.
+  static func emptyText(feedState: String?) -> (title: String, detail: String) {
+    if feedState == feedAllClear {
+      return ("Uptrack", "No ongoing incidents")
+    }
+    return ("Uptrack", "Open Uptrack to see incidents")
+  }
+
+  /// The stored all-clear mark, or nil.
+  static func loadFeedState() -> String? {
+    UserDefaults(suiteName: suiteName)?.string(forKey: feedStateKey)
+  }
 
   /// Age beyond which the widget admits staleness. Same value as
   /// `STALE_AFTER_MINUTES` in `UptrackStatusWidgetProvider.kt`: refreshes are

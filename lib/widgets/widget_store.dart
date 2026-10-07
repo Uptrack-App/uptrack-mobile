@@ -152,6 +152,7 @@ Future<void> clearWidgetData([
         for (final String key in WidgetDataKeys.all) {
           await store.save<String>(key, null);
         }
+        await store.save<String>(WidgetDataKeys.feedState, null);
         await store.refresh();
       },
     );
@@ -441,7 +442,14 @@ class WidgetRefresher {
         for (final String key in WidgetDataKeys.all) {
           await store.save<String>(key, null);
         }
+        // In the app only a proven all-clear reaches this branch:
+        // [applyCandidates] writes nothing for an unknown or partial feed.
+        await store.save<String>(
+          WidgetDataKeys.feedState,
+          WidgetDataKeys.feedAllClear,
+        );
       } else {
+        await store.save<String>(WidgetDataKeys.feedState, null);
         final Map<String, Object?> data = effective.toWidgetData();
         for (final MapEntry<String, Object?> entry in data.entries) {
           final Object? value = entry.value;
