@@ -50,12 +50,21 @@ void main() {
 
   group('liveActivityHint', () {
     test('shows only on iOS below 17.2', () {
+      // 16.1 to 17.1: local start (5.3) — the activity needs the app open.
       expect(
         liveActivityHint(
           platform: TargetPlatform.iOS,
           osVersion: 'Version 16.4 (Build 20E247)',
         ),
-        contains('iOS 17.2'),
+        allOf(contains('only while Uptrack is open'), contains('iOS 17.2')),
+      );
+      // 16.0: no ActivityKit at all.
+      expect(
+        liveActivityHint(
+          platform: TargetPlatform.iOS,
+          osVersion: 'Version 16.0 (Build 20A362)',
+        ),
+        contains('need iOS 16.1'),
       );
       expect(
         liveActivityHint(

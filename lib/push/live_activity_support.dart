@@ -4,10 +4,9 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 /// First iOS version where the server can start a Live Activity while the
-/// app is closed (ActivityKit push-to-start). Decision D9 in
-/// `uptrack-spec/docs/mobile/ios-release-plan.md`: older iOS versions get
-/// push alerts, lock-screen buttons and the widget, but no Live Activity,
-/// because a local start only works while the app is open.
+/// app is closed (ActivityKit push-to-start). Below it, iOS 16.1 to 17.1
+/// starts the activity locally while the app runs (plan item 5.3, see
+/// `lib/widgets/live_activity_sync.dart`); iOS 16.0 has no ActivityKit.
 const int kLiveActivityMinMajor = 17;
 const int kLiveActivityMinMinor = 2;
 
@@ -52,8 +51,16 @@ String? liveActivityHint({
   if (liveActivitiesSupported(platform: platform, osVersion: osVersion)) {
     return null;
   }
-  return 'Live Activities need iOS $kLiveActivityMinMajor.$kLiveActivityMinMinor '
-      'or later. You still get push alerts and lock-screen buttons.';
+  const String fallback = 'You still get push alerts and lock-screen buttons.';
+  final ({int major, int minor})? version = parseIosVersion(osVersion);
+  if (version == null ||
+      (version.major == 16 && version.minor < 1) ||
+      version.major < 16) {
+    return 'Live Activities need iOS 16.1 or later. $fallback';
+  }
+  return 'A Live Activity starts only while Uptrack is open. With iOS '
+      '$kLiveActivityMinMajor.$kLiveActivityMinMinor or later, it also starts '
+      'when the app is closed.';
 }
 
 /// The raw OS version text; a provider so tests can replace it.
