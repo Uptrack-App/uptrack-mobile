@@ -1,4 +1,5 @@
 import 'push_channels.dart';
+import 'push_presentation.dart';
 
 /// A push alert parsed from a native payload.
 ///
@@ -13,6 +14,8 @@ class PushMessage {
     this.monitorId,
     this.severity,
     this.collapseKey,
+    this.interruptionLevel,
+    this.presentedByOs = false,
   });
 
   /// Parses the argument map of [PushChannels] event methods.
@@ -36,6 +39,8 @@ class PushMessage {
       monitorId: string('monitor_id'),
       severity: string('severity'),
       collapseKey: string('collapse_key'),
+      interruptionLevel: string('interruption_level'),
+      presentedByOs: map['presented_by_os'] == 'true',
     );
   }
 
@@ -66,6 +71,13 @@ class PushMessage {
     if (collapseKey != null) {
       map['collapse_key'] = collapseKey;
     }
+    final String? interruptionLevel = this.interruptionLevel;
+    if (interruptionLevel != null) {
+      map['interruption_level'] = interruptionLevel;
+    }
+    if (presentedByOs) {
+      map['presented_by_os'] = 'true';
+    }
     return map;
   }
 
@@ -76,17 +88,26 @@ class PushMessage {
   final String? severity;
   final String? collapseKey;
 
+  /// Server-resolved interruption level (`interruption_level`): from
+  /// `aps.interruption-level` on iOS, or `passive` when an FCM message came
+  /// at NORMAL priority on Android. Null when the payload has none.
+  final String? interruptionLevel;
+
+  /// True when the OS already presented this push (iOS `willPresent`), so
+  /// Dart must not show a second copy.
+  final bool presentedByOs;
+
+  /// How loud this push is (plan 4.5).
+  PushInterruptionLevel get interruption => PushPresentation.levelFor(
+    severity: severity,
+    interruptionLevel: interruptionLevel,
+  );
+
   /// Deep-link target for a notification tap: incident detail wins over
-  /// monitor detail; null when the payload names neither.
-  String? get routeLocation {
-    if (incidentId != null) {
-      return '/incidents/$incidentId';
-    }
-    if (monitorId != null) {
-      return '/monitors/$monitorId';
-    }
-    return null;
-  }
+  /// monitor detail; null when the payload names neither usable id. A tap
+  /// payload can be forged (Android launcher intents are public), so only a
+  /// sanitized server id ever becomes part of a route.
+  String? get routeLocation => targetRoute;
 
   /// Stable Android notification id so repeat alerts for one incident
   /// collapse onto a single notification (server collapse key when present).

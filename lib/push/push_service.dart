@@ -8,6 +8,8 @@ import 'package:flutter_local_notifications/flutter_local_notifications.dart';
 import 'push_channels.dart';
 import 'push_actions.dart';
 import 'push_message.dart';
+import 'push_presentation.dart';
+import 'push_registration.dart';
 import '../widgets/live_activity.dart';
 
 /// Registers (or re-registers after a token refresh) the native push token
@@ -90,6 +92,19 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
     );
   }
 
+  /// Android 13+ `POST_NOTIFICATIONS` runtime prompt (no-op elsewhere).
+  /// Returns whether notifications are allowed.
+  Future<bool> requestAndroidPermission() async {
+    final AndroidFlutterLocalNotificationsPlugin? android = _plugin
+        .resolvePlatformSpecificImplementation<
+          AndroidFlutterLocalNotificationsPlugin
+        >();
+    if (android == null) {
+      return true;
+    }
+    return await android.requestNotificationsPermission() ?? false;
+  }
+
   @override
   Future<void> showForeground(PushMessage message) async {
     final PushChannelSpec channel = message.severityChannel;
@@ -109,9 +124,17 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
         // No DND claim: this app never requests a bypass, so the user's own
         // Do Not Disturb / channel settings always win.
         channelBypassDnd: false,
-        actions: androidActionsFor(message),
+        // A `passive` push (user override or info) keeps its severity
+        // channel but must not make a sound or vibrate (plan 4.5).
+        silent: PushPresentation.silentOnAndroid(message.interruption),
+        // Buttons only with an owner for their taps. The app wires none: a
+        // plugin response arrives through the exported launcher activity and
+        // can be forged, so triage buttons are drawn natively instead.
+        actions: onAction == null
+            ? const <AndroidNotificationAction>[]
+            : androidActionsFor(message),
       ),
-      iOS: const DarwinNotificationDetails(),
+      iOS: darwinDetailsFor(message),
     );
     await _plugin.show(
       id: message.notificationId,
@@ -150,6 +173,33 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
     return _messageFromPayload(response?.payload);
   }
 
+  /// iOS details for a local copy of [message].
+  ///
+  /// On iOS the OS presents remote pushes itself (`willPresent`), so this is
+  /// a fallback only; it still keeps the level, the triage actions and the
+  /// per-incident thread.
+  static DarwinNotificationDetails darwinDetailsFor(PushMessage message) {
+    final PushInterruptionLevel level = message.interruption;
+    final bool loud = level != PushInterruptionLevel.passive;
+    return DarwinNotificationDetails(
+      presentBanner: loud,
+      presentList: true,
+      presentSound: loud,
+      interruptionLevel: switch (level) {
+        PushInterruptionLevel.passive => InterruptionLevel.passive,
+        PushInterruptionLevel.active => InterruptionLevel.active,
+        PushInterruptionLevel.timeSensitive => InterruptionLevel.timeSensitive,
+      },
+      categoryIdentifier: message.target?.kind == PushTargetKind.incident
+          ? _iosTriageCategory
+          : null,
+      threadIdentifier: message.target?.id,
+    );
+  }
+
+  /// `UNNotificationCategory` with the triage actions (`AppDelegate`).
+  static const String _iosTriageCategory = 'UPTRACK_INCIDENT';
+
   /// Android importance for a channel definition.
   ///
   /// Public and static so the channel-contract test can assert the renderer
@@ -182,9 +232,13 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
   /// * No usable target → no actions. An alert with nothing to triage gets a
   ///   body tap only.
   ///
-  /// `showsUserInterface: false`: this renderer only serves the foreground
-  /// path, where the app is already in front, and an action must not pull the
-  /// UI forward on its own.
+  /// `showsUserInterface: true` (plan 4.6): with `false` the plugin's
+  /// `ActionBroadcastReceiver` starts a background engine for a
+  /// background-isolate callback that this app does not register, so the
+  /// plugin drops the action ("Callback information could not be
+  /// retrieved"). With `true` the tap opens the app and reaches the
+  /// main-isolate callback, which hands it to [onAction]; this matches the
+  /// iOS actions (`.foreground`) and the native Android action intents.
   static List<AndroidNotificationAction> androidActionsFor(
     PushMessage message,
   ) {
@@ -267,19 +321,19 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
       AndroidNotificationAction(
         PushIntentIdentity.acknowledge,
         'Acknowledge',
-        showsUserInterface: false,
+        showsUserInterface: true,
       );
   static const AndroidNotificationAction _escalateAction =
       AndroidNotificationAction(
         PushIntentIdentity.escalate,
         'Escalate',
-        showsUserInterface: false,
+        showsUserInterface: true,
       );
   static const AndroidNotificationAction _snoozeAction =
       AndroidNotificationAction(
         PushIntentIdentity.snooze,
         'Snooze',
-        showsUserInterface: false,
+        showsUserInterface: true,
       );
 }
 
@@ -303,10 +357,15 @@ class PushService {
     this.onForegroundData,
     this.registerLiveActivity,
     this.unregisterLiveActivity,
+    PushRegistrationStore? registrationStore,
+    this.isSignedIn,
+    this.requestPermission,
+    this.waitForSession,
   }) : _events = events ?? PushChannels.eventsChannel(),
        _tokenChannel = tokenChannel ?? PushChannels.tokenChannel(),
        _notifier = notifier ?? FlutterLocalNotificationsNotifier(),
-       _platformOverride = platform;
+       _platformOverride = platform,
+       _store = registrationStore ?? PushRegistrationStore();
 
   final PushTokenRegistration registerToken;
   final PushNavigation onNavigate;
@@ -314,6 +373,27 @@ class PushService {
   final MethodChannel _tokenChannel;
   final LocalNotifier _notifier;
   final TargetPlatform? _platformOverride;
+  final PushRegistrationStore _store;
+
+  /// True while a device-token session exists. `POST /api/push/devices`
+  /// needs that bearer, so tokens seen while signed out are only recorded
+  /// and registered at the next sign-in ([onAuthChanged]). Null (tests of
+  /// the plain plumbing) means always signed in.
+  final bool Function()? isSignedIn;
+
+  /// Asks for the Android 13+ `POST_NOTIFICATIONS` runtime permission. Without
+  /// a grant Android drops every notification, FCM ones included. iOS asks in
+  /// the native `getToken` handler instead, so this runs on Android only.
+  final Future<bool> Function()? requestPermission;
+
+  bool get _canRegister => isSignedIn?.call() ?? true;
+
+  /// Completes with true once a session is known to exist (the stored device
+  /// token was restored, or the user signed in). A lock-screen action waits
+  /// for it: on a cold start it arrives before the restore, and a call with
+  /// no bearer is a 401 that drops the action. Null means no wait (tests of
+  /// the plain plumbing).
+  final Future<bool> Function()? waitForSession;
 
   /// Lock-screen triage executor (T031). Null in tests that only cover the
   /// T027 plumbing — action taps then fall back to a plain deep-link.
@@ -360,11 +440,54 @@ class PushService {
     _initialized = true;
     _events.setMethodCallHandler(_handleMethodCall);
     await _notifier.initialize(onTap: _navigateFor);
-    final PushMessage? initial =
-        await _nativeInitialNotification() ??
-        await _notifier.initialNotification();
-    if (initial != null) {
-      _navigateFor(initial);
+    final Map<Object?, Object?>? native = await _invokeToken(
+      PushTokenMethods.getInitialNotification,
+    );
+    // The native hosts keep the action of an action button that launched the
+    // app (killed state); run it instead of treating it as a body tap.
+    final PushActionRequest? initialAction = PushActionRequest.fromMap(native);
+    if (initialAction != null) {
+      await handleAction(initialAction);
+    } else {
+      final PushMessage? initial =
+          PushMessage.fromMap(native) ?? await _notifier.initialNotification();
+      if (initial != null) {
+        _navigateFor(initial);
+      }
+    }
+    await registerCurrentToken();
+    // Only with a session: signed out, the native buffer keeps the tokens
+    // and [onAuthChanged] drains them after sign-in.
+    if (_canRegister) {
+      await _drainLiveActivityTokens();
+    }
+  }
+
+  /// Runs one lock-screen action (plan 4.6) from any source: the native
+  /// `onNotificationAction` event, the native cold-start payload, or a button
+  /// on a notification the Dart renderer showed. Waits for the session first;
+  /// with no session nothing runs and the target opens after sign-in.
+  Future<void> handleAction(PushActionRequest request) async {
+    final Future<bool> Function()? wait = waitForSession;
+    final PushActionHandler? handler = actionHandler;
+    if (handler == null || (wait != null && !await wait())) {
+      // Deep-link so the user can triage manually (after sign-in).
+      final String? location = request.routeLocation;
+      if (location != null) {
+        onNavigate(location);
+      }
+      return;
+    }
+    await handler.handle(request);
+  }
+
+  /// Follows the auth session (plan 4.3): a sign-in (or a restored session)
+  /// registers the device. Sign-out is handled by `AuthController.signOut`,
+  /// which unregisters the token recorded in [PushRegistrationStore].
+  Future<void> onAuthChanged({required bool signedIn}) async {
+    if (!signedIn || !_initialized) {
+      // Not initialized yet: [initialize] registers when it runs.
+      return;
     }
     await registerCurrentToken();
     await _drainLiveActivityTokens();
@@ -394,15 +517,38 @@ class PushService {
   }
 
   /// Asks the native host for its current push token and registers it.
-  /// No-op when push is unavailable or the host side is not implemented yet.
+  /// No-op while signed out (no permission prompt on the login screen),
+  /// when push is unavailable, or when the host side is not implemented.
+  /// Falls back to the last token the host reported (iOS delivers the APNs
+  /// token asynchronously, after the permission prompt).
   Future<void> registerCurrentToken() async {
+    if (!_canRegister) {
+      return;
+    }
+    if (_currentPlatform() == 'android') {
+      await _requestPermission();
+    }
     final Map<Object?, Object?>? result = await _invokeToken(
       PushTokenMethods.getToken,
     );
-    if (result == null) {
+    final PushRegistration? current = result == null
+        ? _store.latest
+        : _registrationFromMap(result);
+    if (current == null) {
       return;
     }
-    await _registerFromMap(result);
+    await _register(current);
+  }
+
+  Future<void> _requestPermission() async {
+    try {
+      await requestPermission?.call();
+    } on PlatformException {
+      // A denied or failed prompt still lets the token register: the user
+      // can enable notifications in Settings later.
+    } on MissingPluginException {
+      // No plugin host (tests).
+    }
   }
 
   /// Handles one native→Dart call on [PushChannels.events] (also invoked
@@ -424,7 +570,18 @@ class PushService {
         if (token != null && token.isNotEmpty) {
           final String? platform = _currentPlatform();
           if (platform != null) {
-            await registerToken(platform: platform, token: token);
+            // The refresh event carries only the token: keep the
+            // environment of the token it replaces (same install).
+            final PushRegistration? previous = _store.latest;
+            await _seen(
+              PushRegistration(
+                platform: platform,
+                token: token,
+                environment: previous?.platform == platform
+                    ? previous?.environment
+                    : null,
+              ),
+            );
           }
         }
       case PushEventMethods.onForegroundMessage:
@@ -436,7 +593,8 @@ class PushService {
             await onData(map);
           } else {
             final PushMessage? message = PushMessage.fromMap(map);
-            if (message != null) {
+            // iOS presented it already (willPresent): no second copy.
+            if (message != null && !message.presentedByOs) {
               await _notifier.showForeground(message);
             }
           }
@@ -458,16 +616,7 @@ class PushService {
         if (request == null) {
           return;
         }
-        final PushActionHandler? handler = actionHandler;
-        if (handler != null) {
-          await handler.handle(request);
-        } else {
-          // Pre-wiring fallback: deep-link so the user can triage manually.
-          final String? location = request.routeLocation;
-          if (location != null) {
-            onNavigate(location);
-          }
-        }
+        await handleAction(request);
     }
   }
 
@@ -603,9 +752,44 @@ class PushService {
   }
 
   Future<void> _registerFromMap(Map<Object?, Object?> map) async {
+    final PushRegistration? registration = _registrationFromMap(map);
+    if (registration != null) {
+      await _seen(registration);
+    }
+  }
+
+  /// Records a token from the native host; registers it when signed in.
+  Future<void> _seen(PushRegistration registration) async {
+    _store.markSeen(registration);
+    if (_canRegister) {
+      await _register(registration);
+    }
+  }
+
+  /// Best-effort `POST /api/push/devices`. A failure (offline, 5xx) never
+  /// escapes into a platform-channel reply or an unawaited future; the next
+  /// sign-in or token event tries again.
+  Future<void> _register(PushRegistration registration) async {
+    if (_store.registered == registration) {
+      return;
+    }
+    try {
+      await registerToken(
+        platform: registration.platform,
+        token: registration.token,
+        environment: registration.environment,
+      );
+    } on Exception catch (error) {
+      debugPrint('push: device registration failed: $error');
+      return;
+    }
+    _store.markRegistered(registration);
+  }
+
+  PushRegistration? _registrationFromMap(Map<Object?, Object?> map) {
     final Object? rawToken = map['token'];
     if (rawToken is! String || rawToken.isEmpty) {
-      return;
+      return null;
     }
     final Object? rawPlatform = map['platform'];
     final String? platform = rawPlatform is String && rawPlatform.isNotEmpty
@@ -617,10 +801,10 @@ class PushService {
     } else {
       // The backend only accepts ios|android; anything else (desktop builds,
       // simulators without push) must not reach `POST /api/push/devices`.
-      return;
+      return null;
     }
     final Object? rawEnvironment = map['environment'];
-    await registerToken(
+    return PushRegistration(
       platform: platformName,
       token: rawToken,
       environment: rawEnvironment is String && rawEnvironment.isNotEmpty
@@ -659,12 +843,5 @@ class PushService {
     } on PlatformException {
       return null;
     }
-  }
-
-  Future<PushMessage?> _nativeInitialNotification() async {
-    final Map<Object?, Object?>? result = await _invokeToken(
-      PushTokenMethods.getInitialNotification,
-    );
-    return PushMessage.fromMap(result);
   }
 }

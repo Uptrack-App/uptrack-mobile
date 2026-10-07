@@ -7,7 +7,8 @@ import '../api/uptrack_api.dart';
 import '../app.dart' show routerProvider;
 import '../data/local/cache_repository.dart';
 import '../data/local/database_providers.dart' show cacheRepositoryProvider;
-import '../features/auth/auth_controller.dart' show uptrackApiProvider;
+import '../features/auth/auth_controller.dart'
+    show AuthState, AuthStatus, authControllerProvider, uptrackApiProvider;
 import '../widgets/live_activity_sync.dart';
 import '../widgets/live_surface_sync.dart';
 import '../widgets/widget_store.dart';
@@ -15,6 +16,8 @@ import 'fcm_data.dart';
 import 'live_activity_support.dart' show osVersionProvider;
 import 'push_actions.dart';
 import 'push_message.dart';
+import 'push_registration.dart';
+import 'push_route_gate.dart';
 import 'push_service.dart';
 import 'pushed_incident_sync.dart';
 
@@ -28,11 +31,18 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
   Ref ref,
 ) {
   final UptrackApi api = ref.watch(uptrackApiProvider);
-  void navigate(String location) => ref.read(routerProvider).go(location);
+  // Deep links wait for a session (a cold-start tap races the restore).
+  final PushRouteGate gate = ref.watch(pushRouteGateProvider);
+  void navigate(String location) => gate.navigate(location);
   // Foreground path (T056): FCM data messages refresh the Glance/WidgetKit
   // home widget from the Drift cache best-effort, then display locally.
   // The refresher closure is lazy — no DB access until a push arrives.
-  final LocalNotifier notifier = FlutterLocalNotificationsNotifier();
+  // No `onAction` on purpose: the plugin reads its responses from intents
+  // sent to the exported launcher activity, which any app can forge. Triage
+  // actions come only from the native hosts (iOS system responses, Android's
+  // non-exported UptrackActionActivity), so the renderer offers no buttons.
+  final FlutterLocalNotificationsNotifier notifier =
+      FlutterLocalNotificationsNotifier();
   final FcmDataHandler fcmData = FcmDataHandler(
     notifier: notifier,
     refresher: WidgetRefresher.fromCache(
@@ -52,7 +62,11 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
           environment: environment,
         ),
     onNavigate: navigate,
-    actionHandler: PushActionHandler(api: api, onNavigate: navigate),
+    actionHandler: PushActionHandler(
+      api: api,
+      onNavigate: navigate,
+      retryDelays: ref.watch(pushActionRetryDelaysProvider),
+    ),
     registerLiveActivity: api.registerLiveActivity,
     unregisterLiveActivity: api.unregisterLiveActivity,
     notifier: notifier,
@@ -71,6 +85,14 @@ final Provider<PushService> pushServiceProvider = Provider<PushService>((
           ),
         );
       }
+    },
+    registrationStore: ref.watch(pushRegistrationStoreProvider),
+    isSignedIn: () =>
+        ref.read(authControllerProvider).status == AuthStatus.signedIn,
+    requestPermission: notifier.requestAndroidPermission,
+    waitForSession: () async {
+      await ref.read(authControllerProvider.notifier).restored;
+      return ref.read(authControllerProvider).status == AuthStatus.signedIn;
     },
   );
 });
@@ -116,8 +138,42 @@ final Provider<LiveSurfaceSync> liveSurfaceSyncProvider =
       return sync;
     });
 
-/// Initializes [pushServiceProvider] exactly once per process.
-/// Extracted for tests (a plain function over a [WidgetRef]).
+/// Retry waits for a lock-screen action that could not reach the server.
+/// A provider so tests can make them instant.
+final Provider<List<Duration>> pushActionRetryDelaysProvider =
+    Provider<List<Duration>>((Ref ref) => PushActionHandler.defaultRetryDelays);
+
+/// Parks notification deep links until a session exists (plan 4.2).
+final Provider<PushRouteGate> pushRouteGateProvider = Provider<PushRouteGate>(
+  (Ref ref) => PushRouteGate(
+    isSignedIn: () =>
+        ref.read(authControllerProvider).status == AuthStatus.signedIn,
+    go: (String location) => ref.read(routerProvider).go(location),
+  ),
+);
+
+/// Registers the push device whenever a session starts (sign-in or a
+/// restored session; plan 4.3) and opens a parked deep link (plan 4.2). Reading it once keeps the listener alive for
+/// the life of the container.
+final Provider<void> pushAuthBindingProvider = Provider<void>((Ref ref) {
+  final PushService service = ref.watch(pushServiceProvider);
+  final PushRouteGate gate = ref.watch(pushRouteGateProvider);
+  ref.listen<AuthStatus>(
+    authControllerProvider.select((AuthState state) => state.status),
+    (AuthStatus? previous, AuthStatus next) {
+      if (previous != next) {
+        final bool signedIn = next == AuthStatus.signedIn;
+        gate.onAuthChanged(signedIn: signedIn);
+        unawaited(service.onAuthChanged(signedIn: signedIn));
+      }
+    },
+  );
+});
+
+/// Initializes [pushServiceProvider] exactly once per process and binds it
+/// to the auth session. Extracted for tests (a plain function over a
+/// [WidgetRef]).
 Future<void> initializePush(WidgetRef ref) async {
+  ref.read(pushAuthBindingProvider);
   await ref.read(pushServiceProvider).initialize();
 }

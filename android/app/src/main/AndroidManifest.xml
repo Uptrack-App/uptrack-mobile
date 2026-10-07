@@ -26,6 +26,14 @@
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
+            <!-- Tap on an FCM notification the system rendered (background or
+                 killed): the server sets click_action to this action
+                 (CLICK_ACTION in push_fcm.rs) and FCM copies the data block
+                 (incident_id) into the extras MainActivity reads. -->
+            <intent-filter>
+                <action android:name="FLUTTER_NOTIFICATION_CLICK" />
+                <category android:name="android.intent.category.DEFAULT" />
+            </intent-filter>
             <!-- Navigation only: the return URL contains no credentials and
                  the app independently verifies its signed-in subscription. -->
             <intent-filter>
@@ -42,6 +50,15 @@
                 <data android:scheme="uptrack" android:host="auth" android:path="/magic" />
             </intent-filter>
         </activity>
+        <!-- Lock-screen action buttons. Not exported, no intent filter: only
+             this app's immutable PendingIntents can start it, so no other
+             app can make Uptrack acknowledge, escalate or snooze. -->
+        <activity android:name=".UptrackActionActivity"
+            android:exported="false"
+            android:taskAffinity=""
+            android:excludeFromRecents="true"
+            android:noHistory="true"
+            android:theme="@android:style/Theme.Translucent.NoTitleBar" />
         <activity android:name=".AuthBrowserActivity" android:exported="true"
             android:launchMode="singleTask" android:taskAffinity=""
             android:theme="@android:style/Theme.Translucent.NoTitleBar"

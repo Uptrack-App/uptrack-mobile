@@ -23,13 +23,19 @@ class MainActivity : FlutterActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        pendingTap = tapPayload(intent)
+        // The server's FCM notification block names the `incidents` channel.
+        // If it does not exist yet, Android files the alert under FCM's
+        // generic fallback channel, which the user never configured.
+        UptrackNotificationChannels.ensureAll(this)
+        // An action comes only from the non-exported trampoline, in memory;
+        // this activity is exported, so its intent is never read as an action.
+        pendingTap = PushActionInbox.take() ?: tapPayload(intent)
     }
 
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
-        val payload = tapPayload(intent) ?: return
+        val payload = PushActionInbox.take() ?: tapPayload(intent) ?: return
         if (!flushTap(payload)) {
             pendingTap = payload
         }
@@ -90,11 +96,13 @@ class MainActivity : FlutterActivity() {
 
     private fun tapPayload(intent: Intent?): Map<String, String>? {
         if (intent == null) return null
-        val incidentId = intent.getStringExtra(
-            UptrackDataMessageReceiver.EXTRA_INCIDENT_ID,
+        // Navigation only (any app can send this intent): sanitized ids, and
+        // never an action.
+        val incidentId = UptrackNotificationIntents.sanitizeId(
+            intent.getStringExtra(UptrackDataMessageReceiver.EXTRA_INCIDENT_ID),
         )
-        val monitorId = intent.getStringExtra(
-            UptrackDataMessageReceiver.EXTRA_MONITOR_ID,
+        val monitorId = UptrackNotificationIntents.sanitizeId(
+            intent.getStringExtra(UptrackDataMessageReceiver.EXTRA_MONITOR_ID),
         )
         if (incidentId.isNullOrEmpty() && monitorId.isNullOrEmpty()) return null
         val payload = mutableMapOf<String, String>()
@@ -106,8 +114,8 @@ class MainActivity : FlutterActivity() {
     private fun flushTap(payload: Map<String, String>): Boolean {
         val messenger = flutterEngine?.dartExecutor?.binaryMessenger
             ?: return false
-        MethodChannel(messenger, CHANNEL_EVENTS)
-            .invokeMethod(METHOD_TAP, payload)
+        val method = if (payload.containsKey("action")) METHOD_ACTION else METHOD_TAP
+        MethodChannel(messenger, CHANNEL_EVENTS).invokeMethod(method, payload)
         return true
     }
 
@@ -115,6 +123,7 @@ class MainActivity : FlutterActivity() {
         // Mirrors `PushChannels.events` / `PushEventMethods.onNotificationTap`.
         const val CHANNEL_EVENTS = "app.uptrack.mobile/push/events"
         const val METHOD_TAP = "onNotificationTap"
+        const val METHOD_ACTION = "onNotificationAction"
         // Mirrors `PushChannels.token` / `PushTokenMethods`.
         const val CHANNEL_TOKEN = "app.uptrack.mobile/push/token"
         const val METHOD_GET_TOKEN = "getToken"

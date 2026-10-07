@@ -10,8 +10,9 @@ import AuthenticationServices
 ///
 /// * `push/token` (Dart → native): `getToken` returns the cached APNs device
 ///   token (`{token, platform, environment}`) or null when push is
-///   unavailable/denied; `getInitialNotification` returns the tap that
-///   cold-started the app (`{incident_id?, monitor_id?}`) once, then null.
+///   unavailable/denied; `getInitialNotification` returns the tap
+///   or action that cold-started the app (`{incident_id?, monitor_id?,
+///   action?}`) once, then null.
 /// * `push/events` (native → Dart): `onPushToken` on registration,
 ///   `onTokenRefresh` never fires on iOS (APNs tokens are stable per install;
 ///   a re-registration re-sends `onPushToken`), `onForegroundMessage` from
@@ -42,14 +43,18 @@ import AuthenticationServices
   /// Hex-encoded APNs device token from the last successful registration.
   private var deviceTokenHex: String?
 
-  /// Tap payload that cold-started the app; drained once via
-  /// `getInitialNotification`. Also buffers taps that arrive before the
-  /// implicit engine vends its messenger.
+  /// Tap or action payload that arrived before Dart was ready (cold start);
+  /// drained once via `getInitialNotification`. An action keeps its `action`
+  /// key so Dart runs it instead of treating it as a body tap.
   private var initialNotification: [String: String]?
 
   /// `UptrackLiveActivityBridge` on iOS 16.1+, nil on 16.0 (no ActivityKit).
   /// Typed `AnyObject` because the bridge class is availability-gated.
   private var liveActivityBridge: AnyObject?
+  /// Set when Dart drains `getInitialNotification` (its event handler is set
+  /// by then). Before that, taps and actions are only buffered: a live event
+  /// plus the drained buffer would run the same tap or action twice.
+  private var dartReady = false
 
   override func application(
     _ application: UIApplication,
@@ -128,6 +133,7 @@ import AuthenticationServices
           }
         result(self.currentTokenPayload())
       case "getInitialNotification":
+        self.dartReady = true
         let pending = self.initialNotification
         self.initialNotification = nil
         result(pending)
@@ -169,11 +175,8 @@ import AuthenticationServices
         result(call.method == "list" ? [] : "unsupported")
       }
     }
-    // A tap may have arrived before the engine existed; keep it buffered as
-    // the initial notification and forward it now that Dart can listen.
-    if let pending = initialNotification {
-      events.invokeMethod("onNotificationTap", arguments: pending)
-    }
+    // A tap that arrived before the engine existed stays buffered; Dart
+    // drains it with `getInitialNotification` once its handler is set.
   }
 
   // MARK: - APNs registration
@@ -201,12 +204,30 @@ import AuthenticationServices
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification
   ) async -> UNNotificationPresentationOptions {
+    guard notification.request.trigger is UNPushNotificationTrigger else {
+      // A local notification, not a server push: show it plainly and do not
+      // echo it to Dart as a push.
+      return [.banner, .list, .sound]
+    }
     let message = Self.messagePayload(from: notification.request.content.userInfo)
     eventsChannel?.invokeMethod("onForegroundMessage", arguments: message)
-    // The OS suppresses remote banners while foregrounded; Dart re-displays
-    // locally via flutter_local_notifications, but present natively as well so
-    // nothing is lost when the Dart isolate is paused.
-    return [.banner, .list, .sound, .badge]
+    // The OS presents the push itself, with the interruption level the server
+    // resolved from severity, the user's overrides and quiet hours (plan 4.5).
+    // Dart refreshes the widget and shows no second copy (`presented_by_os`).
+    return Self.presentationOptions(
+      forInterruptionLevel: message["interruption_level"])
+  }
+
+  /// Foreground presentation for one push. Mirrors
+  /// `PushPresentation.iosForegroundOptions` in Dart (a contract test compares
+  /// them): `passive` goes to the list only, as it would in the background.
+  static func presentationOptions(forInterruptionLevel level: String?)
+    -> UNNotificationPresentationOptions
+  {
+    switch level {
+    case "passive": return [.list]
+    default: return [.banner, .list, .sound, .badge]
+    }
   }
 
   override func userNotificationCenter(
@@ -250,12 +271,16 @@ import AuthenticationServices
   // MARK: - Helpers
 
   private static func triageCategory() -> UNNotificationCategory {
+    // `.foreground` (plan 4.6): the app uses UIScene. A background action in
+    // the killed state connects no scene, so the implicit Flutter engine never
+    // runs Dart and the action is lost. Opening the app also requires an
+    // unlock before any triage call runs.
     let ack = UNNotificationAction(
-      identifier: ackActionId, title: "Acknowledge")
+      identifier: ackActionId, title: "Acknowledge", options: [.foreground])
     let escalate = UNNotificationAction(
-      identifier: escalateActionId, title: "Escalate")
+      identifier: escalateActionId, title: "Escalate", options: [.foreground])
     let snooze = UNNotificationAction(
-      identifier: snoozeActionId, title: "Snooze 1h")
+      identifier: snoozeActionId, title: "Snooze 1h", options: [.foreground])
     return UNNotificationCategory(
       identifier: triageCategoryId,
       actions: [ack, escalate, snooze],
@@ -283,18 +308,14 @@ import AuthenticationServices
     #endif
   }
 
-  /// Forwards natively-received taps/actions to Dart, or buffers them as the
-  /// cold-start notification when the engine channel is not ready yet.
+  /// Forwards natively-received taps/actions to Dart once it is ready, or
+  /// buffers them (action included) for `getInitialNotification`.
   private func forwardOrBuffer(method: String, payload: [String: String]) {
-    initialNotification = tapOnly(payload)
-    eventsChannel?.invokeMethod(method, arguments: payload)
-  }
-
-  /// Strips the `action` key: the cold-start deep link only needs routing ids.
-  private func tapOnly(_ payload: [String: String]) -> [String: String] {
-    var tap = payload
-    tap.removeValue(forKey: "action")
-    return tap
+    guard dartReady, let channel = eventsChannel else {
+      initialNotification = payload
+      return
+    }
+    channel.invokeMethod(method, arguments: payload)
   }
 
   /// Foreground payload for `onForegroundMessage`. `collapse_key` mirrors the
@@ -319,9 +340,16 @@ import AuthenticationServices
     if let severity = userInfo["severity"] as? String, !severity.isEmpty {
       payload["severity"] = severity
     }
+    if let aps = userInfo["aps"] as? [AnyHashable: Any],
+      let level = aps["interruption-level"] as? String, !level.isEmpty
+    {
+      payload["interruption_level"] = level
+    }
     if let incidentId = payload["incident_id"] {
       payload["collapse_key"] = incidentId
     }
+    // `willPresent` presents it natively; Dart must not show a copy.
+    payload["presented_by_os"] = "true"
     return payload
   }
 
