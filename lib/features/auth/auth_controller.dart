@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -8,6 +9,8 @@ import '../../api/auth_interceptors.dart';
 import '../../api/client.dart';
 import '../../api/uptrack_api.dart';
 import '../../data/local/database_providers.dart' show cacheRepositoryProvider;
+import '../../push/live_activity_support.dart'
+    show deviceLabel, osVersionProvider;
 import '../../push/push_channels.dart' show PushChannels;
 import '../../push/push_registration.dart';
 import '../../widgets/live_activity.dart' show LiveActivityRemoveRequest;
@@ -499,7 +502,12 @@ class AuthController extends Notifier<AuthState> {
   Future<void> _finishSignIn() async {
     final DeviceTokenIssuance issuance = await ref
         .read(uptrackApiProvider)
-        .createDeviceToken();
+        .createDeviceToken(
+          label: deviceLabel(
+            defaultTargetPlatform,
+            ref.read(osVersionProvider),
+          ),
+        );
     await _storeIssuance(issuance);
   }
 

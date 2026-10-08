@@ -16,6 +16,7 @@ import '../../data/local/database_providers.dart';
 import '../../push/push_providers.dart';
 import '../../push/push_service.dart';
 import '../../theme/app_theme.dart';
+import '../../theme/appearance.dart';
 import 'auth_controller.dart';
 
 /// The sample workspace on the phone apps. iOS needs it too: App Review
@@ -438,44 +439,49 @@ class _UptrackDemoAppState extends State<UptrackDemoApp> {
   @override
   Widget build(BuildContext context) => UncontrolledProviderScope(
     container: container,
-    child: MaterialApp.router(
-      title: 'Uptrack Demo',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
-      routerConfig: router,
-      builder: (context, child) {
-        final MediaQueryData media = MediaQuery.of(context);
-        return Column(
-          children: <Widget>[
-            Material(
-              color: Theme.of(context).colorScheme.secondaryContainer,
-              child: SafeArea(
-                bottom: false,
-                child: _DemoBanner(onExit: widget.onExit),
-              ),
-            ),
-            // The banner above already consumed the status-bar inset, but a
-            // routed screen's own Scaffold/AppBar insets itself by the same
-            // amount again, which left a blank gap the height of the status bar
-            // under every demo screen. Only the *top* padding is dropped, and
-            // only for the routed screens: the banner keeps its SafeArea, and
-            // the bottom gesture inset is untouched so the system gesture bar
-            // is still respected.
-            Expanded(
-              child: Semantics(
-                container: true,
-                child: MediaQuery(
-                  data: media.copyWith(padding: media.padding.copyWith(top: 0)),
-                  child: child!,
-                ),
-              ),
-            ),
-          ],
-        );
-      },
+    child: ListenableBuilder(
+      listenable: container.read(appearanceProvider),
+      builder: (BuildContext context, Widget? _) => _app(context),
     ),
+  );
+
+  Widget _app(BuildContext context) => MaterialApp.router(
+    title: 'Uptrack Demo',
+    debugShowCheckedModeBanner: false,
+    theme: AppTheme.light,
+    darkTheme: AppTheme.dark,
+    themeMode: container.read(appearanceProvider).mode,
+    routerConfig: router,
+    builder: (context, child) {
+      final MediaQueryData media = MediaQuery.of(context);
+      return Column(
+        children: <Widget>[
+          Material(
+            color: Theme.of(context).colorScheme.secondaryContainer,
+            child: SafeArea(
+              bottom: false,
+              child: _DemoBanner(onExit: widget.onExit),
+            ),
+          ),
+          // The banner above already consumed the status-bar inset, but a
+          // routed screen's own Scaffold/AppBar insets itself by the same
+          // amount again, which left a blank gap the height of the status bar
+          // under every demo screen. Only the *top* padding is dropped, and
+          // only for the routed screens: the banner keeps its SafeArea, and
+          // the bottom gesture inset is untouched so the system gesture bar
+          // is still respected.
+          Expanded(
+            child: Semantics(
+              container: true,
+              child: MediaQuery(
+                data: media.copyWith(padding: media.padding.copyWith(top: 0)),
+                child: child!,
+              ),
+            ),
+          ),
+        ],
+      );
+    },
   );
 }
 

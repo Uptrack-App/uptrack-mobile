@@ -38,13 +38,14 @@ class UptrackResponseChart extends StatelessWidget {
     final last = ordered.last.time.millisecondsSinceEpoch / 1000;
     final span = last - first;
     // Relative x values avoid billion-scale numeric labels and precision loss.
-    final spots = [
+    final spots = _withGaps([
       for (final point in ordered)
         FlSpot(
           point.time.millisecondsSinceEpoch / 1000 - first,
           point.milliseconds,
         ),
-    ];
+    ]);
+    final color = theme.colorScheme.primary;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -70,11 +71,24 @@ class UptrackResponseChart extends StatelessWidget {
                         LineChartBarData(
                           spots: spots,
                           isCurved: false,
-                          // Points, rather than interpolated paths, keep unmeasured gaps blank.
-                          barWidth: 0,
-                          color: theme.colorScheme.primary,
-                          dotData: const FlDotData(show: true),
-                          belowBarData: BarAreaData(show: false),
+                          // Lines join neighbouring samples only; _withGaps
+                          // breaks the line where samples are missing, so an
+                          // unmeasured gap stays blank instead of interpolated.
+                          barWidth: 1.5,
+                          color: color,
+                          dotData: FlDotData(
+                            show: true,
+                            getDotPainter: (spot, percent, bar, index) =>
+                                FlDotCirclePainter(
+                                  radius: 2.5,
+                                  color: color,
+                                  strokeWidth: 0,
+                                ),
+                          ),
+                          belowBarData: BarAreaData(
+                            show: true,
+                            color: color.withValues(alpha: 0.08),
+                          ),
                         ),
                       ],
                       lineTouchData: const LineTouchData(enabled: false),
@@ -139,13 +153,14 @@ class UptrackResponseChart extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 8),
-            UptrackDataText(summary),
+            UptrackDataText(summary, style: theme.textTheme.bodySmall),
+            const SizedBox(height: 4),
             Text(
-              'Recorded samples; time labels use your device time zone.',
-              style: theme.textTheme.bodySmall,
+              ['Measured samples, in your time zone.', ?periodNote].join(' '),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
-            if (periodNote != null)
-              Text(periodNote!, style: theme.textTheme.bodySmall),
             ExpansionTile(
               title: const Text('View recorded samples'),
               tilePadding: EdgeInsets.zero,
@@ -173,4 +188,22 @@ class UptrackResponseChart extends StatelessWidget {
       ),
     );
   }
+}
+
+/// Inserts a break ([FlSpot.nullSpot]) wherever two neighbouring samples are
+/// more than three typical intervals apart, so the line never bridges a span
+/// with no measurements.
+List<FlSpot> _withGaps(List<FlSpot> spots) {
+  if (spots.length < 3) return spots;
+  final gaps = <double>[
+    for (var i = 1; i < spots.length; i++) spots[i].x - spots[i - 1].x,
+  ]..sort();
+  final typical = gaps[gaps.length ~/ 2];
+  if (typical <= 0) return spots;
+  final out = <FlSpot>[spots.first];
+  for (var i = 1; i < spots.length; i++) {
+    if (spots[i].x - spots[i - 1].x > typical * 3) out.add(FlSpot.nullSpot);
+    out.add(spots[i]);
+  }
+  return out;
 }

@@ -1,7 +1,7 @@
-import '../../design/uptrack_design.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+
+import 'profile_section.dart';
 
 import '../../api/models/billing_subscription.dart';
 import '../auth/auth_controller.dart';
@@ -52,7 +52,7 @@ class BillingSection extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     title: const Text('Current plan'),
-                    subtitle: UptrackDataText(info.plan),
+                    subtitle: Text(planLabel(info.plan)),
                   ),
                 ),
                 if (info.subscription != null)

@@ -21,6 +21,7 @@ import 'features/settings/checkout_return_screen.dart';
 import 'features/status/status_page_screen.dart';
 import 'push/push_providers.dart';
 import 'theme/app_theme.dart';
+import 'theme/appearance.dart';
 import 'util/universal_links.dart';
 import 'design/adaptive_scaffold.dart';
 
@@ -286,13 +287,17 @@ class _UptrackAppState extends ConsumerState<UptrackApp> {
   @override
   Widget build(BuildContext context) {
     final GoRouter router = ref.watch(routerProvider);
-    return MaterialApp.router(
-      title: 'Uptrack',
-      debugShowCheckedModeBanner: false,
-      theme: AppTheme.light,
-      darkTheme: AppTheme.dark,
-      themeMode: ThemeMode.system,
-      routerConfig: router,
+    final Appearance appearance = ref.watch(appearanceProvider);
+    return ListenableBuilder(
+      listenable: appearance,
+      builder: (BuildContext context, Widget? _) => MaterialApp.router(
+        title: 'Uptrack',
+        debugShowCheckedModeBanner: false,
+        theme: AppTheme.light,
+        darkTheme: AppTheme.dark,
+        themeMode: appearance.mode,
+        routerConfig: router,
+      ),
     );
   }
 }
