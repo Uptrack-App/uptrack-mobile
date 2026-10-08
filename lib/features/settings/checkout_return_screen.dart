@@ -7,6 +7,7 @@ import 'package:go_router/go_router.dart';
 import '../auth/auth_controller.dart';
 import '../dashboard/dashboard_controller.dart';
 import 'billing_section.dart';
+import 'profile_section.dart';
 
 const List<String> checkoutPaidPlans = <String>['pro', 'team', 'business'];
 
@@ -111,7 +112,7 @@ class CheckoutReturnScreen extends ConsumerWidget {
                   const SizedBox(height: 16),
                   Text(
                     data.ready
-                        ? 'Your ${data.plan} plan is ready'
+                        ? 'Your ${planLabel(data.plan)} plan is ready'
                         : 'Your subscription is not active yet',
                     style: Theme.of(context).textTheme.titleLarge,
                     textAlign: TextAlign.center,

@@ -182,7 +182,7 @@ void main() {
   });
 
   group('MonitorsScreen', () {
-    testWidgets('shows rows with status, uptime, and regions', (
+    testWidgets('shows rows with status, uptime, and type', (
       WidgetTester tester,
     ) async {
       await pumpMonitors(
@@ -217,9 +217,10 @@ void main() {
         findsOneWidget,
       );
       expect(find.text('up'), findsNothing);
-      expect(find.text('99.9% uptime'), findsOneWidget);
-      expect(find.text('42.5% uptime'), findsOneWidget);
-      expect(find.text('Regions: any'), findsNWidgets(2));
+      expect(find.text('99.9% uptime · HTTP'), findsOneWidget);
+      expect(find.text('42.5% uptime · HTTP'), findsOneWidget);
+      // Regions live on the detail screen, not in the compact row.
+      expect(find.textContaining('Regions'), findsNothing);
     });
 
     testWidgets('search narrows the list', (WidgetTester tester) async {
@@ -369,7 +370,7 @@ void main() {
       expect(find.byType(LineChart), findsOneWidget);
       expect(find.textContaining('p50 120 ms'), findsOneWidget);
       expect(find.textContaining('Last 7 days'), findsOneWidget);
-      expect(find.textContaining('clamped'), findsOneWidget);
+      expect(find.textContaining('depends on your plan'), findsOneWidget);
       // Check history is below the fold (ListView lazily builds it).
       await tester.scrollUntilVisible(find.textContaining('HTTP 503'), 200);
       expect(find.textContaining('HTTP 200'), findsOneWidget);

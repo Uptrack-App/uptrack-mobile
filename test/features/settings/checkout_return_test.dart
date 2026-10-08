@@ -120,7 +120,7 @@ void main() {
       await tester.tap(find.text('Check again'));
       await tester.pumpAndSettle();
       expect(api.billingReads, 2);
-      expect(find.text('Your pro plan is ready'), findsOneWidget);
+      expect(find.text('Your Pro plan is ready'), findsOneWidget);
       expect(find.text('Continue to dashboard'), findsOneWidget);
     },
   );
@@ -169,7 +169,7 @@ void main() {
     api.featuresEnabled = true;
     await tester.tap(find.text('Try again'));
     await tester.pumpAndSettle();
-    expect(find.text('Your pro plan is ready'), findsOneWidget);
+    expect(find.text('Your Pro plan is ready'), findsOneWidget);
   });
 
   testWidgets('with the billing link off, a checkout link resolves to the home screen', (
@@ -238,7 +238,7 @@ void main() {
     refresh.value += 1;
     await tester.pumpAndSettle();
     expect(router.routeInformationProvider.value.uri.path, '/billing/return');
-    expect(find.text('Your pro plan is ready'), findsOneWidget);
+    expect(find.text('Your Pro plan is ready'), findsOneWidget);
   });
 
   testWidgets(
@@ -270,7 +270,7 @@ void main() {
       await tester.pumpAndSettle();
       expect(identical(container.read(routerProvider), router), isTrue);
       expect(router.routeInformationProvider.value.uri.path, '/billing/return');
-      expect(find.text('Your pro plan is ready'), findsOneWidget);
+      expect(find.text('Your Pro plan is ready'), findsOneWidget);
     },
   );
 }
