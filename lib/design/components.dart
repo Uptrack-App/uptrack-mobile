@@ -113,9 +113,40 @@ class UptrackDataText extends StatelessWidget {
     textAlign: textAlign,
     maxLines: maxLines,
     overflow: maxLines == null ? null : TextOverflow.ellipsis,
+    // Numbers use the sans font with tabular, lining figures (as Claude does),
+    // so columns of figures line up. Code-like text uses [UptrackCodeText].
+    style: (style ?? Theme.of(context).textTheme.bodyMedium)!.copyWith(
+      fontFeatures: const [
+        FontFeature.tabularFigures(),
+        FontFeature.liningFigures(),
+      ],
+    ),
+  );
+}
+
+/// Code-like data (URLs, hostnames, ids) in the mono font.
+class UptrackCodeText extends StatelessWidget {
+  const UptrackCodeText(
+    this.data, {
+    super.key,
+    this.style,
+    this.textAlign,
+    this.maxLines,
+  });
+  final String data;
+  final TextStyle? style;
+  final TextAlign? textAlign;
+
+  /// When set, the text is cut with an ellipsis instead of wrapping.
+  final int? maxLines;
+  @override
+  Widget build(BuildContext context) => Text(
+    data,
+    textAlign: textAlign,
+    maxLines: maxLines,
+    overflow: maxLines == null ? null : TextOverflow.ellipsis,
     style: (style ?? Theme.of(context).textTheme.bodyMedium)!.copyWith(
       fontFamily: UptrackTypography.monoFamily,
-      fontFeatures: const [FontFeature.tabularFigures()],
     ),
   );
 }

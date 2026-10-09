@@ -157,7 +157,7 @@ class _MonitorRow extends StatelessWidget {
       details: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          UptrackDataText(
+          UptrackCodeText(
             displayUrl(monitor.url),
             maxLines: 1,
             style: theme.textTheme.bodySmall,

@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:uptrack_mobile/design/components.dart';
 import 'package:uptrack_mobile/theme/app_theme.dart';
 import 'package:uptrack_mobile/theme/status_colors.dart';
 import 'package:uptrack_mobile/theme/tokens.dart';
@@ -110,6 +111,28 @@ void main() {
     expect(UptrackTypography.monoFamily, 'JetBrainsMono');
     expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'InstrumentSans');
     expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'InstrumentSans');
+  });
+
+  testWidgets('numbers use sans with tabular lining figures, code uses mono', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Column(
+          children: <Widget>[
+            UptrackDataText('99.95% · 120 ms'),
+            UptrackCodeText('https://example.com'),
+          ],
+        ),
+      ),
+    );
+    final Text number = tester.widget<Text>(find.text('99.95% · 120 ms'));
+    expect(number.style?.fontFamily, 'InstrumentSans');
+    expect(number.style?.fontFeatures, contains(const FontFeature.tabularFigures()));
+    expect(number.style?.fontFeatures, contains(const FontFeature.liningFigures()));
+    final Text code = tester.widget<Text>(find.text('https://example.com'));
+    expect(code.style?.fontFamily, 'JetBrainsMono');
   });
 
   test('tokens v2 match uptrack-web styles.css', () {
