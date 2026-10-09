@@ -2,33 +2,40 @@ import ActivityKit
 import SwiftUI
 import WidgetKit
 
-/// ActivityKit attributes for the incident Live Activity.
+/// Lock-screen and banner view of the incident Live Activity (design A):
+/// a status stripe, the monitor name, the alert body and a status pill.
 ///
-/// The struct name is load-bearing: the backend sends
-/// `attributes-type: "UptrackIncident"` (see `LIVE_ACTIVITY_ATTRIBUTES_TYPE`
-/// in `crates/api/src/push_live_activity.rs`), and the system matches a
-/// remote start push (iOS 17.2+) to this type. `attributes` keys
-/// (`incidentId`, `monitorName`) and `content-state` keys (`title`, `body`,
-/// `status`) mirror the server's `build_live_activity_payload` 1:1 — the
-/// Dart mirror lives in `lib/widgets/live_activity.dart` (T054).
-///
-/// NOTE: T054's `kLiveActivityAttributesType` says
-/// `'UptrackIncidentAttributes'`, which does not match the server's
-/// `"UptrackIncident"` — the Dart constant needs a follow-up correction;
-/// the Swift name here follows the server (authoritative for APNs).
+/// The elapsed time is not shown here. The activity state carries no start
+/// time, and a live timer would need the server to send one (design B).
 @available(iOS 16.1, *)
-struct UptrackIncident: ActivityAttributes {
-  /// Incident UUID string (also the `apns-collapse-id` / top-level
-  /// `incident_id` reconciliation key).
-  let incidentId: String
-  /// Monitor display name for the lock-screen header.
-  let monitorName: String
+struct UptrackIncidentLockScreen: View {
+  let context: ActivityViewContext<UptrackIncident>
 
-  struct ContentState: Codable, Hashable {
-    var title: String
-    var body: String
-    /// `ongoing` or `resolved` (mirrors `LiveActivityState.status`).
-    var status: String
+  var body: some View {
+    let style = UptrackStatusStyle.make(status: context.state.status)
+    HStack(spacing: 0) {
+      Rectangle().fill(style.color).frame(width: 5)
+        .accessibilityHidden(true)
+      VStack(alignment: .leading, spacing: 4) {
+        Text(context.attributes.monitorName)
+          .font(.headline)
+          .lineLimit(1)
+        Text(context.state.body)
+          .font(.subheadline)
+          .foregroundStyle(UptrackInk.muted)
+          .lineLimit(2)
+        HStack {
+          UptrackStatusPill(style: style)
+          Spacer()
+          Text("UPTRACK").font(.caption2).foregroundStyle(UptrackInk.muted)
+            .accessibilityHidden(true)
+        }
+      }
+      .padding(.horizontal, 14)
+      .padding(.vertical, 12)
+    }
+    .foregroundStyle(UptrackInk.foreground)
+    .accessibilityElement(children: .combine)
   }
 }
 
@@ -36,43 +43,30 @@ struct UptrackIncident: ActivityAttributes {
 struct UptrackIncidentActivityWidget: Widget {
   var body: some WidgetConfiguration {
     ActivityConfiguration(for: UptrackIncident.self) { context in
-      // Lock screen / banner: monitor header + alert body, acknowledged
-      // state stays out (no sensitive data beyond the push itself).
-      VStack(alignment: .leading, spacing: 4) {
-        Text(context.attributes.monitorName)
-          .font(.headline)
-          .lineLimit(1)
-        Text(context.state.body)
-          .font(.subheadline)
-          .lineLimit(2)
-        HStack {
-          Text(context.state.status.uppercased()).font(.caption2.bold())
-          Spacer()
-          Text("UPTRACK").font(.caption2).foregroundStyle(.secondary)
-        }
-      }
-      .padding()
-      .activityBackgroundTint(.black)
-      .activitySystemActionForegroundColor(.white)
+      UptrackIncidentLockScreen(context: context)
+        .activityBackgroundTint(UptrackInk.surface)
+        .activitySystemActionForegroundColor(UptrackInk.foreground)
     } dynamicIsland: { context in
-      DynamicIsland {
+      let style = UptrackStatusStyle.make(status: context.state.status)
+      return DynamicIsland {
         DynamicIslandExpandedRegion(.leading) {
           Text(context.attributes.monitorName).font(.headline).lineLimit(1)
         }
         DynamicIslandExpandedRegion(.trailing) {
-          Text(context.state.status.uppercased()).font(.caption2.bold())
+          UptrackStatusPill(style: style)
         }
         DynamicIslandExpandedRegion(.bottom) {
           Text(context.state.body).font(.subheadline).lineLimit(2)
         }
       } compactLeading: {
-        Text("!").font(.headline.bold())
+        Circle().fill(style.color).frame(width: 10, height: 10)
+          .accessibilityLabel("Incident \(style.spokenLabel)")
       } compactTrailing: {
-        Text(context.state.status == "resolved" ? "✓" : "●")
-          .font(.caption2.bold())
+        Image(systemName: style.symbol).foregroundStyle(style.color)
+          .accessibilityHidden(true)
       } minimal: {
-        Text(context.state.status == "resolved" ? "✓" : "●")
-          .font(.caption2.bold())
+        Image(systemName: style.symbol).foregroundStyle(style.color)
+          .accessibilityLabel("Incident \(style.spokenLabel)")
       }
     }
   }

@@ -11,6 +11,7 @@ import '../../data/local/database_providers.dart' show cacheRepositoryProvider;
 import '../../push/push_channels.dart' show PushChannels;
 import '../../widgets/widget_store.dart' show clearWidgetData;
 import 'token_storage.dart';
+import 'social_login.dart';
 
 /// Authentication status for the router redirect and login UI.
 enum AuthStatus {
@@ -96,15 +97,36 @@ String? validateTwoFactorCode(String? value) {
 }
 
 /// Parses a magic-link deep link into its `{email, token}` pair.
-/// Expected shape: `<scheme>://auth/magic?email=…&token=…`
-/// (the path prefix is ignored so hosts like `uptrack.app/magic` also work).
+/// Accept only Uptrack app callbacks and the actual HTTPS email route.
 ({String email, String token})? parseMagicLink(Uri uri) {
+  final isApp =
+      uri.scheme == 'uptrack' && uri.host == 'auth' && uri.path == '/magic';
+  final isWeb =
+      uri.scheme == 'https' &&
+      uri.host == 'uptrack.app' &&
+      uri.path == '/auth/verify-magic-link';
+  if (!isApp && !isWeb) return null;
   final String? email = uri.queryParameters['email']?.trim();
   final String? token = uri.queryParameters['token'];
-  if (email == null || email.isEmpty || token == null || token.isEmpty) {
+  if (validateEmail(email) != null || token == null || token.isEmpty) {
     return null;
   }
-  return (email: email, token: token);
+  return (email: email!, token: token);
+}
+
+/// Web-created accounts have no password. Accept the actual emailed sign-in
+/// link as well as its raw token, without asking users to extract URL fields.
+String? magicLinkInputToken({required String input, required String email}) {
+  final String value = input.trim();
+  if (value.isEmpty) return null;
+  if (!value.contains('://')) return value;
+  final Uri? uri = Uri.tryParse(value);
+  if (uri == null) return null;
+  final parsed = parseMagicLink(uri);
+  return parsed != null &&
+          parsed.email.toLowerCase() == email.trim().toLowerCase()
+      ? parsed.token
+      : null;
 }
 
 /// Maps a failed auth call to a user-facing message, preferring the
@@ -121,7 +143,7 @@ String authErrorMessage(DioException err) {
     case 400:
       return 'That code was not accepted. Try again.';
     case 401:
-      return 'Invalid email or password.';
+      return 'This sign-in link or code is invalid or has expired. Request a new link.';
     case 403:
       return 'Sign-in is disabled for this organization. Try SSO or magic link.';
     case 422:
@@ -179,16 +201,29 @@ final Provider<UptrackApi> uptrackApiProvider = Provider<UptrackApi>(
 final NotifierProvider<AuthController, AuthState> authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
 
+/// Nullary wrapper so the widget wipe can be handed out as a plain callback.
+Future<void> _clearHomeWidgetData() => clearWidgetData();
+
+/// Seam for the home-widget wipe sign-out performs, so a test can hold
+/// sign-out open — or make it fail — after the session epoch has advanced.
+final Provider<Future<void> Function()> clearWidgetDataProvider =
+    Provider<Future<void> Function()>((Ref ref) => _clearHomeWidgetData);
+
 /// Owns the login → device-token → signed-in flow and logout revocation.
 class AuthController extends Notifier<AuthState> {
   String? _pendingEmail;
   String? _pendingPassword;
+  String? _pendingMagicToken;
+  SocialAuthorization? _pendingSocial;
+  int _socialAttempt = 0;
+  late Future<void> _initialRestore;
 
   @override
   AuthState build() {
     // Best-effort restore of a previous session; stays signed out when
     // nothing is stored.
-    unawaited(_restore());
+    _initialRestore = _restore();
+    unawaited(_initialRestore);
     return const AuthState();
   }
 
@@ -205,8 +240,91 @@ class AuthController extends Notifier<AuthState> {
     );
   }
 
+  /// Wait for storage before consuming a cold-start link so restore cannot
+  /// overwrite a newly authenticated account or its pending 2FA state.
+  Future<void> receiveMagicLink({
+    required String email,
+    required String token,
+  }) async {
+    await _initialRestore;
+    if (state.isLoading) return;
+    await verifyMagicLink(email: email, token: token);
+  }
+
   /// Explicit restore for tests/app start when deterministic timing matters.
   Future<void> restore() => _restore();
+
+  /// Both first-time signup and existing-account login use the web providers.
+  Future<void> signInWithSocial(String provider) async {
+    if (state.isLoading) return;
+    final attempt = ++_socialAttempt;
+    _pendingSocial = null;
+    _pendingEmail = null;
+    _pendingPassword = null;
+    _pendingMagicToken = null;
+    state = state.copyWith(
+      status: AuthStatus.signedOut,
+      email: '',
+      isLoading: true,
+      errorMessage: null,
+      magicLinkSent: false,
+    );
+    try {
+      final api = ref.read(uptrackApiProvider);
+      final providers = await api.getAuthProviders();
+      if (!providers.contains(provider)) {
+        throw const FormatException('Provider unavailable');
+      }
+      if (attempt != _socialAttempt) return;
+      final request = SocialLoginRequest.create();
+      final callback = await ref
+          .read(socialBrowserProvider)
+          .authenticate(
+            api.socialLoginUrl(provider, request.state, request.challenge),
+          );
+      if (attempt != _socialAttempt) return;
+      _pendingSocial = request.parseCallback(callback);
+      await _exchangeSocial();
+    } on SocialLoginCancelled {
+      if (attempt == _socialAttempt) state = state.copyWith(isLoading: false);
+    } on DioException catch (err) {
+      if (attempt == _socialAttempt) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: authErrorMessage(err),
+        );
+      }
+    } catch (_) {
+      if (attempt == _socialAttempt) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Social sign-in could not finish. Please try again.',
+        );
+      }
+    }
+  }
+
+  Future<void> _exchangeSocial({String? totpCode}) async {
+    final attempt = _socialAttempt;
+    final pending = _pendingSocial;
+    if (pending == null) throw const FormatException('Sign-in expired');
+    final result = await ref
+        .read(uptrackApiProvider)
+        .exchangeSocialCode(
+          code: pending.code,
+          verifier: pending.verifier,
+          totpCode: totpCode,
+        );
+    if (attempt != _socialAttempt) return;
+    if (result.totpRequired) {
+      state = state.copyWith(
+        status: AuthStatus.needsTwoFactor,
+        isLoading: false,
+      );
+      return;
+    }
+    await _storeIssuance(result.issuance!);
+  }
 
   /// Password login. On success exchanges the session for a device token;
   /// when the account has 2FA, moves to [AuthStatus.needsTwoFactor] instead.
@@ -214,6 +332,8 @@ class AuthController extends Notifier<AuthState> {
     required String email,
     required String password,
   }) async {
+    _pendingSocial = null;
+    _socialAttempt++;
     state = state.copyWith(
       isLoading: true,
       errorMessage: null,
@@ -227,6 +347,7 @@ class AuthController extends Notifier<AuthState> {
       if (result.totpRequired) {
         _pendingEmail = email.trim();
         _pendingPassword = password;
+        _pendingMagicToken = null;
         state = state.copyWith(
           status: AuthStatus.needsTwoFactor,
           isLoading: false,
@@ -242,11 +363,29 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  /// Second step of a 2FA login: resubmits the stored credentials plus code.
+  /// Second step of either login: resubmits the in-memory credentials plus code.
   Future<void> submitTwoFactorCode(String code) async {
+    if (_pendingSocial != null) {
+      state = state.copyWith(isLoading: true, errorMessage: null);
+      try {
+        await _exchangeSocial(totpCode: code.trim());
+      } on DioException catch (err) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: authErrorMessage(err),
+        );
+      } catch (_) {
+        state = state.copyWith(
+          isLoading: false,
+          errorMessage: 'Sign-in could not finish. Please try again.',
+        );
+      }
+      return;
+    }
     final String? email = _pendingEmail;
     final String? password = _pendingPassword;
-    if (email == null || password == null) {
+    final String? magicToken = _pendingMagicToken;
+    if (email == null || (password == null && magicToken == null)) {
       state = state.copyWith(
         status: AuthStatus.signedOut,
         errorMessage: 'Session expired. Sign in again.',
@@ -255,9 +394,18 @@ class AuthController extends Notifier<AuthState> {
     }
     state = state.copyWith(isLoading: true, errorMessage: null);
     try {
-      final LoginResult result = await ref
-          .read(uptrackApiProvider)
-          .login(email: email, password: password, totpCode: code.trim());
+      final api = ref.read(uptrackApiProvider);
+      final LoginResult result = magicToken != null
+          ? await api.verifyMagicLink(
+              email: email,
+              token: magicToken,
+              totpCode: code.trim(),
+            )
+          : await api.login(
+              email: email,
+              password: password!,
+              totpCode: code.trim(),
+            );
       if (result.totpRequired) {
         state = state.copyWith(
           isLoading: false,
@@ -274,10 +422,13 @@ class AuthController extends Notifier<AuthState> {
     }
   }
 
-  /// Discards a pending 2FA step and returns to the password form.
+  /// Discards a pending 2FA step and returns to email sign-in.
   void cancelTwoFactor() {
     _pendingEmail = null;
     _pendingPassword = null;
+    _pendingMagicToken = null;
+    _pendingSocial = null;
+    _socialAttempt++;
     state = state.copyWith(status: AuthStatus.signedOut, errorMessage: null);
   }
 
@@ -306,15 +457,28 @@ class AuthController extends Notifier<AuthState> {
     required String email,
     required String token,
   }) async {
+    _pendingSocial = null;
+    _socialAttempt++;
     state = state.copyWith(
+      status: AuthStatus.signedOut,
       isLoading: true,
       errorMessage: null,
       email: email.trim(),
     );
     try {
-      await ref
+      final LoginResult result = await ref
           .read(uptrackApiProvider)
           .verifyMagicLink(email: email.trim(), token: token);
+      if (result.totpRequired) {
+        _pendingEmail = email.trim();
+        _pendingPassword = null;
+        _pendingMagicToken = token;
+        state = state.copyWith(
+          status: AuthStatus.needsTwoFactor,
+          isLoading: false,
+        );
+        return;
+      }
       await _finishSignIn();
     } on DioException catch (err) {
       state = state.copyWith(
@@ -330,12 +494,18 @@ class AuthController extends Notifier<AuthState> {
     final DeviceTokenIssuance issuance = await ref
         .read(uptrackApiProvider)
         .createDeviceToken();
+    await _storeIssuance(issuance);
+  }
+
+  Future<void> _storeIssuance(DeviceTokenIssuance issuance) async {
     await ref
         .read(tokenStoreProvider)
         .writeDeviceToken(token: issuance.token, id: issuance.id);
     ref.read(authTokenHolderProvider).token = issuance.token;
     _pendingEmail = null;
     _pendingPassword = null;
+    _pendingMagicToken = null;
+    _pendingSocial = null;
     state = state.copyWith(
       status: AuthStatus.signedIn,
       deviceTokenId: issuance.id,
@@ -374,15 +544,37 @@ class AuthController extends Notifier<AuthState> {
     ref.read(authTokenHolderProvider).token = null;
     _pendingEmail = null;
     _pendingPassword = null;
-    state = const AuthState();
+    _pendingMagicToken = null;
+    _pendingSocial = null;
+    _socialAttempt++;
     // R2.4: no signed-in incident may linger on the home widget, and no
     // cached monitors/incidents may survive for the next account.
-    await clearWidgetData();
+    //
+    // The wipe is *started* before signed-out is published, never awaited
+    // first: clearAll() advances the session epoch synchronously, so the
+    // moment anything can observe the new state (the router redirecting to
+    // /login, the user starting a fresh sign-in) every response still in
+    // flight from the old session is already fenced. Awaiting it before the
+    // state change would leave a window in which a new sign-in runs under the
+    // previous session's epoch.
+    //
+    // Error handling is attached immediately, and the future is awaited
+    // separately below so a slow — or failing — widget clear cannot skip the
+    // cache cleanup.
+    final Future<void> cacheWipe = ref
+        .read(cacheRepositoryProvider)
+        .clearAll()
+        .catchError((Object _) {
+          // Cache wipe is hygiene, not correctness of sign-out.
+        });
+    state = const AuthState();
     try {
-      await ref.read(cacheRepositoryProvider).clearAll();
+      await ref.read(clearWidgetDataProvider)();
     } catch (_) {
-      // Cache wipe is hygiene, not correctness of sign-out.
+      // Widget clearing is hygiene, not correctness of sign-out, and must not
+      // skip the cache cleanup awaited below.
     }
+    await cacheWipe;
     await clearSessionNotifications();
   }
 
@@ -395,10 +587,8 @@ class AuthController extends Notifier<AuthState> {
     }
     ref.read(authTokenHolderProvider).token = null;
     unawaited(ref.read(tokenStoreProvider).clear());
-    unawaited(clearWidgetData());
-    unawaited(
-      ref.read(cacheRepositoryProvider).clearAll().catchError((_) {}),
-    );
+    unawaited(ref.read(clearWidgetDataProvider)());
+    unawaited(ref.read(cacheRepositoryProvider).clearAll().catchError((_) {}));
     unawaited(clearSessionNotifications());
     state = state.copyWith(
       status: AuthStatus.signedOut,
@@ -415,9 +605,7 @@ class AuthController extends Notifier<AuthState> {
 /// throws, so sign-out can't fail on platform-channel issues.
 Future<void> clearSessionNotifications() async {
   try {
-    await PushChannels.tokenChannel().invokeMethod(
-      'clearSessionNotifications',
-    );
+    await PushChannels.tokenChannel().invokeMethod('clearSessionNotifications');
   } on MissingPluginException {
     // Host has no such method (Android, tests) — nothing to clear.
   } on PlatformException {

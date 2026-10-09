@@ -2,6 +2,7 @@ import Flutter
 import UIKit
 import UserNotifications
 import ActivityKit
+import AuthenticationServices
 
 /// Native APNs host for the Dart push layer (T028).
 ///
@@ -37,6 +38,7 @@ import ActivityKit
 
   private var eventsChannel: FlutterMethodChannel?
   private var tokenChannel: FlutterMethodChannel?
+  private var socialSession: ASWebAuthenticationSession?
 
   /// Hex-encoded APNs device token from the last successful registration.
   private var deviceTokenHex: String?
@@ -53,11 +55,15 @@ import ActivityKit
     let center = UNUserNotificationCenter.current()
     center.delegate = self
     center.setNotificationCategories([Self.triageCategory()])
-    center.requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
-      if granted {
-        DispatchQueue.main.async {
-          application.registerForRemoteNotifications()
-        }
+    // The permission prompt is raised by Dart's push setup (`getToken`), not
+    // here, so the demo app (which never starts push) shows no prompt. An
+    // existing grant still refreshes the APNs token on every launch.
+    center.getNotificationSettings { settings in
+      switch settings.authorizationStatus {
+      case .authorized, .provisional, .ephemeral:
+        DispatchQueue.main.async { application.registerForRemoteNotifications() }
+      default:
+        break
       }
     }
 
@@ -73,6 +79,29 @@ import ActivityKit
   func didInitializeImplicitFlutterEngine(_ engineBridge: FlutterImplicitEngineBridge) {
     GeneratedPluginRegistrant.register(with: engineBridge.pluginRegistry)
     let messenger = engineBridge.applicationRegistrar.messenger()
+    FlutterMethodChannel(name: "app.uptrack.mobile/auth/browser", binaryMessenger: messenger)
+      .setMethodCallHandler { [weak self] call, result in
+        guard call.method == "authenticate" else { result(FlutterMethodNotImplemented); return }
+        guard let self, self.socialSession == nil,
+              let args = call.arguments as? [String: String],
+              let raw = args["url"], let url = URL(string: raw),
+              url.scheme == "https" || (url.scheme == "http" && ["localhost", "127.0.0.1", "::1"].contains(url.host ?? ""))
+        else { result(FlutterError(code: "UNAVAILABLE", message: "Sign-in unavailable", details: nil)); return }
+        let session = ASWebAuthenticationSession(url: url, callbackURLScheme: "app.uptrack.mobile.auth") { [weak self] callback, error in
+          DispatchQueue.main.async {
+            self?.socialSession = nil
+            if let callback { result(callback.absoluteString) }
+            else { result(FlutterError(code: error == nil || (error as? ASWebAuthenticationSessionError)?.code == .canceledLogin ? "CANCELLED" : "FAILED", message: "Sign-in did not complete", details: nil)) }
+          }
+        }
+        session.presentationContextProvider = self
+        session.prefersEphemeralWebBrowserSession = true
+        self.socialSession = session
+        if !session.start() {
+          self.socialSession = nil
+          result(FlutterError(code: "UNAVAILABLE", message: "Cannot open sign-in", details: nil))
+        }
+      }
     let events = FlutterMethodChannel(
       name: Self.eventsChannelName, binaryMessenger: messenger)
     let token = FlutterMethodChannel(
@@ -86,6 +115,14 @@ import ActivityKit
       }
       switch call.method {
       case "getToken":
+        // Asks only while undecided; once granted, APNs delivers the token
+        // through `onPushToken` on the events channel.
+        UNUserNotificationCenter.current()
+          .requestAuthorization(options: [.alert, .badge, .sound]) { granted, _ in
+            if granted {
+              DispatchQueue.main.async { UIApplication.shared.registerForRemoteNotifications() }
+            }
+          }
         result(self.currentTokenPayload())
       case "getInitialNotification":
         let pending = self.initialNotification
@@ -280,5 +317,15 @@ import ActivityKit
       payload["monitor_id"] = monitorId
     }
     return payload
+  }
+}
+
+// Uses the active scene for iOS 16+; no embedded webview or browser cookies
+// are copied into the Flutter process.
+extension AppDelegate: ASWebAuthenticationPresentationContextProviding {
+  func presentationAnchor(for session: ASWebAuthenticationSession) -> ASPresentationAnchor {
+    let scenes = UIApplication.shared.connectedScenes.compactMap { $0 as? UIWindowScene }
+    return scenes.first(where: { $0.activationState == .foregroundActive })?.windows.first(where: { $0.isKeyWindow })
+      ?? scenes.flatMap { $0.windows }.first ?? ASPresentationAnchor()
   }
 }

@@ -31,7 +31,27 @@ jobs:
           channel: stable
           flutter-version: 3.47.1
       - run: flutter pub get
-      - run: flutter test
+      - run: dart run tool/generate_tokens.dart --check --source design/shared.tokens.json
+      - run: flutter analyze
+      - name: Test on Linux
+        run: |
+          mapfile -t test_files < <(find test -name '*_test.dart' ! -path 'test/design/gallery_test.dart')
+          test "${#test_files[@]}" -gt 0
+          flutter test "${test_files[@]}"
+
+  # Gallery baselines were captured on macOS. Keep their layout and
+  # interaction checks there rather than relaxing image-diff tolerances.
+  gallery-goldens:
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683
+      - uses: subosito/flutter-action@4cab68ce0f1c7c924f688bff4792e044f1aeb30c
+        with:
+          channel: stable
+          flutter-version: 3.47.1
+          architecture: x64
+      - run: flutter pub get
+      - run: flutter test test/design/gallery_test.dart
 
   # R3.1 signed iOS archive for TestFlight (R4.5/R5). Manual signing from
   # secrets — no match repo, no secrets in source. Required repo config:
@@ -96,7 +116,8 @@ jobs:
   #            ANDROID_KEY_ALIAS, ANDROID_KEY_PASSWORD
   #   vars:    API_BASE_URL (e.g. https://api.uptrack.app)
   release-android:
-    if: startsWith(github.ref, 'refs/tags/')
+    if: startsWith(github.ref, 'refs/tags/') || github.event_name == 'workflow_dispatch'
+    needs: [analyze, test, gallery-goldens]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
@@ -116,6 +137,12 @@ jobs:
         # +number suffix the build number falls back to the run number so
         # every store upload still increases monotonically.
         run: |
+          if [ "$GITHUB_REF_TYPE" != "tag" ]; then
+            VERSION=$(awk '/^version:/ {print $2}' pubspec.yaml)
+            echo "BUILD_NAME=${VERSION%%+*}" >> "$GITHUB_ENV"
+            echo "BUILD_NUMBER=$GITHUB_RUN_NUMBER" >> "$GITHUB_ENV"
+            exit 0
+          fi
           TAG="${GITHUB_REF_NAME#v}"
           echo "BUILD_NAME=${TAG%%+*}" >> "$GITHUB_ENV"
           if [ "$TAG" = "${TAG%%+*}" ]; then
@@ -130,7 +157,9 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          test -n "$ANDROID_KEYSTORE_BASE64" || (echo "Missing ANDROID_KEYSTORE_BASE64 secret" && exit 1)
+          for v in ANDROID_KEYSTORE_BASE64 ANDROID_KEYSTORE_PASSWORD ANDROID_KEY_ALIAS ANDROID_KEY_PASSWORD; do
+            test -n "${!v}" || (echo "Missing $v secret" && exit 1)
+          done
           echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > android/app/upload.keystore
           cat > android/key.properties <<EOF
           storePassword=$ANDROID_KEYSTORE_PASSWORD

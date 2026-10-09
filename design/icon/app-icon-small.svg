@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Small sizes (favicons, 16-48 px): no halo ring, mark 18% larger, rounded tile. -->
+  <rect width="1024" height="1024" rx="229" fill="#F5F7FA"/>
+  <g transform="translate(517 501) scale(1.18) translate(-517 -501)">
+    <path d="M320 332 V562 A162 162 0 0 0 644 562 V530" fill="none" stroke="#0E1520" stroke-width="112" stroke-linecap="round"/>
+    <circle cx="644" cy="330" r="74" fill="#2FBF71"/>
+  </g>
+</svg>

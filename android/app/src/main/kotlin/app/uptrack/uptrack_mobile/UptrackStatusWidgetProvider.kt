@@ -10,6 +10,7 @@ import android.widget.RemoteViews
 import es.antonborri.home_widget.HomeWidgetProvider
 import java.time.Duration
 import java.time.LocalDateTime
+import java.time.OffsetDateTime
 import java.time.format.DateTimeParseException
 
 /**
@@ -29,14 +30,19 @@ import java.time.format.DateTimeParseException
  * Refresh paths:
  *
  * - foreground: `WidgetRefresher` writes fresh data and calls
- *   `HomeWidget.updateWidget(androidName: 'UptrackStatusWidgetProvider')`;
+ *   `HomeWidget.updateWidget(qualifiedAndroidName: ...)`;
  * - best-effort on FCM data message: `UptrackDataMessageReceiver`
  *   re-renders last-known data immediately; Dart reconciles on the next
  *   foreground.
  *
- * The class name is load-bearing: Dart's `HomeWidgetStore.refresh()` calls
- * `HomeWidget.updateWidget(androidName: 'UptrackStatusWidgetProvider')`,
- * which resolves this receiver by name — renaming it breaks widget updates.
+ * The fully-qualified class name is load-bearing (R5). `applicationId` is
+ * `app.uptrack.mobile` — what `Context.packageName` reports — while this class
+ * lives in the `namespace` package `app.uptrack.uptrack_mobile`. `home_widget`
+ * 0.10.0 resolves a bare `androidName` by prefixing it with the package name,
+ * so Dart must pass `qualifiedAndroidName =
+ * "app.uptrack.uptrack_mobile.UptrackStatusWidgetProvider"`, which the plugin
+ * hands to `Class.forName` verbatim. Renaming the class, its package or the
+ * manifest's `.UptrackStatusWidgetProvider` entry breaks widget updates.
  */
 class UptrackStatusWidgetProvider : HomeWidgetProvider() {
 
@@ -54,7 +60,7 @@ class UptrackStatusWidgetProvider : HomeWidgetProvider() {
         val title: String
         val state: String
         if (incidentId.isNullOrEmpty()) {
-            title = "All clear"
+            title = "Uptrack"
             state = "No ongoing incidents"
         } else {
             title = monitorName?.takeIf { it.isNotBlank() }
@@ -109,17 +115,27 @@ class UptrackStatusWidgetProvider : HomeWidgetProvider() {
 
         /**
          * Truthful freshness line for [raw] (`DateTime.toIso8601String`,
-         * device-local, written by Dart's `WidgetSnapshot.toWidgetData`).
+         * written by Dart's `WidgetSnapshot.toWidgetData`).
+         *
+         * Both ISO shapes are accepted: an instant carrying an offset/`Z`
+         * (what a UTC `updatedAt` serializes to) and a bare local date-time.
+         * `LocalDateTime.parse` alone silently rejected the first form, which
+         * would have hidden the freshness line for a correct timestamp.
+         *
          * Buckets mirror `WidgetSnapshot.elapsedLabel` (`5m`/`2h`/`3d`).
-         * Null when no timestamp exists or it does not parse — the caller
-         * hides the line instead of showing a guess.
+         * Null when no timestamp exists or it does not parse — an unknown sync
+         * time is reported as unknown, never as "just now" (R5).
          */
         fun updatedLine(raw: String?): String? {
             if (raw.isNullOrBlank()) return null
             val written = try {
-                LocalDateTime.parse(raw)
+                OffsetDateTime.parse(raw).toLocalDateTime()
             } catch (e: DateTimeParseException) {
-                return null
+                try {
+                    LocalDateTime.parse(raw)
+                } catch (local: DateTimeParseException) {
+                    return null
+                }
             }
             val minutes = Duration.between(written, LocalDateTime.now())
                 .toMinutes().coerceAtLeast(0)

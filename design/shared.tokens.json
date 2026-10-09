@@ -1,0 +1,204 @@
+{
+  "$description": "Single source of design tokens for Uptrack (web CSS variables, DESIGN.md front matter, mobile drift check). Edit here, then run: node scripts/tokens.mjs",
+  "tokens": {
+    "radius": {
+      "value": "0.5rem"
+    },
+    "background": {
+      "light": "#FFFFFF",
+      "dark": "#0A0E14"
+    },
+    "foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "body": {
+      "light": "#3D4A5C",
+      "dark": "#BAC5D2"
+    },
+    "card": {
+      "light": "#FFFFFF",
+      "dark": "#111822"
+    },
+    "card-foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "popover": {
+      "light": "#FFFFFF",
+      "dark": "#18212D"
+    },
+    "popover-foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "primary": {
+      "light": "#1F5AD6",
+      "dark": "#8FB2F2"
+    },
+    "primary-foreground": {
+      "light": "#FFFFFF",
+      "dark": "#0A0E14"
+    },
+    "cta": {
+      "light": "#0E1520",
+      "dark": "#F2F5F8"
+    },
+    "cta-foreground": {
+      "light": "#FFFFFF",
+      "dark": "#0A0E14"
+    },
+    "secondary": {
+      "light": "#F1F4F8",
+      "dark": "#18212D"
+    },
+    "secondary-foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "muted": {
+      "light": "#F1F4F8",
+      "dark": "#18212D"
+    },
+    "muted-foreground": {
+      "light": "#5E6B7D",
+      "dark": "#8795A8"
+    },
+    "accent": {
+      "light": "#F1F4F8",
+      "dark": "#18212D"
+    },
+    "accent-foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "destructive": {
+      "light": "#BC4123",
+      "dark": "#EE7A63"
+    },
+    "border": {
+      "light": "#E3E8EF",
+      "dark": "#243041"
+    },
+    "input": {
+      "light": "#D5DCE6",
+      "dark": "#2B3848"
+    },
+    "ring": {
+      "light": "#1F5AD6",
+      "dark": "#8FB2F2"
+    },
+    "chart-1": {
+      "light": "#1F5AD6",
+      "dark": "#8FB2F2"
+    },
+    "chart-2": {
+      "light": "#6A9A78",
+      "dark": "#7FB08A"
+    },
+    "chart-3": {
+      "light": "#6B8AA8",
+      "dark": "#8AA8C4"
+    },
+    "chart-4": {
+      "light": "#D9A441",
+      "dark": "#E0B354"
+    },
+    "chart-5": {
+      "light": "#BC4123",
+      "dark": "#EE7A63"
+    },
+    "sidebar": {
+      "light": "#F5F7FA",
+      "dark": "#080B10"
+    },
+    "sidebar-foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "sidebar-primary": {
+      "light": "#0E1520",
+      "dark": "#F2F5F8"
+    },
+    "sidebar-primary-foreground": {
+      "light": "#FFFFFF",
+      "dark": "#0A0E14"
+    },
+    "sidebar-accent": {
+      "light": "#E9EEF4",
+      "dark": "#141C27"
+    },
+    "sidebar-accent-foreground": {
+      "light": "#0E1520",
+      "dark": "#EEF2F6"
+    },
+    "sidebar-border": {
+      "light": "#E3E8EF",
+      "dark": "#1B2431"
+    },
+    "sidebar-ring": {
+      "light": "#1F5AD6",
+      "dark": "#8FB2F2"
+    },
+    "status-up": {
+      "light": "#387048",
+      "dark": "#7FB08A"
+    },
+    "status-up-soft": {
+      "light": "#E6F0E8",
+      "dark": "#2B3A30"
+    },
+    "status-down": {
+      "light": "#B03B1F",
+      "dark": "#EE7A63"
+    },
+    "status-down-soft": {
+      "light": "#F6E3DD",
+      "dark": "#3B2B27"
+    },
+    "status-degraded": {
+      "light": "#8A6400",
+      "dark": "#E0B354"
+    },
+    "status-degraded-soft": {
+      "light": "#F4ECD6",
+      "dark": "#3A3320"
+    },
+    "status-unknown": {
+      "light": "#526176",
+      "dark": "#93A2B6"
+    },
+    "status-unknown-soft": {
+      "light": "#E6EBF1",
+      "dark": "#232D3A"
+    },
+    "status-paused": {
+      "light": "#476685",
+      "dark": "#8AA8C4"
+    },
+    "status-paused-soft": {
+      "light": "#E3EAF1",
+      "dark": "#28323C"
+    },
+    "band": {
+      "light": "#F5F7FA",
+      "dark": "#111822"
+    },
+    "spotlight-strength": {
+      "light": "7%",
+      "dark": "13%"
+    },
+    "brand-dark": {
+      "light": "#0A0E14",
+      "dark": "#0A0E14"
+    },
+    "shadow-raised-value": {
+      "light": "0 1px 2px rgb(14 21 32 / 0.06), 0 10px 28px -14px rgb(14 21 32 / 0.18)",
+      "dark": "0 1px 0 rgb(255 255 255 / 0.04) inset, 0 10px 30px -14px rgb(0 0 0 / 0.55)"
+    },
+    "shadow-frame-value": {
+      "light": "0 40px 90px -30px rgb(14 21 32 / 0.45), 0 12px 30px -16px rgb(14 21 32 / 0.35)",
+      "dark": "0 1px 0 rgb(255 255 255 / 0.05) inset, 0 30px 80px -24px rgb(0 0 0 / 0.6), 0 10px 24px -12px rgb(0 0 0 / 0.4)"
+    }
+  }
+}

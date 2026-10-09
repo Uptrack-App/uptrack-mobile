@@ -12,6 +12,7 @@ import 'package:uptrack_mobile/features/monitors/monitor_detail_controller.dart'
 import 'package:uptrack_mobile/features/monitors/monitor_detail_screen.dart';
 import 'package:uptrack_mobile/features/monitors/monitors_controller.dart';
 import 'package:uptrack_mobile/features/monitors/monitors_screen.dart';
+import 'package:uptrack_mobile/features/monitors/monitor_widgets.dart';
 
 Monitor _monitor(
   String id,
@@ -202,11 +203,17 @@ void main() {
       expect(find.text('API'), findsOneWidget);
       // Chip labels are capitalized like the web ("Up", not "up").
       expect(
-        find.descendant(of: find.byType(Chip), matching: find.text('Up')),
+        find.descendant(
+          of: find.byType(MonitorStatusChip),
+          matching: find.text('Up'),
+        ),
         findsOneWidget,
       );
       expect(
-        find.descendant(of: find.byType(Chip), matching: find.text('Down')),
+        find.descendant(
+          of: find.byType(MonitorStatusChip),
+          matching: find.text('Down'),
+        ),
         findsOneWidget,
       );
       expect(find.text('up'), findsNothing);
@@ -270,7 +277,7 @@ void main() {
               const MonitorsData(monitors: <Monitor>[], offline: false),
         ),
       );
-      expect(find.text('No monitors yet.'), findsOneWidget);
+      expect(find.textContaining('No monitors yet.'), findsOneWidget);
     });
 
     testWidgets('offline banner for cached data', (WidgetTester tester) async {
@@ -352,10 +359,16 @@ void main() {
       );
 
       expect(find.text('Homepage'), findsOneWidget);
-      expect(find.text('Up'), findsOneWidget);
+      expect(
+        find.descendant(
+          of: find.byType(MonitorStatusChip),
+          matching: find.text('Up'),
+        ),
+        findsOneWidget,
+      );
       expect(find.byType(LineChart), findsOneWidget);
       expect(find.textContaining('p50 120 ms'), findsOneWidget);
-      expect(find.textContaining('Showing last 7 days'), findsOneWidget);
+      expect(find.textContaining('Last 7 days'), findsOneWidget);
       expect(find.textContaining('clamped'), findsOneWidget);
       // Check history is below the fold (ListView lazily builds it).
       await tester.scrollUntilVisible(find.textContaining('HTTP 503'), 200);

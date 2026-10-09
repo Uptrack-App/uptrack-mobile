@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:uptrack_mobile/design/components.dart';
 import 'package:uptrack_mobile/theme/app_theme.dart';
 import 'package:uptrack_mobile/theme/status_colors.dart';
 import 'package:uptrack_mobile/theme/tokens.dart';
@@ -66,6 +67,21 @@ void main() {
     }
   });
 
+  for (final theme in [AppTheme.light, AppTheme.dark]) {
+    test('${theme.brightness}: essential input outline contrast', () {
+      final border =
+          theme.inputDecorationTheme.enabledBorder! as OutlineInputBorder;
+      expect(
+        _contrast(border.borderSide.color, theme.colorScheme.surface),
+        greaterThanOrEqualTo(3),
+      );
+      expect(
+        _contrast(theme.colorScheme.outline, theme.colorScheme.surface),
+        greaterThanOrEqualTo(3),
+      );
+    });
+  }
+
   test('screens use theme colors: no hardcoded colors outside lib/theme', () {
     final RegExp hardcoded = RegExp(
       r'Color\(\s*0x|Colors\.(red|green|amber|orange|blue|purple|deepPurple|pink|indigo|teal|yellow|grey|brown|cyan|lime)',
@@ -90,11 +106,33 @@ void main() {
     expect(offenders, isEmpty, reason: offenders.join('\n'));
   });
 
-  test('theme uses the bundled IBM Plex families', () {
-    expect(UptrackTypography.fontFamily, 'IBMPlexSans');
-    expect(UptrackTypography.monoFamily, 'IBMPlexMono');
-    expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'IBMPlexSans');
-    expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'IBMPlexSans');
+  test('theme uses the bundled Instrument Sans and JetBrains Mono families', () {
+    expect(UptrackTypography.fontFamily, 'InstrumentSans');
+    expect(UptrackTypography.monoFamily, 'JetBrainsMono');
+    expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'InstrumentSans');
+    expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'InstrumentSans');
+  });
+
+  testWidgets('numbers use sans with tabular lining figures, code uses mono', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        theme: AppTheme.light,
+        home: const Column(
+          children: <Widget>[
+            UptrackDataText('99.95% · 120 ms'),
+            UptrackCodeText('https://example.com'),
+          ],
+        ),
+      ),
+    );
+    final Text number = tester.widget<Text>(find.text('99.95% · 120 ms'));
+    expect(number.style?.fontFamily, 'InstrumentSans');
+    expect(number.style?.fontFeatures, contains(const FontFeature.tabularFigures()));
+    expect(number.style?.fontFeatures, contains(const FontFeature.liningFigures()));
+    final Text code = tester.widget<Text>(find.text('https://example.com'));
+    expect(code.style?.fontFamily, 'JetBrainsMono');
   });
 
   test('tokens v2 match uptrack-web styles.css', () {

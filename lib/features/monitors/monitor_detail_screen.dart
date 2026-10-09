@@ -1,4 +1,3 @@
-import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -7,7 +6,7 @@ import '../../api/models/monitor.dart';
 import '../../api/models/monitor_analytics.dart';
 import 'monitor_detail_controller.dart';
 import 'monitor_widgets.dart';
-import '../../theme/status_colors.dart';
+import '../../design/uptrack_design.dart';
 import '../../util/date_format.dart';
 
 /// Monitor detail: header, response-time chart (24h/7d/90d via `?days=`),
@@ -26,7 +25,8 @@ class MonitorDetailScreen extends ConsumerWidget {
     return Scaffold(
       appBar: AppBar(title: const Text('Monitor')),
       body: detail.when(
-        loading: () => const Center(child: CircularProgressIndicator()),
+        loading: () =>
+            const UptrackStateView(message: 'Loading monitor', loading: true),
         error: (Object err, StackTrace _) => _DetailError(
           message: _errorMessage(err),
           onRetry: () => ref.invalidate(monitorDetailProvider(monitorId)),
@@ -93,7 +93,7 @@ class _DetailBody extends ConsumerWidget {
             child: Text(monitor.name, style: theme.textTheme.headlineSmall),
           ),
           const SizedBox(height: 4),
-          Text(monitor.url, style: theme.textTheme.bodyMedium),
+          UptrackCodeText(monitor.url, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,
@@ -102,7 +102,9 @@ class _DetailBody extends ConsumerWidget {
             children: <Widget>[
               MonitorStatusChip(status: monitor.status),
               if (monitor.uptimePercentage != null)
-                Text('${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime'),
+                UptrackDataText(
+                  '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime',
+                ),
               if (monitor.regionsRequired.isNotEmpty)
                 Text('Regions: ${monitor.regionsRequired}'),
               Text(monitor.monitorType),
@@ -191,82 +193,25 @@ class _ResponseChart extends StatelessWidget {
       );
     }
 
-    final ThemeData theme = Theme.of(context);
-    final List<FlSpot> spots = analytics.responseTimes
-        .map(
-          (ResponseTimePoint p) =>
-              FlSpot(p.timestamp.toDouble(), p.responseTime),
-        )
-        .toList();
-    final ResponsePercentiles percentiles = analytics.percentiles;
-    final String summary =
-        'Response-time chart, last ${analytics.periodDays} days: '
-        'p50 ${percentiles.p50.toStringAsFixed(0)} ms, '
-        'p95 ${percentiles.p95.toStringAsFixed(0)} ms, '
-        'p99 ${percentiles.p99.toStringAsFixed(0)} ms';
-
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: <Widget>[
-            Semantics(
-              label: summary,
-              image: true,
-              container: true,
-              explicitChildNodes: true,
-              child: ExcludeSemantics(
-                child: SizedBox(
-                  height: 200,
-                  child: LineChart(
-                    LineChartData(
-                      lineBarsData: <LineChartBarData>[
-                        LineChartBarData(
-                          spots: spots,
-                          isCurved: true,
-                          color: theme.colorScheme.primary,
-                          barWidth: 2,
-                          dotData: const FlDotData(show: false),
-                          belowBarData: BarAreaData(
-                            show: true,
-                            color: theme.colorScheme.primary.withValues(
-                              alpha: 0.15,
-                            ),
-                          ),
-                        ),
-                      ],
-                      titlesData: const FlTitlesData(
-                        topTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                        rightTitles: AxisTitles(
-                          sideTitles: SideTitles(showTitles: false),
-                        ),
-                      ),
-                      gridData: const FlGridData(show: true),
-                      borderData: FlBorderData(show: false),
-                    ),
-                  ),
-                ),
-              ),
+    final percentiles = analytics.percentiles;
+    return UptrackResponseChart(
+      displayTime: toDisplayTime,
+      periodNote: 'Requested windows are clamped to your plan’s retention.',
+      points: [
+        for (final point in analytics.responseTimes)
+          UptrackChartPoint(
+            time: DateTime.fromMillisecondsSinceEpoch(
+              point.timestamp * 1000,
+              isUtc: true,
             ),
-            const SizedBox(height: 8),
-            Text(
-              'p50 ${percentiles.p50.toStringAsFixed(0)} ms · '
-              'p95 ${percentiles.p95.toStringAsFixed(0)} ms · '
-              'p99 ${percentiles.p99.toStringAsFixed(0)} ms',
-              style: theme.textTheme.bodySmall,
-            ),
-            const SizedBox(height: 4),
-            Text(
-              'Showing last ${analytics.periodDays} days. '
-              'The window may be clamped to your plan\u2019s retention.',
-              style: theme.textTheme.bodySmall,
-            ),
-          ],
-        ),
-      ),
+            milliseconds: point.responseTime,
+          ),
+      ],
+      period: 'Last ${analytics.periodDays} days',
+      summary:
+          'p50 ${percentiles.p50.toStringAsFixed(0)} ms · '
+          'p95 ${percentiles.p95.toStringAsFixed(0)} ms · '
+          'p99 ${percentiles.p99.toStringAsFixed(0)} ms',
     );
   }
 }
@@ -279,7 +224,6 @@ class _CheckRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
-    final ColorScheme scheme = theme.colorScheme;
     return Semantics(
       label:
           'Check ${statusLabel(check.status)}, ${check.responseTime} ms, '
@@ -288,16 +232,18 @@ class _CheckRow extends StatelessWidget {
         child: ListTile(
           leading: Icon(
             check.isUp ? Icons.check_circle : Icons.error,
-            color: check.isUp ? scheme.primary : scheme.error,
+            color: UptrackStatusColors.of(context)
+                .forStatus(check.status)
+                .color,
           ),
-          title: Text(
+          title: UptrackDataText(
             '${statusLabel(check.status)} · ${check.responseTime} ms · '
             'HTTP ${check.statusCode}',
           ),
           subtitle: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: <Widget>[
-              Text(
+              UptrackDataText(
                 formatTimestamp(check.checkedAt),
                 style: theme.textTheme.bodySmall,
               ),
@@ -319,18 +265,10 @@ class _DetailError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }

@@ -1,3 +1,5 @@
+import '../../design/uptrack_design.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -30,7 +32,7 @@ class BillingSection extends ConsumerWidget {
           Text('Billing', style: theme.textTheme.titleMedium),
           const SizedBox(height: 4),
           Text(
-            'Plans are managed on the web. The app never sells subscriptions.',
+            'Your current plan and subscription status.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 12),
@@ -50,7 +52,7 @@ class BillingSection extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     title: const Text('Current plan'),
-                    subtitle: Text(info.plan),
+                    subtitle: UptrackDataText(info.plan),
                   ),
                 ),
                 if (info.subscription != null)

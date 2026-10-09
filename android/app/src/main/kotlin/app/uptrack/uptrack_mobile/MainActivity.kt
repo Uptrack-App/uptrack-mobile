@@ -38,6 +38,23 @@ class MainActivity : FlutterActivity() {
     override fun configureFlutterEngine(flutterEngine: FlutterEngine) {
         super.configureFlutterEngine(flutterEngine)
         val messenger = flutterEngine.dartExecutor.binaryMessenger
+        MethodChannel(messenger, "app.uptrack.mobile/auth/browser").setMethodCallHandler { call, result ->
+            if (call.method != "authenticate") result.notImplemented()
+            else {
+                val url = call.argument<String>("url")
+                val uri = url?.let { android.net.Uri.parse(it) }
+                if (uri == null || (uri.scheme != "https" && !(uri.scheme == "http" &&
+                        uri.host in listOf("localhost", "127.0.0.1", "10.0.2.2", "::1")))) {
+                    result.error("UNAVAILABLE", "Sign-in requires HTTPS", null)
+                } else if (AuthBrowserActivity.pending != null) {
+                    result.error("UNAVAILABLE", "Sign-in already open", null)
+                } else {
+                    AuthBrowserActivity.pending = result
+                    try { startActivity(Intent(this, AuthBrowserActivity::class.java).putExtra("auth_url", url)) }
+                    catch (_: Exception) { AuthBrowserActivity.complete(null, "UNAVAILABLE") }
+                }
+            }
+        }
         eventsSink = { method, payload ->
             MethodChannel(messenger, CHANNEL_EVENTS).invokeMethod(method, payload)
         }
@@ -64,6 +81,7 @@ class MainActivity : FlutterActivity() {
     }
 
     override fun onDestroy() {
+        if (!isChangingConfigurations) AuthBrowserActivity.complete(null, "CANCELLED")
         if (isFinishing) {
             eventsSink = null
         }

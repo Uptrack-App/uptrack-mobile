@@ -2040,6 +2040,290 @@ class CacheMetaCompanion extends UpdateCompanion<CacheMetaData> {
   }
 }
 
+class $CachedIncidentDetailsTable extends CachedIncidentDetails
+    with TableInfo<$CachedIncidentDetailsTable, CachedIncidentDetail> {
+  @override
+  final GeneratedDatabase attachedDatabase;
+  final String? _alias;
+  $CachedIncidentDetailsTable(this.attachedDatabase, [this._alias]);
+  static const VerificationMeta _incidentIdMeta = const VerificationMeta(
+    'incidentId',
+  );
+  @override
+  late final GeneratedColumn<String> incidentId = GeneratedColumn<String>(
+    'incident_id',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _updatesJsonMeta = const VerificationMeta(
+    'updatesJson',
+  );
+  @override
+  late final GeneratedColumn<String> updatesJson = GeneratedColumn<String>(
+    'updates_json',
+    aliasedName,
+    false,
+    type: DriftSqlType.string,
+    requiredDuringInsert: true,
+  );
+  static const VerificationMeta _syncedAtMeta = const VerificationMeta(
+    'syncedAt',
+  );
+  @override
+  late final GeneratedColumn<DateTime> syncedAt = GeneratedColumn<DateTime>(
+    'synced_at',
+    aliasedName,
+    false,
+    type: DriftSqlType.dateTime,
+    requiredDuringInsert: true,
+  );
+  @override
+  List<GeneratedColumn> get $columns => [incidentId, updatesJson, syncedAt];
+  @override
+  String get aliasedName => _alias ?? actualTableName;
+  @override
+  String get actualTableName => $name;
+  static const String $name = 'cached_incident_details';
+  @override
+  VerificationContext validateIntegrity(
+    Insertable<CachedIncidentDetail> instance, {
+    bool isInserting = false,
+  }) {
+    final context = VerificationContext();
+    final data = instance.toColumns(true);
+    if (data.containsKey('incident_id')) {
+      context.handle(
+        _incidentIdMeta,
+        incidentId.isAcceptableOrUnknown(data['incident_id']!, _incidentIdMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_incidentIdMeta);
+    }
+    if (data.containsKey('updates_json')) {
+      context.handle(
+        _updatesJsonMeta,
+        updatesJson.isAcceptableOrUnknown(
+          data['updates_json']!,
+          _updatesJsonMeta,
+        ),
+      );
+    } else if (isInserting) {
+      context.missing(_updatesJsonMeta);
+    }
+    if (data.containsKey('synced_at')) {
+      context.handle(
+        _syncedAtMeta,
+        syncedAt.isAcceptableOrUnknown(data['synced_at']!, _syncedAtMeta),
+      );
+    } else if (isInserting) {
+      context.missing(_syncedAtMeta);
+    }
+    return context;
+  }
+
+  @override
+  Set<GeneratedColumn> get $primaryKey => {incidentId};
+  @override
+  CachedIncidentDetail map(Map<String, dynamic> data, {String? tablePrefix}) {
+    final effectivePrefix = tablePrefix != null ? '$tablePrefix.' : '';
+    return CachedIncidentDetail(
+      incidentId: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}incident_id'],
+      )!,
+      updatesJson: attachedDatabase.typeMapping.read(
+        DriftSqlType.string,
+        data['${effectivePrefix}updates_json'],
+      )!,
+      syncedAt: attachedDatabase.typeMapping.read(
+        DriftSqlType.dateTime,
+        data['${effectivePrefix}synced_at'],
+      )!,
+    );
+  }
+
+  @override
+  $CachedIncidentDetailsTable createAlias(String alias) {
+    return $CachedIncidentDetailsTable(attachedDatabase, alias);
+  }
+}
+
+class CachedIncidentDetail extends DataClass
+    implements Insertable<CachedIncidentDetail> {
+  final String incidentId;
+
+  /// Posted updates exactly as the last successful detail read returned them,
+  /// JSON-encoded in server order (see `CacheRepository.encodeIncidentUpdates`).
+  final String updatesJson;
+
+  /// When those updates were actually last read from the API — the honest
+  /// "updates last synced" time, never the moment a cached row was read back.
+  final DateTime syncedAt;
+  const CachedIncidentDetail({
+    required this.incidentId,
+    required this.updatesJson,
+    required this.syncedAt,
+  });
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    map['incident_id'] = Variable<String>(incidentId);
+    map['updates_json'] = Variable<String>(updatesJson);
+    map['synced_at'] = Variable<DateTime>(syncedAt);
+    return map;
+  }
+
+  CachedIncidentDetailsCompanion toCompanion(bool nullToAbsent) {
+    return CachedIncidentDetailsCompanion(
+      incidentId: Value(incidentId),
+      updatesJson: Value(updatesJson),
+      syncedAt: Value(syncedAt),
+    );
+  }
+
+  factory CachedIncidentDetail.fromJson(
+    Map<String, dynamic> json, {
+    ValueSerializer? serializer,
+  }) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return CachedIncidentDetail(
+      incidentId: serializer.fromJson<String>(json['incidentId']),
+      updatesJson: serializer.fromJson<String>(json['updatesJson']),
+      syncedAt: serializer.fromJson<DateTime>(json['syncedAt']),
+    );
+  }
+  @override
+  Map<String, dynamic> toJson({ValueSerializer? serializer}) {
+    serializer ??= driftRuntimeOptions.defaultSerializer;
+    return <String, dynamic>{
+      'incidentId': serializer.toJson<String>(incidentId),
+      'updatesJson': serializer.toJson<String>(updatesJson),
+      'syncedAt': serializer.toJson<DateTime>(syncedAt),
+    };
+  }
+
+  CachedIncidentDetail copyWith({
+    String? incidentId,
+    String? updatesJson,
+    DateTime? syncedAt,
+  }) => CachedIncidentDetail(
+    incidentId: incidentId ?? this.incidentId,
+    updatesJson: updatesJson ?? this.updatesJson,
+    syncedAt: syncedAt ?? this.syncedAt,
+  );
+  CachedIncidentDetail copyWithCompanion(CachedIncidentDetailsCompanion data) {
+    return CachedIncidentDetail(
+      incidentId: data.incidentId.present
+          ? data.incidentId.value
+          : this.incidentId,
+      updatesJson: data.updatesJson.present
+          ? data.updatesJson.value
+          : this.updatesJson,
+      syncedAt: data.syncedAt.present ? data.syncedAt.value : this.syncedAt,
+    );
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedIncidentDetail(')
+          ..write('incidentId: $incidentId, ')
+          ..write('updatesJson: $updatesJson, ')
+          ..write('syncedAt: $syncedAt')
+          ..write(')'))
+        .toString();
+  }
+
+  @override
+  int get hashCode => Object.hash(incidentId, updatesJson, syncedAt);
+  @override
+  bool operator ==(Object other) =>
+      identical(this, other) ||
+      (other is CachedIncidentDetail &&
+          other.incidentId == this.incidentId &&
+          other.updatesJson == this.updatesJson &&
+          other.syncedAt == this.syncedAt);
+}
+
+class CachedIncidentDetailsCompanion
+    extends UpdateCompanion<CachedIncidentDetail> {
+  final Value<String> incidentId;
+  final Value<String> updatesJson;
+  final Value<DateTime> syncedAt;
+  final Value<int> rowid;
+  const CachedIncidentDetailsCompanion({
+    this.incidentId = const Value.absent(),
+    this.updatesJson = const Value.absent(),
+    this.syncedAt = const Value.absent(),
+    this.rowid = const Value.absent(),
+  });
+  CachedIncidentDetailsCompanion.insert({
+    required String incidentId,
+    required String updatesJson,
+    required DateTime syncedAt,
+    this.rowid = const Value.absent(),
+  }) : incidentId = Value(incidentId),
+       updatesJson = Value(updatesJson),
+       syncedAt = Value(syncedAt);
+  static Insertable<CachedIncidentDetail> custom({
+    Expression<String>? incidentId,
+    Expression<String>? updatesJson,
+    Expression<DateTime>? syncedAt,
+    Expression<int>? rowid,
+  }) {
+    return RawValuesInsertable({
+      if (incidentId != null) 'incident_id': incidentId,
+      if (updatesJson != null) 'updates_json': updatesJson,
+      if (syncedAt != null) 'synced_at': syncedAt,
+      if (rowid != null) 'rowid': rowid,
+    });
+  }
+
+  CachedIncidentDetailsCompanion copyWith({
+    Value<String>? incidentId,
+    Value<String>? updatesJson,
+    Value<DateTime>? syncedAt,
+    Value<int>? rowid,
+  }) {
+    return CachedIncidentDetailsCompanion(
+      incidentId: incidentId ?? this.incidentId,
+      updatesJson: updatesJson ?? this.updatesJson,
+      syncedAt: syncedAt ?? this.syncedAt,
+      rowid: rowid ?? this.rowid,
+    );
+  }
+
+  @override
+  Map<String, Expression> toColumns(bool nullToAbsent) {
+    final map = <String, Expression>{};
+    if (incidentId.present) {
+      map['incident_id'] = Variable<String>(incidentId.value);
+    }
+    if (updatesJson.present) {
+      map['updates_json'] = Variable<String>(updatesJson.value);
+    }
+    if (syncedAt.present) {
+      map['synced_at'] = Variable<DateTime>(syncedAt.value);
+    }
+    if (rowid.present) {
+      map['rowid'] = Variable<int>(rowid.value);
+    }
+    return map;
+  }
+
+  @override
+  String toString() {
+    return (StringBuffer('CachedIncidentDetailsCompanion(')
+          ..write('incidentId: $incidentId, ')
+          ..write('updatesJson: $updatesJson, ')
+          ..write('syncedAt: $syncedAt, ')
+          ..write('rowid: $rowid')
+          ..write(')'))
+        .toString();
+  }
+}
+
 abstract class _$AppDatabase extends GeneratedDatabase {
   _$AppDatabase(QueryExecutor e) : super(e);
   $AppDatabaseManager get managers => $AppDatabaseManager(this);
@@ -2049,6 +2333,8 @@ abstract class _$AppDatabase extends GeneratedDatabase {
   );
   late final $CachedChecksTable cachedChecks = $CachedChecksTable(this);
   late final $CacheMetaTable cacheMeta = $CacheMetaTable(this);
+  late final $CachedIncidentDetailsTable cachedIncidentDetails =
+      $CachedIncidentDetailsTable(this);
   @override
   Iterable<TableInfo<Table, Object?>> get allTables =>
       allSchemaEntities.whereType<TableInfo<Table, Object?>>();
@@ -2058,6 +2344,7 @@ abstract class _$AppDatabase extends GeneratedDatabase {
     cachedIncidents,
     cachedChecks,
     cacheMeta,
+    cachedIncidentDetails,
   ];
 }
 
@@ -3130,6 +3417,203 @@ typedef $$CacheMetaTableProcessedTableManager =
       CacheMetaData,
       PrefetchHooks Function()
     >;
+typedef $$CachedIncidentDetailsTableCreateCompanionBuilder =
+    CachedIncidentDetailsCompanion Function({
+      required String incidentId,
+      required String updatesJson,
+      required DateTime syncedAt,
+      Value<int> rowid,
+    });
+typedef $$CachedIncidentDetailsTableUpdateCompanionBuilder =
+    CachedIncidentDetailsCompanion Function({
+      Value<String> incidentId,
+      Value<String> updatesJson,
+      Value<DateTime> syncedAt,
+      Value<int> rowid,
+    });
+
+class $$CachedIncidentDetailsTableFilterComposer
+    extends Composer<_$AppDatabase, $CachedIncidentDetailsTable> {
+  $$CachedIncidentDetailsTableFilterComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnFilters<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<String> get updatesJson => $composableBuilder(
+    column: $table.updatesJson,
+    builder: (column) => ColumnFilters(column),
+  );
+
+  ColumnFilters<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnFilters(column),
+  );
+}
+
+class $$CachedIncidentDetailsTableOrderingComposer
+    extends Composer<_$AppDatabase, $CachedIncidentDetailsTable> {
+  $$CachedIncidentDetailsTableOrderingComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  ColumnOrderings<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<String> get updatesJson => $composableBuilder(
+    column: $table.updatesJson,
+    builder: (column) => ColumnOrderings(column),
+  );
+
+  ColumnOrderings<DateTime> get syncedAt => $composableBuilder(
+    column: $table.syncedAt,
+    builder: (column) => ColumnOrderings(column),
+  );
+}
+
+class $$CachedIncidentDetailsTableAnnotationComposer
+    extends Composer<_$AppDatabase, $CachedIncidentDetailsTable> {
+  $$CachedIncidentDetailsTableAnnotationComposer({
+    required super.$db,
+    required super.$table,
+    super.joinBuilder,
+    super.$addJoinBuilderToRootComposer,
+    super.$removeJoinBuilderFromRootComposer,
+  });
+  GeneratedColumn<String> get incidentId => $composableBuilder(
+    column: $table.incidentId,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<String> get updatesJson => $composableBuilder(
+    column: $table.updatesJson,
+    builder: (column) => column,
+  );
+
+  GeneratedColumn<DateTime> get syncedAt =>
+      $composableBuilder(column: $table.syncedAt, builder: (column) => column);
+}
+
+class $$CachedIncidentDetailsTableTableManager
+    extends
+        RootTableManager<
+          _$AppDatabase,
+          $CachedIncidentDetailsTable,
+          CachedIncidentDetail,
+          $$CachedIncidentDetailsTableFilterComposer,
+          $$CachedIncidentDetailsTableOrderingComposer,
+          $$CachedIncidentDetailsTableAnnotationComposer,
+          $$CachedIncidentDetailsTableCreateCompanionBuilder,
+          $$CachedIncidentDetailsTableUpdateCompanionBuilder,
+          (
+            CachedIncidentDetail,
+            BaseReferences<
+              _$AppDatabase,
+              $CachedIncidentDetailsTable,
+              CachedIncidentDetail
+            >,
+          ),
+          CachedIncidentDetail,
+          PrefetchHooks Function()
+        > {
+  $$CachedIncidentDetailsTableTableManager(
+    _$AppDatabase db,
+    $CachedIncidentDetailsTable table,
+  ) : super(
+        TableManagerState(
+          db: db,
+          table: table,
+          createFilteringComposer: () =>
+              $$CachedIncidentDetailsTableFilterComposer(
+                $db: db,
+                $table: table,
+              ),
+          createOrderingComposer: () =>
+              $$CachedIncidentDetailsTableOrderingComposer(
+                $db: db,
+                $table: table,
+              ),
+          createComputedFieldComposer: () =>
+              $$CachedIncidentDetailsTableAnnotationComposer(
+                $db: db,
+                $table: table,
+              ),
+          updateCompanionCallback:
+              ({
+                Value<String> incidentId = const Value.absent(),
+                Value<String> updatesJson = const Value.absent(),
+                Value<DateTime> syncedAt = const Value.absent(),
+                Value<int> rowid = const Value.absent(),
+              }) => CachedIncidentDetailsCompanion(
+                incidentId: incidentId,
+                updatesJson: updatesJson,
+                syncedAt: syncedAt,
+                rowid: rowid,
+              ),
+          createCompanionCallback:
+              ({
+                required String incidentId,
+                required String updatesJson,
+                required DateTime syncedAt,
+                Value<int> rowid = const Value.absent(),
+              }) => CachedIncidentDetailsCompanion.insert(
+                incidentId: incidentId,
+                updatesJson: updatesJson,
+                syncedAt: syncedAt,
+                rowid: rowid,
+              ),
+          withReferenceMapper: (p0) => p0
+              .map(
+                (e) => (
+                  e.readTable<
+                    $CachedIncidentDetailsTable,
+                    CachedIncidentDetail
+                  >(table),
+                  BaseReferences<
+                    _$AppDatabase,
+                    $CachedIncidentDetailsTable,
+                    CachedIncidentDetail
+                  >(db, table, e),
+                ),
+              )
+              .toList(),
+          prefetchHooksCallback: null,
+        ),
+      );
+}
+
+typedef $$CachedIncidentDetailsTableProcessedTableManager =
+    ProcessedTableManager<
+      _$AppDatabase,
+      $CachedIncidentDetailsTable,
+      CachedIncidentDetail,
+      $$CachedIncidentDetailsTableFilterComposer,
+      $$CachedIncidentDetailsTableOrderingComposer,
+      $$CachedIncidentDetailsTableAnnotationComposer,
+      $$CachedIncidentDetailsTableCreateCompanionBuilder,
+      $$CachedIncidentDetailsTableUpdateCompanionBuilder,
+      (
+        CachedIncidentDetail,
+        BaseReferences<
+          _$AppDatabase,
+          $CachedIncidentDetailsTable,
+          CachedIncidentDetail
+        >,
+      ),
+      CachedIncidentDetail,
+      PrefetchHooks Function()
+    >;
 
 class $AppDatabaseManager {
   final _$AppDatabase _db;
@@ -3142,4 +3626,6 @@ class $AppDatabaseManager {
       $$CachedChecksTableTableManager(_db, _db.cachedChecks);
   $$CacheMetaTableTableManager get cacheMeta =>
       $$CacheMetaTableTableManager(_db, _db.cacheMeta);
+  $$CachedIncidentDetailsTableTableManager get cachedIncidentDetails =>
+      $$CachedIncidentDetailsTableTableManager(_db, _db.cachedIncidentDetails);
 }

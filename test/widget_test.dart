@@ -16,11 +16,12 @@ import 'package:uptrack_mobile/theme/app_theme.dart';
 /// `test/features/dashboard/dashboard_test.dart`).
 class _StubDashboardRepository implements DashboardRepository {
   @override
-  Future<DashboardData> load() async => const DashboardData(
+  Future<DashboardData> load() async => DashboardData(
     totalMonitors: 1,
-    countsByStatus: <String, int>{'up': 1},
+    loadedMonitors: 1,
+    totalMonitorsKnown: true,
+    countsByStatus: const <String, int>{'up': 1},
     averageUptime: 100,
-    recentIncidents: [],
     offline: false,
   );
 }
@@ -100,11 +101,21 @@ void main() {
     );
     await tester.pumpAndSettle();
 
-    expect(find.text('Dashboard'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(AppBar),
+        matching: find.text('Dashboard'),
+      ),
+      findsOneWidget,
+    );
+    expect(find.byType(NavigationRail), findsOneWidget);
 
     router.go('/monitors');
     await tester.pumpAndSettle();
 
-    expect(find.text('Monitors'), findsOneWidget);
+    expect(
+      find.descendant(of: find.byType(AppBar), matching: find.text('Monitors')),
+      findsOneWidget,
+    );
   });
 }

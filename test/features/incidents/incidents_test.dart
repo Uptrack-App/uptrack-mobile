@@ -1,13 +1,17 @@
 import 'dart:async';
+import 'dart:ui' show Tristate;
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
+import 'package:uptrack_mobile/api/uptrack_api.dart';
 import 'package:uptrack_mobile/features/incidents/incident_detail_screen.dart';
 import 'package:uptrack_mobile/features/incidents/incidents_controller.dart';
 import 'package:uptrack_mobile/features/incidents/incidents_screen.dart';
+import 'package:uptrack_mobile/theme/app_theme.dart';
 import 'package:uptrack_mobile/util/date_format.dart';
 
 Incident _incident(
@@ -54,11 +58,20 @@ class FakeIncidentsRepository implements IncidentsRepository {
 }
 
 class FakeIncidentDetailRepository implements IncidentDetailRepository {
-  FakeIncidentDetailRepository({required this.onLoad, required this.onAck});
+  FakeIncidentDetailRepository({
+    required this.onLoad,
+    required this.onAck,
+    this.onEscalate,
+    this.onSnooze,
+  });
 
   Future<IncidentDetailData> Function(String id) onLoad;
   Future<IncidentDetailData> Function(String id) onAck;
+  Future<EscalateResult> Function(String id)? onEscalate;
+  Future<SnoozeResult> Function(String monitorId)? onSnooze;
   int acknowledges = 0;
+  int escalations = 0;
+  int snoozes = 0;
 
   @override
   Future<IncidentDetailData> load(String id) => onLoad(id);
@@ -67,6 +80,26 @@ class FakeIncidentDetailRepository implements IncidentDetailRepository {
   Future<IncidentDetailData> acknowledge(String id) {
     acknowledges++;
     return onAck(id);
+  }
+
+  @override
+  Future<EscalateResult> escalate(String id) {
+    escalations++;
+    final Future<EscalateResult> Function(String id)? handler = onEscalate;
+    if (handler == null) {
+      throw UnimplementedError('escalate was not faked for this test');
+    }
+    return handler(id);
+  }
+
+  @override
+  Future<SnoozeResult> snooze(String monitorId) {
+    snoozes++;
+    final Future<SnoozeResult> Function(String monitorId)? handler = onSnooze;
+    if (handler == null) {
+      throw UnimplementedError('snooze was not faked for this test');
+    }
+    return handler(monitorId);
   }
 }
 
@@ -199,10 +232,7 @@ void main() {
       );
 
       await tester.tap(
-        find.descendant(
-          of: find.byType(SegmentedButton<IncidentStatusFilter>),
-          matching: find.text('Open'),
-        ),
+        find.byKey(const ValueKey<String>('incident-filter-open')),
       );
       await tester.pumpAndSettle();
 
@@ -220,10 +250,7 @@ void main() {
               const IncidentsData(incidents: <Incident>[], offline: false),
         ),
       );
-      expect(
-        find.text('No incidents. Your monitors are quiet.'),
-        findsOneWidget,
-      );
+      expect(find.text('No incidents.'), findsOneWidget);
     });
 
     testWidgets('offline banner for cached data', (WidgetTester tester) async {
@@ -331,7 +358,7 @@ void main() {
 
       // The request is in flight and the optimistic state is visible.
       expect(repo.acknowledges, 1);
-      expect(find.text('Acknowledge'), findsNothing);
+      expect(find.byType(CircularProgressIndicator), findsWidgets);
       expect(find.textContaining('Acknowledged'), findsWidgets);
 
       gate.complete(
@@ -344,7 +371,9 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      expect(find.text('Acknowledge'), findsNothing);
+      // Settled on the server's answer: the optimistic flag is gone and the
+      // result copy names what actually happened.
+      expect(find.text('Acknowledged. Escalation is paused.'), findsOneWidget);
       expect(find.textContaining('Acknowledged'), findsWidgets);
     });
 
@@ -369,42 +398,61 @@ void main() {
       );
     });
 
-    testWidgets('no acknowledge action when already acknowledged', (
+    testWidgets('acknowledged incidents cannot acknowledge again', (
       WidgetTester tester,
     ) async {
-      await pumpDetail(
-        tester,
-        FakeIncidentDetailRepository(
-          onLoad: (String id) async => _detail(
-            incident: _incident(
-              'i1',
-              'Homepage',
-              acknowledgedAt: '2026-09-26T00:10:00Z',
-            ),
+      final FakeIncidentDetailRepository repo = FakeIncidentDetailRepository(
+        onLoad: (String id) async => _detail(
+          incident: _incident(
+            'i1',
+            'Homepage',
+            acknowledgedAt: '2026-09-26T00:10:00Z',
           ),
-          onAck: (String id) async => _detail(),
         ),
+        onAck: (String id) async => _detail(),
       );
+      await pumpDetail(tester, repo);
 
-      expect(find.text('Acknowledge'), findsNothing);
+      // Disabled, not hidden: the label stays visible and tapping is inert.
+      await tester.tap(find.text('Acknowledge'));
+      await tester.pumpAndSettle();
+      expect(repo.acknowledges, 0);
       expect(find.textContaining('Acknowledged'), findsWidgets);
     });
 
-    testWidgets('offline detail hides the action and notes updates', (
+    testWidgets('offline detail disables response actions and notes updates', (
       WidgetTester tester,
     ) async {
-      await pumpDetail(
-        tester,
-        FakeIncidentDetailRepository(
-          onLoad: (String id) async =>
-              _detail(offline: true, updates: const <IncidentUpdate>[]),
-          onAck: (String id) async => _detail(),
-        ),
+      final FakeIncidentDetailRepository repo = FakeIncidentDetailRepository(
+        onLoad: (String id) async =>
+            _detail(offline: true, updates: const <IncidentUpdate>[]),
+        onAck: (String id) async => _detail(),
       );
+      await pumpDetail(tester, repo);
 
       expect(find.text('Offline — showing cached data'), findsOneWidget);
-      expect(find.text('Acknowledge'), findsNothing);
-      expect(find.text('Updates unavailable offline.'), findsOneWidget);
+      expect(find.text('Response actions need a connection.'), findsOneWidget);
+      // Nothing was ever saved for this incident, so the screen says the
+      // updates are unavailable — not "no updates yet", which would report an
+      // absence the cache never observed.
+      expect(
+        find.text('No saved updates for offline viewing.'),
+        findsOneWidget,
+      );
+
+      // Disabled, not hidden: tapping sends nothing.
+      for (final String label in <String>[
+        'Acknowledge',
+        'Escalate',
+        'Snooze 1 hour',
+      ]) {
+        await tester.ensureVisible(find.text(label));
+        await tester.tap(find.text(label));
+        await tester.pump();
+      }
+      expect(repo.acknowledges, 0);
+      expect(repo.escalations, 0);
+      expect(repo.snoozes, 0);
     });
 
     testWidgets('error state with retry that recovers', (
@@ -428,6 +476,222 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.text('Homepage'), findsOneWidget);
+    });
+  });
+
+  /// Filter chip layout at large text.
+  ///
+  /// A chip that cannot fit its label on one line has to wrap and grow rather
+  /// than fade or clip it away, and the checkmark the selected chip draws must
+  /// come out of the label's width rather than push the label out of the chip.
+  ///
+  /// Measured on the [RenderParagraph] the chip actually laid out: a chip that
+  /// silently truncates its label raises no overflow error and reports no
+  /// exceeded line budget, so "nothing threw" and "didExceedMaxLines" both
+  /// pass on the broken control.
+  group('filter chips at large text', () {
+    Future<void> pumpChips(
+      WidgetTester tester, {
+      required double width,
+      double textScale = 2,
+      IncidentStatusFilter filter = IncidentStatusFilter.all,
+    }) async {
+      tester.view.physicalSize = Size(width, 844);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            incidentsRepositoryProvider.overrideWithValue(
+              FakeIncidentsRepository(
+                onLoad: () async => IncidentsData(
+                  incidents: <Incident>[_incident('a', 'Homepage')],
+                  offline: false,
+                ),
+              ),
+            ),
+          ],
+          child: MaterialApp(
+            theme: AppTheme.light,
+            builder: (BuildContext context, Widget? child) => MediaQuery(
+              data: MediaQuery.of(context)
+                  .copyWith(textScaler: TextScaler.linear(textScale)),
+              child: child!,
+            ),
+            home: IncidentsScreen(filter: filter),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Finder chip(IncidentStatusFilter filter) =>
+        find.byKey(ValueKey<String>('incident-filter-${filter.queryValue}'));
+
+    Finder label(IncidentStatusFilter filter) =>
+        find.descendant(of: chip(filter), matching: find.text(filter.label));
+
+    /// Height the label needs to be shown **in full** at the exact width the
+    /// chip handed it, laid out independently of the chip.
+    double fullTextHeight(WidgetTester tester, IncidentStatusFilter filter) {
+      final Finder text = label(filter);
+      final BuildContext context = tester.element(text);
+      final TextPainter painter =
+          TextPainter(
+            text: TextSpan(
+              text: filter.label,
+              style: DefaultTextStyle.of(context).style
+                  .merge(tester.widget<Text>(text).style),
+            ),
+            textDirection: Directionality.of(context),
+            textScaler: MediaQuery.textScalerOf(context),
+          )..layout(
+            maxWidth: tester.renderObject<RenderParagraph>(text).size.width,
+          );
+      addTearDown(painter.dispose);
+      // Nothing may be dropped: no line cap, no ellipsis.
+      expect(painter.didExceedMaxLines, isFalse);
+      return painter.height;
+    }
+
+    for (final double width in <double>[240, 320, 411]) {
+      testWidgets(
+        'the selected Needs acknowledgement label is shown in full on a '
+        '${width.toInt()}px phone at 200% text',
+        (WidgetTester tester) async {
+          await pumpChips(
+            tester,
+            width: width,
+            filter: IncidentStatusFilter.needsAcknowledgement,
+          );
+          expect(tester.takeException(), isNull);
+
+          const IncidentStatusFilter filter =
+              IncidentStatusFilter.needsAcknowledgement;
+          final RenderParagraph paragraph = tester
+              .renderObject<RenderParagraph>(label(filter));
+          final double needed = fullTextHeight(tester, filter);
+
+          // Wrapped onto more than one line, and the box it was given holds
+          // every one of them: the full label is readable, not cut off.
+          expect(needed, greaterThan(paragraph.size.height ~/ 2));
+          expect(paragraph.size.height, greaterThanOrEqualTo(needed - 0.5));
+          expect(paragraph.didExceedMaxLines, isFalse);
+
+          // The chip stayed inside the width the bar has, checkmark included.
+          expect(
+            tester.renderObject<RenderBox>(chip(filter)).size.width,
+            lessThanOrEqualTo(width - 32 + 0.5),
+          );
+        },
+      );
+    }
+
+    testWidgets('every chip keeps its full label and stays inside the bar', (
+      WidgetTester tester,
+    ) async {
+      await pumpChips(
+        tester,
+        width: 320,
+        filter: IncidentStatusFilter.needsAcknowledgement,
+      );
+      expect(tester.takeException(), isNull);
+
+      // Checked one chip at a time: each one is capped on its own, so the long
+      // selected chip cannot squeeze the other labels out of the bar.
+      for (final IncidentStatusFilter filter in IncidentStatusFilter.values) {
+        final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
+          label(filter),
+        );
+        expect(
+          paragraph.size.height,
+          greaterThanOrEqualTo(fullTextHeight(tester, filter) - 0.5),
+          reason: 'the ${filter.label} chip must show all of its label',
+        );
+        expect(
+          tester.renderObject<RenderBox>(chip(filter)).size.width,
+          lessThanOrEqualTo(288.5),
+          reason: 'the ${filter.label} chip must not overflow the bar',
+        );
+        // At least the 48dp minimum target, on one line or wrapped.
+        expect(
+          tester.renderObject<RenderBox>(chip(filter)).size.height,
+          greaterThanOrEqualTo(48),
+        );
+      }
+    });
+
+    testWidgets('each chip is a tap target that reports its own selection', (
+      WidgetTester tester,
+    ) async {
+      final SemanticsHandle handle = tester.ensureSemantics();
+      await pumpChips(tester, width: 320);
+
+      bool readsAsSelected(IncidentStatusFilter filter) =>
+          tester
+              .getSemantics(find.bySemanticsLabel(filter.label))
+              .flagsCollection
+              .isSelected ==
+          Tristate.isTrue;
+
+      // Every chip is an actionable control, and exactly the current filter
+      // reads as selected.
+      for (final IncidentStatusFilter filter in IncidentStatusFilter.values) {
+        expect(find.bySemanticsLabel(filter.label), findsOneWidget);
+        expect(
+          tester
+              .getSemantics(find.bySemanticsLabel(filter.label))
+              .getSemanticsData()
+              .hasAction(SemanticsAction.tap),
+          isTrue,
+          reason: 'the ${filter.label} chip must be tappable',
+        );
+        expect(
+          readsAsSelected(filter),
+          filter == IncidentStatusFilter.all,
+          reason: 'only the current filter may read as selected',
+        );
+      }
+
+      await tester.tap(chip(IncidentStatusFilter.needsAcknowledgement));
+      await tester.pumpAndSettle();
+
+      // The selection moved to the tapped chip, which is the one that wraps.
+      expect(
+        readsAsSelected(IncidentStatusFilter.needsAcknowledgement),
+        isTrue,
+      );
+      expect(readsAsSelected(IncidentStatusFilter.all), isFalse);
+      expect(readsAsSelected(IncidentStatusFilter.open), isFalse);
+      // Tapping the wrapped chip worked despite the extra lines. The fixture
+      // serves one open, unacknowledged incident, so the needs-acknowledgement
+      // queue is not empty: the tap must reveal that row, not the empty copy.
+      expect(find.text('Homepage'), findsOneWidget);
+      expect(find.text('No incidents need acknowledgement.'), findsNothing);
+      handle.dispose();
+    });
+
+    testWidgets('a short label still sizes the chip to itself at 100% text', (
+      WidgetTester tester,
+    ) async {
+      await pumpChips(tester, width: 1024, textScale: 1);
+      final double available = 1024 - 32;
+
+      for (final IncidentStatusFilter filter in IncidentStatusFilter.values) {
+        final RenderParagraph paragraph = tester.renderObject<RenderParagraph>(
+          label(filter),
+        );
+        // One line, and the chip no wider than the label needs: the cap only
+        // ever applies to a label that does not fit, never as a stretch.
+        expect(paragraph.size.height, lessThanOrEqualTo(48));
+        expect(
+          tester.renderObject<RenderBox>(chip(filter)).size.width,
+          lessThan(available),
+          reason: '${filter.label} should hug its label, not stretch the bar',
+        );
+      }
     });
   });
 }

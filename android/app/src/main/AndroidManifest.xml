@@ -2,7 +2,7 @@
     <!-- T056: UptrackDataMessageReceiver posts incident alerts locally. -->
     <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <application
-        android:label="uptrack_mobile"
+        android:label="Uptrack"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
         <activity
@@ -25,6 +25,32 @@
             <intent-filter>
                 <action android:name="android.intent.action.MAIN"/>
                 <category android:name="android.intent.category.LAUNCHER"/>
+            </intent-filter>
+            <!-- Navigation only: the return URL contains no credentials and
+                 the app independently verifies its signed-in subscription. -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="uptrack" android:host="app"
+                    android:path="/billing/return" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="uptrack" android:host="auth" android:path="/magic" />
+            </intent-filter>
+        </activity>
+        <activity android:name=".AuthBrowserActivity" android:exported="true"
+            android:launchMode="singleTask" android:taskAffinity=""
+            android:theme="@android:style/Theme.Translucent.NoTitleBar"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data android:scheme="app.uptrack.mobile.auth" android:host="callback" />
             </intent-filter>
         </activity>
         <!-- Don't delete the meta-data below.

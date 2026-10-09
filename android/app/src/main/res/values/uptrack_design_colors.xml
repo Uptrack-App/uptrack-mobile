@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Generated from shared Uptrack tokens. Do not edit. -->
+<resources>
+  <color name="uptrack_widget_surface">#FFFFFF</color>
+  <color name="uptrack_widget_foreground">#0E1520</color>
+  <color name="uptrack_widget_muted">#5E6B7D</color>
+</resources>
