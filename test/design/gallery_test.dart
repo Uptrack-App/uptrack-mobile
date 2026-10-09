@@ -7,14 +7,14 @@ import 'package:uptrack_mobile/design/uptrack_design.dart';
 Future<void> loadFonts() async {
   for (final family in {
     'MaterialIcons': ['fonts/MaterialIcons-Regular.otf'],
-    'IBMPlexSans': [
-      'assets/fonts/IBMPlexSans-Regular.ttf',
-      'assets/fonts/IBMPlexSans-Medium.ttf',
-      'assets/fonts/IBMPlexSans-SemiBold.ttf',
+    'InstrumentSans': [
+      'assets/fonts/InstrumentSans-Regular.ttf',
+      'assets/fonts/InstrumentSans-Medium.ttf',
+      'assets/fonts/InstrumentSans-SemiBold.ttf',
     ],
-    'IBMPlexMono': [
-      'assets/fonts/IBMPlexMono-Regular.ttf',
-      'assets/fonts/IBMPlexMono-Medium.ttf',
+    'JetBrainsMono': [
+      'assets/fonts/JetBrainsMono-Regular.ttf',
+      'assets/fonts/JetBrainsMono-Medium.ttf',
     ],
   }.entries) {
     final loader = FontLoader(family.key);

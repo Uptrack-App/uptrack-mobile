@@ -105,11 +105,11 @@ void main() {
     expect(offenders, isEmpty, reason: offenders.join('\n'));
   });
 
-  test('theme uses the bundled IBM Plex families', () {
-    expect(UptrackTypography.fontFamily, 'IBMPlexSans');
-    expect(UptrackTypography.monoFamily, 'IBMPlexMono');
-    expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'IBMPlexSans');
-    expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'IBMPlexSans');
+  test('theme uses the bundled Instrument Sans and JetBrains Mono families', () {
+    expect(UptrackTypography.fontFamily, 'InstrumentSans');
+    expect(UptrackTypography.monoFamily, 'JetBrainsMono');
+    expect(AppTheme.dark.textTheme.bodyMedium?.fontFamily, 'InstrumentSans');
+    expect(AppTheme.light.textTheme.titleLarge?.fontFamily, 'InstrumentSans');
   });
 
   test('tokens v2 match uptrack-web styles.css', () {

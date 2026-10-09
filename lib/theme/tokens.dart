@@ -45,8 +45,8 @@ abstract final class UptrackRadii {
 }
 
 abstract final class UptrackTypography {
-  static const String fontFamily = 'IBMPlexSans';
-  static const String monoFamily = 'IBMPlexMono';
+  static const String fontFamily = 'InstrumentSans';
+  static const String monoFamily = 'JetBrainsMono';
 
   static const double xs = 12;
   static const double sm = 14;

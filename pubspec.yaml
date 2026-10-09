@@ -79,21 +79,22 @@ flutter:
   # the material Icons class.
   uses-material-design: true
 
-  # IBM Plex Sans + IBM Plex Mono (SIL OFL 1.1, license in assets/fonts/OFL.txt).
-  # Official IBM/plex release TTFs (Sans 1.1.0, Mono 2.5.0), full Latin incl.
-  # Vietnamese. Same faces as the web app (uptrack-web/DESIGN.md).
+  # Instrument Sans + JetBrains Mono (SIL OFL 1.1, licenses in assets/fonts/OFL-*.txt).
+  # Static 400/500/600 instances cut from the Google Fonts variable files, full glyph set.
+  # Same faces as the web app (uptrack-web/DESIGN.md); the web also uses Newsreader for article
+  # headings, which the app has no use for. No runtime font download.
   fonts:
-    - family: IBMPlexSans
+    - family: InstrumentSans
       fonts:
-        - asset: assets/fonts/IBMPlexSans-Regular.ttf
-        - asset: assets/fonts/IBMPlexSans-Medium.ttf
+        - asset: assets/fonts/InstrumentSans-Regular.ttf
+        - asset: assets/fonts/InstrumentSans-Medium.ttf
           weight: 500
-        - asset: assets/fonts/IBMPlexSans-SemiBold.ttf
+        - asset: assets/fonts/InstrumentSans-SemiBold.ttf
           weight: 600
-    - family: IBMPlexMono
+    - family: JetBrainsMono
       fonts:
-        - asset: assets/fonts/IBMPlexMono-Regular.ttf
-        - asset: assets/fonts/IBMPlexMono-Medium.ttf
+        - asset: assets/fonts/JetBrainsMono-Regular.ttf
+        - asset: assets/fonts/JetBrainsMono-Medium.ttf
           weight: 500
 
   assets:
