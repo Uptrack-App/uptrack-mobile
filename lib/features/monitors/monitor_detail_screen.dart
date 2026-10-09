@@ -93,7 +93,7 @@ class _DetailBody extends ConsumerWidget {
             child: Text(monitor.name, style: theme.textTheme.headlineSmall),
           ),
           const SizedBox(height: 4),
-          UptrackDataText(monitor.url, style: theme.textTheme.bodyMedium),
+          UptrackCodeText(monitor.url, style: theme.textTheme.bodyMedium),
           const SizedBox(height: 8),
           Wrap(
             spacing: 8,

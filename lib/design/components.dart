@@ -107,9 +107,29 @@ class UptrackDataText extends StatelessWidget {
     data,
     semanticsLabel: semanticLabel,
     textAlign: textAlign,
+    // Numbers use the sans font with tabular, lining figures (as Claude does),
+    // so columns of figures line up. Code-like text uses [UptrackCodeText].
+    style: (style ?? Theme.of(context).textTheme.bodyMedium)!.copyWith(
+      fontFeatures: const [
+        FontFeature.tabularFigures(),
+        FontFeature.liningFigures(),
+      ],
+    ),
+  );
+}
+
+/// Code-like data (URLs, hostnames, ids) in the mono font.
+class UptrackCodeText extends StatelessWidget {
+  const UptrackCodeText(this.data, {super.key, this.style, this.textAlign});
+  final String data;
+  final TextStyle? style;
+  final TextAlign? textAlign;
+  @override
+  Widget build(BuildContext context) => Text(
+    data,
+    textAlign: textAlign,
     style: (style ?? Theme.of(context).textTheme.bodyMedium)!.copyWith(
       fontFamily: UptrackTypography.monoFamily,
-      fontFeatures: const [FontFeature.tabularFigures()],
     ),
   );
 }
