@@ -185,19 +185,19 @@ Future<void> _pumpGolden(
   await tester.pumpAndSettle();
 }
 
-/// Loads the bundled IBM Plex faces so goldens show real text, not test blocks.
+/// Loads the bundled Instrument Sans and JetBrains Mono faces so goldens show real text, not test blocks.
 /// This also fails the suite if a font asset is missing from the bundle.
 Future<void> _loadFonts() async {
   const families = <String, List<String>>{
     'MaterialIcons': <String>['fonts/MaterialIcons-Regular.otf'],
-    'IBMPlexSans': <String>[
-      'assets/fonts/IBMPlexSans-Regular.ttf',
-      'assets/fonts/IBMPlexSans-Medium.ttf',
-      'assets/fonts/IBMPlexSans-SemiBold.ttf',
+    'InstrumentSans': <String>[
+      'assets/fonts/InstrumentSans-Regular.ttf',
+      'assets/fonts/InstrumentSans-Medium.ttf',
+      'assets/fonts/InstrumentSans-SemiBold.ttf',
     ],
-    'IBMPlexMono': <String>[
-      'assets/fonts/IBMPlexMono-Regular.ttf',
-      'assets/fonts/IBMPlexMono-Medium.ttf',
+    'JetBrainsMono': <String>[
+      'assets/fonts/JetBrainsMono-Regular.ttf',
+      'assets/fonts/JetBrainsMono-Medium.ttf',
     ],
   };
   for (final entry in families.entries) {

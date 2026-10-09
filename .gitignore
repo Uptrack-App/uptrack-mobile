@@ -56,3 +56,7 @@ android/key.properties
 android/app/*.keystore
 android/app/*.jks
 test/tour/out/
+
+# Golden test failure output
+test/goldens/failures/
+**/failures/*.png
