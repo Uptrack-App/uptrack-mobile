@@ -97,16 +97,22 @@ class UptrackDataText extends StatelessWidget {
     this.style,
     this.semanticLabel,
     this.textAlign,
+    this.maxLines,
   });
   final String data;
   final TextStyle? style;
   final String? semanticLabel;
   final TextAlign? textAlign;
+
+  /// When set, the text is cut with an ellipsis instead of wrapping.
+  final int? maxLines;
   @override
   Widget build(BuildContext context) => Text(
     data,
     semanticsLabel: semanticLabel,
     textAlign: textAlign,
+    maxLines: maxLines,
+    overflow: maxLines == null ? null : TextOverflow.ellipsis,
     style: (style ?? Theme.of(context).textTheme.bodyMedium)!.copyWith(
       fontFamily: UptrackTypography.monoFamily,
       fontFeatures: const [FontFeature.tabularFigures()],
@@ -493,7 +499,12 @@ class UptrackDataRow extends StatelessWidget {
       child: ListTile(
         minTileHeight: 64,
         title: Text(title),
-        subtitle: details,
+        // ListTile gives the subtitle the full width; without the Align a
+        // badge's background stretched to the chevron.
+        subtitle: Align(
+          alignment: AlignmentDirectional.centerStart,
+          child: details,
+        ),
         trailing: onTap == null ? null : const Icon(Icons.chevron_right),
         onTap: onTap,
       ),

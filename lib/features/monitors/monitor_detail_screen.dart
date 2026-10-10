@@ -93,30 +93,40 @@ class _DetailBody extends ConsumerWidget {
             child: Text(monitor.name, style: theme.textTheme.headlineSmall),
           ),
           const SizedBox(height: 4),
-          UptrackDataText(monitor.url, style: theme.textTheme.bodyMedium),
-          const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 4,
-            crossAxisAlignment: WrapCrossAlignment.center,
+          UptrackDataText(
+            displayUrl(monitor.url),
+            maxLines: 2,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
+          ),
+          const SizedBox(height: 12),
+          Row(
             children: <Widget>[
               MonitorStatusChip(status: monitor.status),
-              if (monitor.uptimePercentage != null)
-                UptrackDataText(
-                  '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  <String>[
+                    if (monitor.uptimePercentage != null)
+                      '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime',
+                    monitorTypeLabel(monitor.monitorType),
+                    ?regionsLabel(monitor.regionsRequired),
+                  ].join(' · '),
+                  style: theme.textTheme.bodyMedium,
                 ),
-              if (monitor.regionsRequired.isNotEmpty)
-                Text('Regions: ${monitor.regionsRequired}'),
-              Text(monitor.monitorType),
+              ),
             ],
           ),
-          const SizedBox(height: 8),
-          if (monitor.lastCheck != null)
+          if (monitor.lastCheck != null) ...<Widget>[
+            const SizedBox(height: 8),
             Text(
-              'Last check: ${statusLabel(monitor.lastCheck!.status)} · '
-              '${monitor.lastCheck!.responseTime} ms',
-              style: theme.textTheme.bodySmall,
+              lastCheckLabel(monitor.lastCheck!),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
             ),
+          ],
           const SizedBox(height: 16),
           Text('Response time', style: theme.textTheme.titleMedium),
           const SizedBox(height: 8),
@@ -196,7 +206,7 @@ class _ResponseChart extends StatelessWidget {
     final percentiles = analytics.percentiles;
     return UptrackResponseChart(
       displayTime: toDisplayTime,
-      periodNote: 'Requested windows are clamped to your plan’s retention.',
+      periodNote: 'How far back you can see depends on your plan.',
       points: [
         for (final point in analytics.responseTimes)
           UptrackChartPoint(

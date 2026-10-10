@@ -157,24 +157,28 @@ class _MonitorRow extends StatelessWidget {
       details: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          UptrackDataText(monitor.url),
+          UptrackDataText(
+            displayUrl(monitor.url),
+            maxLines: 1,
+            style: theme.textTheme.bodySmall,
+          ),
           const SizedBox(height: 8),
-          Wrap(
-            spacing: 8,
-            runSpacing: 8,
+          Row(
             children: [
               MonitorStatusChip(status: monitor.status),
-              if (monitor.uptimePercentage != null)
-                UptrackDataText(
-                  '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime',
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  <String>[
+                    if (monitor.uptimePercentage != null)
+                      '${monitor.uptimePercentage!.toStringAsFixed(1)}% uptime',
+                    monitorTypeLabel(monitor.monitorType),
+                  ].join(' · '),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall,
                 ),
-              if (monitor.regionsRequired.isNotEmpty)
-                UptrackDataText(
-                  'Regions: ${monitor.regionsRequired}',
-                  style: theme.textTheme.bodySmall,
-                ),
-              Text(monitor.monitorType, style: theme.textTheme.bodySmall),
+              ),
             ],
           ),
         ],

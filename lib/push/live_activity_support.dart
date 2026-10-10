@@ -67,3 +67,19 @@ String? liveActivityHint({
 final Provider<String> osVersionProvider = Provider<String>(
   (Ref ref) => Platform.operatingSystemVersion,
 );
+
+/// Label for this device in Settings > Devices: `iOS 27.0`, `Android 15`.
+/// Null when the platform or version is unknown (the row then shows the
+/// server's default name).
+String? deviceLabel(TargetPlatform platform, String osVersion) {
+  final String? name = switch (platform) {
+    TargetPlatform.iOS => 'iOS',
+    TargetPlatform.android => 'Android',
+    _ => null,
+  };
+  if (name == null) return null;
+  final String? version = RegExp(r'\d+(\.\d+)*')
+      .firstMatch(osVersion)
+      ?.group(0);
+  return version == null ? name : '$name $version';
+}
