@@ -1,3 +1,7 @@
+import 'package:go_router/go_router.dart';
+
+import '../../design/uptrack_design.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,16 +19,29 @@ class SettingsScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     return Scaffold(
-      appBar: AppBar(title: const Text('Settings')),
-      body: ListView(
-        key: const ValueKey<String>('settings-list'),
-        children: const <Widget>[
-          ProfileSection(),
-          NotificationPrefsSection(),
-          BillingSection(),
-          _DevicesSection(),
-          DangerZoneSection(),
+      appBar: AppBar(
+        title: const Text('Settings'),
+        actions: [
+          IconButton(
+            tooltip: 'View public status page',
+            icon: const Icon(Icons.public_outlined),
+            onPressed: () => context.go('/status'),
+          ),
         ],
+      ),
+      body: UptrackContent(
+        maxWidth: 680,
+        child: ListView(
+          key: const ValueKey<String>('settings-list'),
+          children: const <Widget>[
+            ProfileSection(),
+            NotificationPrefsSection(),
+            BillingSection(),
+            _DevicesSection(),
+            DangerZoneSection(),
+            _SignOutSection(),
+          ],
+        ),
       ),
     );
   }
@@ -52,9 +69,17 @@ class _DevicesSection extends ConsumerWidget {
           const SizedBox(height: 4),
           Text(
             'Each signed-in device holds its own token. Revoking one signs that device out.',
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
+          if (state.errorMessage != null && state.devices.isNotEmpty)
+            UptrackNotice(
+              message: state.errorMessage!,
+              kind: UptrackNoticeKind.error,
+              actionLabel: 'Refresh devices',
+              onAction: () =>
+                  ref.read(deviceTokensControllerProvider.notifier).load(),
+            ),
           if (state.isLoading)
             const Center(
               child: Padding(
@@ -87,16 +112,7 @@ class _DevicesSection extends ConsumerWidget {
   }
 
   Future<void> _revoke(BuildContext context, WidgetRef ref, String id) async {
-    final bool ok = await ref
-        .read(deviceTokensControllerProvider.notifier)
-        .revoke(id);
-    if (!ok && context.mounted) {
-      final String message =
-          ref.read(deviceTokensControllerProvider).errorMessage ??
-          'Could not revoke that device.';
-      ScaffoldMessenger.of(context)
-          .showSnackBar(SnackBar(content: Text(message)));
-    }
+    await ref.read(deviceTokensControllerProvider.notifier).revoke(id);
   }
 }
 
@@ -108,17 +124,10 @@ class _DevicesError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Retry')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }
@@ -178,4 +187,31 @@ class _DeviceRow extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SignOutSection extends ConsumerStatefulWidget {
+  const _SignOutSection();
+  @override
+  ConsumerState<_SignOutSection> createState() => _SignOutSectionState();
+}
+
+class _SignOutSectionState extends ConsumerState<_SignOutSection> {
+  bool busy = false;
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(16),
+    child: UptrackButton(
+      label: 'Sign out',
+      busy: busy,
+      kind: UptrackButtonKind.secondary,
+      onPressed: () async {
+        setState(() => busy = true);
+        try {
+          await ref.read(authControllerProvider.notifier).signOut();
+        } finally {
+          if (mounted) setState(() => busy = false);
+        }
+      },
+    ),
+  );
 }

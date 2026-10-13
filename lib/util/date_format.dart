@@ -7,6 +7,8 @@ import 'package:intl/intl.dart';
 @visibleForTesting
 DateTime Function(DateTime) displayTimeZone = _toLocal;
 
+DateTime toDisplayTime(DateTime t) => displayTimeZone(t);
+
 DateTime _toLocal(DateTime t) => t.toLocal();
 
 final DateFormat _timestamp = DateFormat('MMM d, y, HH:mm');
@@ -19,5 +21,11 @@ String formatTimestamp(String? iso) {
   if (iso == null || iso.trim().isEmpty) return '';
   final DateTime? parsed = DateTime.tryParse(iso.trim());
   if (parsed == null) return iso;
-  return _timestamp.format(displayTimeZone(parsed));
+  return formatInstant(parsed);
 }
+
+/// Formats an already-parsed instant the same way [formatTimestamp] formats a
+/// string, so a stored cache sync time reads in the identical device-local form
+/// as an API timestamp on the same screen.
+String formatInstant(DateTime instant) =>
+    _timestamp.format(displayTimeZone(instant));

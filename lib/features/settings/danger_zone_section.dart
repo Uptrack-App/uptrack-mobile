@@ -1,3 +1,5 @@
+import '../../design/uptrack_design.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -5,8 +7,10 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../auth/auth_controller.dart';
 
 /// Account deletion (R2.6): owner-only, password re-authentication for
-/// email sign-in, subscription must already be cancelled (the server
-/// answers 409 until then). On success the full local wipe runs through
+/// accounts that have a password, subscription must already be cancelled
+/// (the server answers 409 until then). From the app, the server accepts a
+/// device token only within 15 minutes of a sign-in (D11); otherwise it
+/// answers 403 `reauth_required` and the user signs in again here. On success the full local wipe runs through
 /// [AuthController.signOut] (tokens, widget data, offline cache,
 /// notifications) and the auth redirect sends the user to login.
 class DangerZoneSection extends ConsumerStatefulWidget {
@@ -20,6 +24,7 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
   final TextEditingController _password = TextEditingController();
   bool _confirmed = false;
   bool _busy = false;
+  bool _reauthRequired = false;
   String? _error;
 
   @override
@@ -32,6 +37,7 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
     setState(() {
       _busy = true;
       _error = null;
+      _reauthRequired = false;
     });
     try {
       final String password = _password.text;
@@ -41,10 +47,18 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
       await ref.read(authControllerProvider.notifier).signOut();
     } on DioException catch (e) {
       setState(() {
+        _reauthRequired = _isReauthRequired(e);
         _error = _messageFor(e);
         _busy = false;
       });
     }
+  }
+
+  static bool _isReauthRequired(DioException e) {
+    final Object? data = e.response?.data;
+    return e.response?.statusCode == 403 &&
+        data is Map &&
+        data['code'] == 'reauth_required';
   }
 
   /// Maps the `POST /api/auth/account` failures to actionable copy. Prefers
@@ -60,6 +74,9 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
       case 422:
         return 'That password is incorrect. Try again.';
       case 403:
+        if (_isReauthRequired(e)) {
+          return 'For your safety, sign in again. Then delete your account within 15 minutes.';
+        }
         return 'Only the organization owner can delete the account.';
       case 401:
         return 'Your session expired. Sign in again, then retry deletion.';
@@ -84,7 +101,7 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
           Text(
             'Deleting your account soft-deletes you and your organization. '
             'Data is purged after 30 days. This cannot be undone.',
-            style: theme.textTheme.bodySmall,
+            style: theme.textTheme.bodyMedium,
           ),
           const SizedBox(height: 12),
           TextField(
@@ -94,8 +111,7 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
             enabled: !_busy,
             decoration: const InputDecoration(
               labelText: 'Password',
-              helperText:
-                  'Required for email sign-in; SSO users leave this empty.',
+              helperText: 'Only if your account has a password. Otherwise leave it empty.',
               border: OutlineInputBorder(),
             ),
           ),
@@ -117,17 +133,25 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
                 style: TextStyle(color: theme.colorScheme.error),
               ),
             ),
-          FilledButton.tonalIcon(
+          if (_reauthRequired)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 8),
+              child: UptrackButton(
+                key: const ValueKey<String>('delete-reauth'),
+                label: 'Sign in again',
+                kind: UptrackButtonKind.secondary,
+                icon: Icons.login,
+                onPressed: () =>
+                    ref.read(authControllerProvider.notifier).signOut(),
+              ),
+            ),
+          UptrackButton(
             key: const ValueKey<String>('delete-account'),
-            onPressed: _confirmed && !_busy ? _delete : null,
-            icon: _busy
-                ? const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  )
-                : const Icon(Icons.delete_forever_outlined),
-            label: const Text('Delete my account'),
+            label: 'Delete my account',
+            kind: UptrackButtonKind.destructive,
+            icon: Icons.delete_forever_outlined,
+            busy: _busy,
+            onPressed: _confirmed ? _delete : null,
           ),
         ],
       ),

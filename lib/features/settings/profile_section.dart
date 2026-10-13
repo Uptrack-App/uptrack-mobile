@@ -1,3 +1,5 @@
+import '../../design/uptrack_design.dart';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -64,7 +66,10 @@ class _ProfileRow extends StatelessWidget {
     return Card(
       child: ListTile(
         title: Text(label, style: Theme.of(context).textTheme.bodySmall),
-        subtitle: Text(value, style: Theme.of(context).textTheme.bodyLarge),
+        subtitle: UptrackDataText(
+          value,
+          style: Theme.of(context).textTheme.bodyLarge,
+        ),
       ),
     );
   }

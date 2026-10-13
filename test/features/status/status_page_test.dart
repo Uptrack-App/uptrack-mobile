@@ -211,7 +211,7 @@ void main() {
       expect(find.text('not found'), findsOneWidget);
 
       fail = false;
-      await tester.tap(find.text('Try again'));
+      await tester.tap(find.text('Retry'));
       await tester.pumpAndSettle();
       expect(find.text('Acme Status'), findsOneWidget);
     });

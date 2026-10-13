@@ -80,8 +80,11 @@ void main() {
       );
       await seed.refresh();
       final int seeded = store.refreshes;
+      // The loader declares it enumerated the feed; that claim, not the mere
+      // presence of a resolved row, is what authorises the clear.
       final WidgetRefresher refresher = WidgetRefresher(
         store: store,
+        loadEnumeratesAll: true,
         loadSnapshots: () async => <IncidentSnapshot>[
           row('inc-1', status: 'resolved', resolvedAt: '2026-09-27T12:00:00Z'),
         ],

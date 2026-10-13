@@ -1,22 +1,30 @@
 Uptrack review notes (v1.0.0)
 
-TEST ACCOUNT
-- TODO: provision a demo workspace (email + password or magic link) before submitting for review and record the credentials here or in App Store Connect / Play Console reviewer instructions. The app requires login; there is no guest mode.
+SIGN-IN FOR REVIEW (iOS and Android)
+- Reviewer account: sign in with the email given in App Store Connect / Play Console "Sign-in information". Enter the email, tap "Email me a sign-in link", type the review code from the same field into "Sign-in link or code", then tap "Sign in". No inbox is needed. The code works only for that one account and is never stored in this repository.
+- This account has three sample monitors. "Checkout API (sample outage)" is always down, so there is always an open incident to open, acknowledge, escalate or snooze, and allowing notifications on the device delivers its alerts.
+- Account deletion: Settings -> Danger zone. For safety, the app deletes an account only within 15 minutes of a sign-in; otherwise it asks you to sign in again. No password is needed for this account.
+
+DEMO ACCESS (no account)
+- On the welcome screen, tap "Try demo". No account, password or payment is required.
+- The demo contains sample monitors, check history, charts and incidents. Acknowledgement and notification-preference edits apply only to the current sample session.
+- The "Demo · sample data" banner remains visible. Tap "Exit demo" to return to normal sign-in.
+- Demo data uses a separate in-memory database and an adapter that never forwards API requests to a server. It does not create credentials or register push tokens, so push, device revocation and account deletion need the reviewer account above.
 
 WHAT TO EXERCISE
 - Log in → dashboard (status counts, uptime summary, recent incidents).
 - Monitors → search/filter list → detail (response-time chart, check history).
 - Incidents → detail → Acknowledge (optimistic update with rollback on error).
 - Status → open a public status page (password field appears only for protected pages).
-- Settings → profile, notification preferences (severity mapping, quiet hours), Devices (list + revoke), billing (read-only, web link only — no IAP).
+- Settings → profile, notification preferences (severity mapping, quiet hours), Devices (list + revoke), billing (read-only — no IAP).
 
 DATA SAFETY SUMMARY
 - No advertising tracking. NSPrivacyTracking is false; no tracking domains (see ios/Runner/PrivacyInfo.xcprivacy).
 - Account data (email, monitors, incidents) is sent to the user's own Uptrack backend over HTTPS and cached on-device (SQLite) for offline reading.
-- Auth uses short-lived device tokens stored in the OS keychain/keystore (never in plain files); per-device revoke is in Settings → Devices.
+- Auth uses per-device credentials stored in the OS keychain/keystore (never in plain files); credentials remain valid until revoked, and per-device revoke is in Settings → Devices.
 - Crash reports (Sentry) and product analytics (PostHog) initialize only when the build is configured with a DSN/key; unconfigured builds are verified no-ops. No crash/analytics data leaves the device unless configured by the build.
 - Push tokens (APNs/FCM) are registered only after login and unregistered on logout.
 - Required-reason APIs: file timestamps and system boot time via the Flutter engine only (mirrors the engine's own privacy manifest; reasons 0A2A.1, C617.1, 35F9.1). No UserDefaults/file-timestamp/disk-space/boot-time access in app code. The PostHog SDK ships its own manifest (UserDefaults CA92.1, analytics data types).
 
 BILLING
-- No in-app purchases anywhere in the binary (no StoreKit IAP code). Upgrades happen on the web via a region-gated link; iOS builds carry the External Purchase Link entitlement where applicable.
+- No in-app purchases anywhere in the binary (no StoreKit IAP code). Native checkout and external purchase links are disabled. The browser-checkout return screen is unreachable: a link to /billing/return opens the home screen. Settings shows the current plan, read-only. Decision D6 (2026-10-06): the external link stays off.

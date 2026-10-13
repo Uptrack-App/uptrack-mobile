@@ -5,6 +5,7 @@ import 'package:integration_test/integration_test.dart';
 import 'package:uptrack_mobile/app.dart';
 import 'package:uptrack_mobile/features/auth/auth_controller.dart';
 import 'package:uptrack_mobile/features/auth/token_storage.dart';
+import 'package:uptrack_mobile/features/auth/social_login.dart';
 import 'package:uptrack_mobile/push/push_message.dart';
 import 'package:uptrack_mobile/push/push_providers.dart';
 import 'package:uptrack_mobile/push/push_service.dart';
@@ -49,6 +50,7 @@ Future<ProviderContainer> _pumpApp(WidgetTester tester) async {
   final ProviderContainer container = ProviderContainer(
     overrides: [
       tokenStoreProvider.overrideWithValue(MemoryTokenStore()),
+      socialProvidersProvider.overrideWith((ref) async => <String>{}),
       pushServiceProvider.overrideWithValue(_stubPushService()),
       // Real redirect logic (signed-out → /login) without the
       // Sentry/PostHog navigator observers: those call native plugin
@@ -76,8 +78,11 @@ void main() {
     await _pumpApp(tester);
 
     // Signed out with an empty token store → router redirects to /login.
-    expect(find.text('Sign in to Uptrack'), findsOneWidget);
-    expect(find.widgetWithText(FilledButton, 'Sign in'), findsOneWidget);
+    expect(find.text('Welcome to Uptrack'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilledButton, 'Email me a sign-in link'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('smoke: empty sign-in shows validation (no crash)', (
@@ -85,12 +90,18 @@ void main() {
   ) async {
     final ProviderContainer container = await _pumpApp(tester);
 
-    await tester.tap(find.widgetWithText(FilledButton, 'Sign in'));
+    await tester.ensureVisible(
+      find.widgetWithText(FilledButton, 'Email me a sign-in link'),
+    );
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.widgetWithText(FilledButton, 'Email me a sign-in link'),
+    );
     await tester.pumpAndSettle();
 
     // Form validation runs; nothing is submitted and the app stays put.
     expect(find.text('Enter your email'), findsOneWidget);
-    expect(find.text('Sign in to Uptrack'), findsOneWidget);
+    expect(find.text('Welcome to Uptrack'), findsOneWidget);
     expect(container.read(authControllerProvider).status, AuthStatus.signedOut);
   });
 }

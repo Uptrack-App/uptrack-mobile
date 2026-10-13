@@ -1,0 +1,9 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <!-- Uptrack app icon (option C3, 2026-10-07): dark "U" whose right arm ends in a
+       green "up" status dot, on a light tile. Full bleed: iOS and the stores apply
+       their own corner mask. Edit here, then run tool/gen_icons.py. -->
+  <rect width="1024" height="1024" fill="#F5F7FA"/>
+  <path d="M320 332 V562 A162 162 0 0 0 644 562 V530" fill="none" stroke="#0E1520" stroke-width="112" stroke-linecap="round"/>
+  <circle cx="644" cy="330" r="74" fill="#2FBF71"/>
+  <circle cx="644" cy="330" r="118" fill="none" stroke="#2FBF71" stroke-width="18" opacity=".35"/>
+</svg>

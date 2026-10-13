@@ -1,9 +1,9 @@
 Uptrack watches your websites and APIs so you hear about downtime first — not from your users.
 
 WHY UPTRACK
-- 30-second checks on the free tier (50 monitors included). Others check every 5 minutes — that's 5 minutes of downtime before you even know.
+- 30-second checks on every monitor.
 - Multi-region confirmation: alerts only fire after failures are confirmed from 2+ locations, so a single-network blip never pages you.
-- Pro is $3/mo for 50 monitors — less than half of comparable plans.
+- Pro is $3/mo for 50 monitors.
 
 ALERTS THAT RESPECT YOUR ATTENTION
 - Push alerts with severity-aware interruption: P1 breaks through, P3 waits quietly.
@@ -19,6 +19,6 @@ FULL INCIDENT WORKFLOW
 - Offline-first cache: recent data stays readable with no connection.
 
 BILLING WITHOUT SURPRISES
-- Subscriptions are managed on the web (region-gated link in Settings); there are no in-app purchases.
+- The app shows your current plan. There are no in-app purchases.
 
-Uptrack is the focused uptime tool: 30-second checks, multi-region confirmation, $3/mo. Free tier includes 50 monitors.
+Uptrack is the focused uptime tool: 30-second checks, multi-region confirmation, from $3/mo.

@@ -32,7 +32,7 @@ android {
 
     defaultConfig {
         // TODO: Specify your own unique Application ID (https://developer.android.com/studio/build/application-id.html).
-        applicationId = "app.uptrack.uptrack_mobile"
+        applicationId = "app.uptrack.mobile"
         // You can update the following values to match your application needs.
         // For more information, see: https://flutter.dev/to/review-gradle-config.
         minSdk = flutter.minSdkVersion
@@ -84,6 +84,7 @@ flutter {
 }
 
 dependencies {
+    implementation("androidx.browser:browser:1.10.0")
     coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
     // T056 data-message receiver posts with NotificationCompat (the
     // plugin's androidx.core is `implementation`-scoped, so the app

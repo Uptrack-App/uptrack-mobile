@@ -1,10 +1,14 @@
+import 'package:go_router/go_router.dart';
+
+import '../../design/uptrack_design.dart';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/status_page.dart';
 import '../auth/auth_controller.dart';
-import '../../theme/status_colors.dart';
+
 import '../../util/date_format.dart';
 
 /// Query for the public status page lookup (slug + optional page password).
@@ -93,7 +97,13 @@ class _StatusPageScreenState extends ConsumerState<StatusPageScreen> {
         : ref.watch(statusPageProvider(query));
 
     return Scaffold(
-      appBar: AppBar(title: const Text('Status page')),
+      appBar: AppBar(
+        title: const Text('Status page'),
+        leading: BackButton(
+          onPressed: () =>
+              context.canPop() ? context.pop() : context.go('/settings'),
+        ),
+      ),
       body: ListView(
         padding: const EdgeInsets.all(16),
         children: <Widget>[
@@ -123,7 +133,7 @@ class _StatusPageScreenState extends ConsumerState<StatusPageScreen> {
             onSubmitted: (_) => _lookup(),
           ),
           const SizedBox(height: 12),
-          FilledButton(onPressed: _lookup, child: const Text('View status')),
+          UptrackButton(label: 'View status', onPressed: _lookup),
           const SizedBox(height: 16),
           if (page == null)
             const Center(
@@ -166,17 +176,10 @@ class _StatusError extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 24),
-        child: Column(
-          children: <Widget>[
-            Text(message, textAlign: TextAlign.center),
-            const SizedBox(height: 12),
-            FilledButton(onPressed: onRetry, child: const Text('Try again')),
-          ],
-        ),
-      ),
+    return UptrackStateView(
+      message: message,
+      actionLabel: 'Retry',
+      onAction: onRetry,
     );
   }
 }
@@ -192,22 +195,16 @@ class _StatusBody extends StatelessWidget {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: <Widget>[
-        Row(
-          children: <Widget>[
-            Expanded(child: Text(data.name, style: theme.textTheme.titleLarge)),
-            Chip(
-              label: Text(statusLabel(data.overallStatus)),
-              visualDensity: VisualDensity.compact,
-            ),
-          ],
-        ),
+        Text(data.name, style: theme.textTheme.titleLarge),
+        const SizedBox(height: 8),
+        UptrackStatusBadge(status: data.overallStatus),
         if (data.description != null && data.description!.isNotEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 4),
             child: Text(data.description!, style: theme.textTheme.bodyMedium),
           ),
         const SizedBox(height: 4),
-        Text(
+        UptrackDataText(
           'Uptime (30d): ${data.uptimePercentage.toStringAsFixed(2)}%',
           style: theme.textTheme.bodyMedium,
         ),
@@ -221,10 +218,7 @@ class _StatusBody extends StatelessWidget {
             Card(
               child: ListTile(
                 title: Text(monitor.name),
-                trailing: Chip(
-                  label: Text(statusLabel(monitor.status)),
-                  visualDensity: VisualDensity.compact,
-                ),
+                subtitle: UptrackStatusBadge(status: monitor.status),
               ),
             ),
         const SizedBox(height: 16),

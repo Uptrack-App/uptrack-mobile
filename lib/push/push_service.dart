@@ -45,11 +45,29 @@ abstract class LocalNotifier {
 
 /// [LocalNotifier] backed by `flutter_local_notifications`.
 class FlutterLocalNotificationsNotifier implements LocalNotifier {
-  FlutterLocalNotificationsNotifier({FlutterLocalNotificationsPlugin? plugin})
-    : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
+  FlutterLocalNotificationsNotifier({
+    FlutterLocalNotificationsPlugin? plugin,
+    this.onAction,
+  }) : _plugin = plugin ?? FlutterLocalNotificationsPlugin();
 
   final FlutterLocalNotificationsPlugin _plugin;
   void Function(PushMessage message)? _onTap;
+
+  /// Receives an action-button tap instead of a body tap (R3).
+  ///
+  /// Constructor-injected rather than added to [LocalNotifier.initialize] on
+  /// purpose: `PushService` wires no callback here, so this early slice never
+  /// navigates or calls an API from an action tap — it only refuses to
+  /// pretend the tap was a body tap. The single owner that waits for auth and
+  /// owns authoritative execution passes the callback in later, and can hand
+  /// the parsed request straight to `PushActionHandler.handle`.
+  final void Function(PushActionRequest request)? onAction;
+
+  /// The last action tap that had no [onAction] owner, or an unusable/unknown
+  /// action id. Visible for tests and diagnostics; R3's truthful outcome
+  /// surfacing (performed/no-op/error/auth-expired) is deferred to the single
+  /// owner, so nothing here claims an outcome.
+  PushActionRequest? lastUnhandledAction;
 
   @override
   Future<void> initialize({
@@ -57,7 +75,7 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
   }) async {
     _onTap = onTap;
     const InitializationSettings settings = InitializationSettings(
-      android: AndroidInitializationSettings('@mipmap/ic_launcher'),
+      android: AndroidInitializationSettings('@drawable/ic_notification'),
       iOS: DarwinInitializationSettings(),
     );
     await _plugin.initialize(
@@ -68,18 +86,24 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
 
   @override
   Future<void> showForeground(PushMessage message) async {
-    final Importance importance = message.isHighPriority
-        ? Importance.high
-        : Importance.defaultImportance;
+    final PushChannelSpec channel = message.severityChannel;
     final NotificationDetails details = NotificationDetails(
       android: AndroidNotificationDetails(
-        'uptrack_alerts',
-        'Uptrack alerts',
-        channelDescription: 'Incident and monitor alerts from Uptrack.',
-        importance: importance,
-        priority: message.isHighPriority
-            ? Priority.high
-            : Priority.defaultPriority,
+        channel.id,
+        channel.name,
+        channelDescription: channel.description,
+        // Requested per channel *at creation only* (the plugin calls
+        // createNotificationChannel, which Android applies to new channels and
+        // ignores for existing ones — a user-owned importance is never
+        // changed). The notification-level priority must agree with the
+        // channel, or the OS silently downgrades it.
+        importance: importanceFor(channel.importance),
+        priority: priorityFor(channel.importance),
+        category: AndroidNotificationCategory.event,
+        // No DND claim: this app never requests a bypass, so the user's own
+        // Do Not Disturb / channel settings always win.
+        channelBypassDnd: false,
+        actions: androidActionsFor(message),
       ),
       iOS: const DarwinNotificationDetails(),
     );
@@ -99,14 +123,121 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
     if (launch == null || !launch.didNotificationLaunchApp) {
       return null;
     }
-    return _messageFromPayload(launch.notificationResponse?.payload);
+    final NotificationResponse? response = launch.notificationResponse;
+    // A cold start on an *action* button preserves the action, never the tap:
+    // returning a PushMessage here would route it as a plain body tap. The
+    // action is recorded and handed to [onAction] instead, and reporting the
+    // incident detail (or executing anything) waits for the owner that waits
+    // for auth.
+    final String? actionId = response?.actionId;
+    if (actionId != null && actionId.isNotEmpty) {
+      final PushActionRequest? request = _requestFor(
+        actionId,
+        response?.payload,
+      );
+      if (request != null) {
+        lastUnhandledAction = request;
+        onAction?.call(request);
+      }
+      return null;
+    }
+    return _messageFromPayload(response?.payload);
+  }
+
+  /// Android importance for a channel definition.
+  ///
+  /// Public and static so the channel-contract test can assert the renderer
+  /// maps every severity onto the exact `Importance` the channel declares.
+  static Importance importanceFor(PushChannelImportance importance) {
+    return switch (importance) {
+      PushChannelImportance.high => Importance.high,
+      PushChannelImportance.standard => Importance.defaultImportance,
+      PushChannelImportance.low => Importance.low,
+    };
+  }
+
+  /// Android notification priority matching [importanceFor].
+  static Priority priorityFor(PushChannelImportance importance) {
+    return switch (importance) {
+      PushChannelImportance.high => Priority.high,
+      PushChannelImportance.standard => Priority.defaultPriority,
+      PushChannelImportance.low => Priority.low,
+    };
+  }
+
+  /// Action buttons offered on an Android notification (R3), in a fixed order.
+  ///
+  /// * Incident target → Acknowledge, Escalate, Snooze. Snooze is
+  ///   incident-scoped on the wire: the handler resolves the monitor
+  ///   server-side, exactly like the existing deep-link fallback.
+  /// * Monitor-only target → Snooze alone. Acknowledge/Escalate are
+  ///   incident-scoped endpoints, so offering them here would advertise an
+  ///   action that cannot apply.
+  /// * No usable target → no actions. An alert with nothing to triage gets a
+  ///   body tap only.
+  ///
+  /// `showsUserInterface: false`: this renderer only serves the foreground
+  /// path, where the app is already in front, and an action must not pull the
+  /// UI forward on its own.
+  static List<AndroidNotificationAction> androidActionsFor(
+    PushMessage message,
+  ) {
+    final PushTarget? target = message.target;
+    if (target == null) {
+      return const <AndroidNotificationAction>[];
+    }
+    final List<AndroidNotificationAction> actions =
+        <AndroidNotificationAction>[];
+    if (target.kind == PushTargetKind.incident) {
+      actions
+        ..add(_acknowledgeAction)
+        ..add(_escalateAction);
+    }
+    actions.add(_snoozeAction);
+    return List<AndroidNotificationAction>.unmodifiable(actions);
   }
 
   void _handleResponse(NotificationResponse response) {
+    final String actionId = response.actionId ?? '';
+    if (actionId.isNotEmpty) {
+      // An action is never a tap: no `_onTap`, no navigation, no API call.
+      final PushActionRequest? request = _requestFor(
+        actionId,
+        response.payload,
+      );
+      if (request == null) {
+        // Unknown action id (or a payload with no usable target): ignored,
+        // never downgraded into a body tap.
+        return;
+      }
+      lastUnhandledAction = request;
+      onAction?.call(request);
+      return;
+    }
     final PushMessage? message = _messageFromPayload(response.payload);
     if (message != null) {
       _onTap?.call(message);
     }
+  }
+
+  /// Parses an action-button tap into the approved [PushActionRequest] shape,
+  /// reusing `PushAction.parse` for the action id and the notification payload
+  /// for the target ids. Null for an unknown action id or an unusable target —
+  /// the caller then ignores it rather than routing it as a tap.
+  PushActionRequest? _requestFor(String actionId, String? payload) {
+    final PushMessage? message = _messageFromPayload(payload);
+    final PushTarget? target = message?.target;
+    if (target == null) {
+      return null;
+    }
+    final Map<String, Object?> map = <String, Object?>{
+      'action': actionId,
+      if (target.kind == PushTargetKind.incident)
+        'incident_id': target.id
+      else
+        'monitor_id': target.id,
+    };
+    return PushActionRequest.fromMap(map);
   }
 
   /// Decodes a local-notification payload back into a [PushMessage];
@@ -125,6 +256,25 @@ class FlutterLocalNotificationsNotifier implements LocalNotifier {
     }
     return null;
   }
+
+  static const AndroidNotificationAction _acknowledgeAction =
+      AndroidNotificationAction(
+        PushIntentIdentity.acknowledge,
+        'Acknowledge',
+        showsUserInterface: false,
+      );
+  static const AndroidNotificationAction _escalateAction =
+      AndroidNotificationAction(
+        PushIntentIdentity.escalate,
+        'Escalate',
+        showsUserInterface: false,
+      );
+  static const AndroidNotificationAction _snoozeAction =
+      AndroidNotificationAction(
+        PushIntentIdentity.snooze,
+        'Snooze',
+        showsUserInterface: false,
+      );
 }
 
 /// Dart-side push plumbing: native token events, foreground display,

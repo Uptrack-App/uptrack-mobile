@@ -226,7 +226,7 @@ void main() {
       expect(find.text('Pixel 9'), findsOneWidget);
     });
 
-    testWidgets('revoke removes the row; failure keeps it + snackbar', (
+    testWidgets('revoke removes the row; failure keeps it + persistent error', (
       WidgetTester tester,
     ) async {
       bool revokeShouldFail = false;
@@ -266,7 +266,7 @@ void main() {
       expect(find.text('Pixel 9'), findsNothing);
       expect(find.text('Unlabeled device'), findsOneWidget);
 
-      // Failed revoke keeps the row and surfaces a SnackBar.
+      // Failed revoke keeps the row and surfaces a persistent error.
       revokeShouldFail = true;
       await scrollToDevices(
         tester,

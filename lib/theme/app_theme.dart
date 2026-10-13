@@ -38,7 +38,6 @@ abstract final class AppTheme {
     final border = isDark
         ? UptrackColors.darkBorder
         : UptrackColors.lightBorder;
-    final input = isDark ? UptrackColors.darkInput : UptrackColors.lightInput;
     final primary = isDark
         ? UptrackColors.darkPrimary
         : UptrackColors.lightPrimary;
@@ -77,7 +76,7 @@ abstract final class AppTheme {
       surfaceContainerHigh: surfaceRaised,
       surfaceContainerHighest: surfaceRaised,
       onSurfaceVariant: mutedForeground,
-      outline: input,
+      outline: mutedForeground,
       outlineVariant: border,
       shadow: Colors.black,
       scrim: Colors.black,
@@ -90,9 +89,12 @@ abstract final class AppTheme {
     );
     final borderRadius = BorderRadius.circular(UptrackRadii.md);
     final shape = RoundedRectangleBorder(borderRadius: borderRadius);
+    final controlRadius = BorderRadius.circular(UptrackRadii.sm);
     final ctaStyle = FilledButton.styleFrom(
       backgroundColor: cta,
       foregroundColor: onCta,
+      minimumSize: const Size(48, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       shape: RoundedRectangleBorder(
         borderRadius: BorderRadius.circular(UptrackRadii.sm),
       ),
@@ -141,6 +143,10 @@ abstract final class AppTheme {
       ),
       segmentedButtonTheme: SegmentedButtonThemeData(
         style: ButtonStyle(
+          shape: WidgetStatePropertyAll(
+            RoundedRectangleBorder(borderRadius: controlRadius),
+          ),
+          minimumSize: const WidgetStatePropertyAll(Size(48, 48)),
           backgroundColor: WidgetStateProperty.resolveWith(
             (Set<WidgetState> states) =>
                 states.contains(WidgetState.selected) ? surfaceRaised : surface,
@@ -153,18 +159,61 @@ abstract final class AppTheme {
           side: WidgetStatePropertyAll<BorderSide>(BorderSide(color: border)),
         ),
       ),
+      materialTapTargetSize: MaterialTapTargetSize.padded,
       filledButtonTheme: FilledButtonThemeData(style: ctaStyle),
+      outlinedButtonTheme: OutlinedButtonThemeData(
+        style: OutlinedButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          foregroundColor: foreground,
+          side: BorderSide(color: mutedForeground),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(UptrackRadii.sm),
+          ),
+        ),
+      ),
+      textButtonTheme: TextButtonThemeData(
+        style: TextButton.styleFrom(
+          minimumSize: const Size(48, 48),
+          foregroundColor: primary,
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(UptrackRadii.sm),
+          ),
+        ),
+      ),
+      navigationBarTheme: NavigationBarThemeData(
+        backgroundColor: surface,
+        indicatorColor: surfaceRaised,
+        labelBehavior: NavigationDestinationLabelBehavior.alwaysShow,
+      ),
+      navigationRailTheme: NavigationRailThemeData(
+        backgroundColor: surface,
+        indicatorColor: surfaceRaised,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: surface,
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(UptrackRadii.md),
+        ),
+      ),
+      bottomSheetTheme: BottomSheetThemeData(
+        backgroundColor: surface,
+        shape: const RoundedRectangleBorder(
+          borderRadius: BorderRadius.vertical(
+            top: Radius.circular(UptrackRadii.lg),
+          ),
+        ),
+      ),
       dividerTheme: DividerThemeData(color: border, thickness: 1, space: 1),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: surface,
-        border: OutlineInputBorder(borderRadius: borderRadius),
+        border: OutlineInputBorder(borderRadius: controlRadius),
         enabledBorder: OutlineInputBorder(
-          borderRadius: borderRadius,
-          borderSide: BorderSide(color: input),
+          borderRadius: controlRadius,
+          borderSide: BorderSide(color: mutedForeground),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: borderRadius,
+          borderRadius: controlRadius,
           borderSide: BorderSide(color: primary, width: 2),
         ),
       ),

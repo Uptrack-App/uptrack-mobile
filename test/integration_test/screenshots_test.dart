@@ -64,12 +64,14 @@ class _DashboardRepo implements DashboardRepository {
   @override
   Future<DashboardData> load() async => DashboardData(
     totalMonitors: 3,
+    loadedMonitors: 3,
+    totalMonitorsKnown: true,
     countsByStatus: const <String, int>{'up': 2, 'down': 1},
     averageUptime: 99.9,
-    recentIncidents: <Incident>[
+    incidents: partitionIncidents(<Incident>[
       _incident('i1', 'Homepage'),
       _incident('i2', 'API'),
-    ],
+    ]),
     offline: false,
   );
 }

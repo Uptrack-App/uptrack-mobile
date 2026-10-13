@@ -1,18 +1,18 @@
 import SwiftUI
 import WidgetKit
 
-/// Widget bundle aggregating the home-screen status widget and the incident
-/// Live Activity.
+/// Entry point of the `UptrackWidgets` WidgetKit extension: the home-screen
+/// status widget plus the incident Live Activity.
 ///
-/// Deliberately NOT `@main`: these sources compile inside the app target so
-/// `xcodebuild -scheme Runner` verifies them, but a WidgetKit extension is
-/// a separate binary. When the dedicated extension target is created, move
-/// `ios/Runner/Widget/` into it and mark this bundle `@main` there (plus
-/// the App Groups entitlement on that target).
-@available(iOS 16.1, *)
+/// The bundle itself is not availability-gated because the extension supports
+/// iOS 16.0. The Live Activity needs iOS 16.1, so it sits behind
+/// `#available`.
+@main
 struct UptrackWidgets: WidgetBundle {
   var body: some Widget {
     UptrackStatusWidget()
-    UptrackIncidentActivityWidget()
+    if #available(iOS 16.1, *) {
+      UptrackIncidentActivityWidget()
+    }
   }
 }

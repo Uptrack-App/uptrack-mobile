@@ -37,9 +37,11 @@ String statusLabel(String? status) {
     case 'down':
       return 'Down';
     case 'degraded':
-    case 'visual_regression':
-    case 'partial_outage':
       return 'Degraded';
+    case 'visual_regression':
+      return 'Changed';
+    case 'partial_outage':
+      return 'Partial outage';
     case 'paused':
     case 'disabled':
       return 'Paused';

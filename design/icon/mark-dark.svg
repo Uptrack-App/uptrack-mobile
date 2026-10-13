@@ -1,0 +1,5 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="191 218 600 600" width="600" height="600">
+  <!-- Transparent mark for dark UI backgrounds (no tile, no halo). -->
+  <path d="M320 332 V562 A162 162 0 0 0 644 562 V530" fill="none" stroke="#EEF2F6" stroke-width="112" stroke-linecap="round"/>
+  <circle cx="644" cy="330" r="74" fill="#2FBF71"/>
+</svg>
