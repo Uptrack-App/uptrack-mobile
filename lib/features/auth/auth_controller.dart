@@ -9,6 +9,7 @@ import '../../api/client.dart';
 import '../../api/uptrack_api.dart';
 import '../../data/local/database_providers.dart' show cacheRepositoryProvider;
 import '../../push/push_channels.dart' show PushChannels;
+import '../../push/push_registration.dart';
 import '../../widgets/widget_store.dart' show clearWidgetData;
 import 'token_storage.dart';
 import 'social_login.dart';
@@ -250,6 +251,10 @@ class AuthController extends Notifier<AuthState> {
     if (state.isLoading) return;
     await verifyMagicLink(email: email, token: token);
   }
+
+  /// Completes when the stored session (if any) has been read at start-up.
+  /// Push actions wait for it so they never run without the bearer.
+  Future<void> get restored => _initialRestore;
 
   /// Explicit restore for tests/app start when deterministic timing matters.
   Future<void> restore() => _restore();
@@ -518,19 +523,31 @@ class AuthController extends Notifier<AuthState> {
   /// Logout: best-effort server revocation (device token + push
   /// registration + session), then local credential wipe. Server failures
   /// never block local sign-out.
+  ///
+  /// The push device is unregistered first: `DELETE /api/push/devices` needs
+  /// the device-token bearer, and the server keys push devices by user, so a
+  /// revoked device token alone keeps the old account's alerts coming. With
+  /// no [pushToken], the token [PushRegistrationStore] recorded is used.
   Future<void> signOut({String? pushToken}) async {
     final UptrackApi api = ref.read(uptrackApiProvider);
-    final String? deviceTokenId = state.deviceTokenId;
-    if (deviceTokenId != null) {
+    final PushRegistrationStore pushStore = ref.read(
+      pushRegistrationStoreProvider,
+    );
+    final String? tokenToUnregister = pushToken != null && pushToken.isNotEmpty
+        ? pushToken
+        : pushStore.registered?.token;
+    pushStore.clearRegistered();
+    if (tokenToUnregister != null && tokenToUnregister.isNotEmpty) {
       try {
-        await api.revokeDeviceToken(deviceTokenId);
+        await api.unregisterPushDevice(tokenToUnregister);
       } on DioException {
         // Best effort: the local wipe below still signs the user out.
       }
     }
-    if (pushToken != null && pushToken.isNotEmpty) {
+    final String? deviceTokenId = state.deviceTokenId;
+    if (deviceTokenId != null) {
       try {
-        await api.unregisterPushDevice(pushToken);
+        await api.revokeDeviceToken(deviceTokenId);
       } on DioException {
         // Best effort (see above).
       }
@@ -586,6 +603,9 @@ class AuthController extends Notifier<AuthState> {
       return;
     }
     ref.read(authTokenHolderProvider).token = null;
+    // The bearer is dead, so the server row cannot be removed from here; the
+    // next sign-in re-registers (the server upsert moves the row's owner).
+    ref.read(pushRegistrationStoreProvider).clearRegistered();
     unawaited(ref.read(tokenStoreProvider).clear());
     unawaited(ref.read(clearWidgetDataProvider)());
     unawaited(ref.read(cacheRepositoryProvider).clearAll().catchError((_) {}));

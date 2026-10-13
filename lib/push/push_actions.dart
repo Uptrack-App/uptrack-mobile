@@ -115,10 +115,24 @@ enum PushActionOutcome {
 /// retry after re-auth (per spec); other API errors deep-link the same way
 /// but report [PushActionOutcome.failed].
 class PushActionHandler {
-  PushActionHandler({required this.api, required this.onNavigate});
+  PushActionHandler({
+    required this.api,
+    required this.onNavigate,
+    this.retryDelays = defaultRetryDelays,
+  });
 
   final UptrackApi api;
   final PushActionNavigation onNavigate;
+
+  /// Waits before each retry of a call that never reached the server
+  /// (offline, DNS, connect timeout). One try plus one retry per entry.
+  final List<Duration> retryDelays;
+
+  /// Short on purpose: the user just tapped the action and waits for it.
+  static const List<Duration> defaultRetryDelays = <Duration>[
+    Duration(seconds: 2),
+    Duration(seconds: 5),
+  ];
 
   Future<PushActionOutcome> handle(PushActionRequest request) async {
     try {
@@ -128,19 +142,19 @@ class PushActionHandler {
           if (incidentId == null) {
             return _ignored(request);
           }
-          await api.acknowledgeIncident(incidentId);
+          await _retrying(() => api.acknowledgeIncident(incidentId));
         case PushAction.escalate:
           final String? incidentId = request.incidentId;
           if (incidentId == null) {
             return _ignored(request);
           }
-          await api.escalateIncident(incidentId);
+          await _retrying(() => api.escalateIncident(incidentId));
         case PushAction.snooze:
           final String? monitorId = await _snoozeMonitorId(request);
           if (monitorId == null) {
             return _ignored(request);
           }
-          await api.snoozeMonitor(monitorId);
+          await _retrying(() => api.snoozeMonitor(monitorId));
       }
     } on DioException catch (err) {
       _navigateFallback(request);
@@ -153,6 +167,26 @@ class PushActionHandler {
     return PushActionOutcome.performed;
   }
 
+  /// Runs [call], retrying only failures where the request never reached
+  /// the server. A timeout after sending is not retried: escalate is not
+  /// idempotent, and the server may already have run it. HTTP errors are not
+  /// retried either.
+  Future<T> _retrying<T>(Future<T> Function() call) async {
+    for (int attempt = 0; ; attempt++) {
+      try {
+        return await call();
+      } on DioException catch (err) {
+        final bool notSent =
+            err.type == DioExceptionType.connectionError ||
+            err.type == DioExceptionType.connectionTimeout;
+        if (!notSent || attempt >= retryDelays.length) {
+          rethrow;
+        }
+        await Future<void>.delayed(retryDelays[attempt]);
+      }
+    }
+  }
+
   /// Monitor id for a snooze: the payload's `monitor_id` when present,
   /// otherwise resolved from the incident detail.
   Future<String?> _snoozeMonitorId(PushActionRequest request) async {
@@ -163,7 +197,9 @@ class PushActionHandler {
     if (incidentId == null) {
       return null;
     }
-    final IncidentDetail detail = await api.getIncident(incidentId);
+    final IncidentDetail detail = await _retrying(
+      () => api.getIncident(incidentId),
+    );
     return detail.incident.monitorId;
   }
 

@@ -65,6 +65,11 @@ class UptrackDataMessageReceiver : BroadcastReceiver() {
             .setPriority(UptrackNotificationChannels.priorityFor(severity))
             .setCategory(NotificationCompat.CATEGORY_EVENT)
             .setAutoCancel(true)
+        // A `passive` push (user override or info, plan 4.5) keeps its severity
+        // channel but makes no sound or vibration.
+        if (intent.getStringExtra(EXTRA_INTERRUPTION_LEVEL) == "passive") {
+            builder.setSilent(true)
+        }
 
         UptrackNotificationIntents.tapIntent(context, incidentId, monitorId)
             ?.let { builder.setContentIntent(it) }
@@ -124,6 +129,7 @@ class UptrackDataMessageReceiver : BroadcastReceiver() {
         const val EXTRA_INCIDENT_ID = "incident_id"
         const val EXTRA_MONITOR_ID = "monitor_id"
         const val EXTRA_SEVERITY = "severity"
+        const val EXTRA_INTERRUPTION_LEVEL = "interruption_level"
 
         /**
          * Pre-R3 single channel id, kept as an alias of the fallback channel so

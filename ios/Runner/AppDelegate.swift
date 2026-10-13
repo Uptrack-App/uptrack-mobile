@@ -1,7 +1,6 @@
 import Flutter
 import UIKit
 import UserNotifications
-import ActivityKit
 import AuthenticationServices
 
 /// Native APNs host for the Dart push layer (T028).
@@ -11,8 +10,9 @@ import AuthenticationServices
 ///
 /// * `push/token` (Dart → native): `getToken` returns the cached APNs device
 ///   token (`{token, platform, environment}`) or null when push is
-///   unavailable/denied; `getInitialNotification` returns the tap that
-///   cold-started the app (`{incident_id?, monitor_id?}`) once, then null.
+///   unavailable/denied; `getInitialNotification` returns the tap
+///   or action that cold-started the app (`{incident_id?, monitor_id?,
+///   action?}`) once, then null.
 /// * `push/events` (native → Dart): `onPushToken` on registration,
 ///   `onTokenRefresh` never fires on iOS (APNs tokens are stable per install;
 ///   a re-registration re-sends `onPushToken`), `onForegroundMessage` from
@@ -43,10 +43,18 @@ import AuthenticationServices
   /// Hex-encoded APNs device token from the last successful registration.
   private var deviceTokenHex: String?
 
-  /// Tap payload that cold-started the app; drained once via
-  /// `getInitialNotification`. Also buffers taps that arrive before the
-  /// implicit engine vends its messenger.
+  /// Tap or action payload that arrived before Dart was ready (cold start);
+  /// drained once via `getInitialNotification`. An action keeps its `action`
+  /// key so Dart runs it instead of treating it as a body tap.
   private var initialNotification: [String: String]?
+
+  /// `UptrackLiveActivityBridge` on iOS 16.1+, nil on 16.0 (no ActivityKit).
+  /// Typed `AnyObject` because the bridge class is availability-gated.
+  private var liveActivityBridge: AnyObject?
+  /// Set when Dart drains `getInitialNotification` (its event handler is set
+  /// by then). Before that, taps and actions are only buffered: a live event
+  /// plus the drained buffer would run the same tap or action twice.
+  private var dartReady = false
 
   override func application(
     _ application: UIApplication,
@@ -71,7 +79,7 @@ import AuthenticationServices
       initialNotification = Self.tapPayload(from: remote)
     }
 
-    observeLiveActivityPushToStart()
+    startLiveActivityBridge()
 
     return super.application(application, didFinishLaunchingWithOptions: launchOptions)
   }
@@ -125,19 +133,29 @@ import AuthenticationServices
           }
         result(self.currentTokenPayload())
       case "getInitialNotification":
+        self.dartReady = true
         let pending = self.initialNotification
         self.initialNotification = nil
         result(pending)
+      case "getLiveActivityTokens":
+        // Tokens ActivityKit reported before Dart set its handler.
+        if #available(iOS 16.1, *),
+          let bridge = self.liveActivityBridge as? UptrackLiveActivityBridge
+        {
+          result(bridge.currentTokens())
+        } else {
+          result([])
+        }
       case "clearSessionNotifications":
         // R2.4 logout/401 hygiene: no old-account banners, badges or Live
         // Activities may linger for the next account on this device.
         let center = UNUserNotificationCenter.current()
         center.removeAllDeliveredNotifications()
         center.removeAllPendingNotificationRequests()
-        if #available(iOS 16.2, *) {
-          for activity in Activity<UptrackIncident>.activities {
-            Task { await activity.end(nil, dismissalPolicy: .immediate) }
-          }
+        // iOS 16.1 has activities too; the bridge ends them with the API
+        // each version has (the old 16.2-only check left 16.1 ones running).
+        if #available(iOS 16.1, *) {
+          UptrackLiveActivityBridge.endAll()
         }
         UIApplication.shared.applicationIconBadgeNumber = 0
         result(true)
@@ -145,11 +163,20 @@ import AuthenticationServices
         result(FlutterMethodNotImplemented)
       }
     }
-    // A tap may have arrived before the engine existed; keep it buffered as
-    // the initial notification and forward it now that Dart can listen.
-    if let pending = initialNotification {
-      events.invokeMethod("onNotificationTap", arguments: pending)
+    FlutterMethodChannel(
+      name: UptrackLiveActivityLogic.channelName, binaryMessenger: messenger
+    ).setMethodCallHandler { [weak self] call, result in
+      if #available(iOS 16.1, *),
+        let bridge = self?.liveActivityBridge as? UptrackLiveActivityBridge
+      {
+        bridge.handle(call, result: result)
+      } else {
+        // iOS 16.0: no ActivityKit. Nothing runs and nothing can start.
+        result(call.method == "list" ? [] : "unsupported")
+      }
     }
+    // A tap that arrived before the engine existed stays buffered; Dart
+    // drains it with `getInitialNotification` once its handler is set.
   }
 
   // MARK: - APNs registration
@@ -177,12 +204,30 @@ import AuthenticationServices
     _ center: UNUserNotificationCenter,
     willPresent notification: UNNotification
   ) async -> UNNotificationPresentationOptions {
+    guard notification.request.trigger is UNPushNotificationTrigger else {
+      // A local notification, not a server push: show it plainly and do not
+      // echo it to Dart as a push.
+      return [.banner, .list, .sound]
+    }
     let message = Self.messagePayload(from: notification.request.content.userInfo)
     eventsChannel?.invokeMethod("onForegroundMessage", arguments: message)
-    // The OS suppresses remote banners while foregrounded; Dart re-displays
-    // locally via flutter_local_notifications, but present natively as well so
-    // nothing is lost when the Dart isolate is paused.
-    return [.banner, .list, .sound, .badge]
+    // The OS presents the push itself, with the interruption level the server
+    // resolved from severity, the user's overrides and quiet hours (plan 4.5).
+    // Dart refreshes the widget and shows no second copy (`presented_by_os`).
+    return Self.presentationOptions(
+      forInterruptionLevel: message["interruption_level"])
+  }
+
+  /// Foreground presentation for one push. Mirrors
+  /// `PushPresentation.iosForegroundOptions` in Dart (a contract test compares
+  /// them): `passive` goes to the list only, as it would in the background.
+  static func presentationOptions(forInterruptionLevel level: String?)
+    -> UNNotificationPresentationOptions
+  {
+    switch level {
+    case "passive": return [.list]
+    default: return [.banner, .list, .sound, .badge]
+    }
   }
 
   override func userNotificationCenter(
@@ -205,39 +250,37 @@ import AuthenticationServices
     }
   }
 
-  // MARK: - Live Activity push-to-start (T055)
+  // MARK: - Live Activity (T055, I2.2)
 
-  /// Observes ActivityKit push-to-start tokens (iOS 17.2+) and forwards them
-  /// to Dart over the `push/events` channel as `onLiveActivityToken`
-  /// `{token, kind: push_to_start}`. Dart registers the token with
-  /// `POST /api/push/live-activities` (see `LiveActivityRegisterRequest` in
-  /// `lib/widgets/live_activity.dart`); the current Dart `_handleMethodCall`
-  /// ignores unknown methods, so a Dart handler can land as a follow-up
-  /// without breaking this build. Update-token rotation for already-running
-  /// activities is out of scope (the server prunes stale rows).
-  private func observeLiveActivityPushToStart() {
-    if #available(iOS 17.2, *) {
-      Task {
-        for await data in Activity<UptrackIncident>.pushToStartTokenUpdates {
-          let hex = data.map { String(format: "%02x", $0) }.joined()
-          let payload = ["token": hex, "kind": "push_to_start"]
-          await MainActor.run {
-            self.eventsChannel?.invokeMethod("onLiveActivityToken", arguments: payload)
-          }
-        }
+  /// Starts the Live Activity bridge on iOS 16.1+: update and push-to-start
+  /// tokens go to Dart as `onLiveActivityToken`, ended activities as
+  /// `onLiveActivityEnded` (see `UptrackLiveActivityBridge`). Events sent
+  /// before the engine exists are not lost: Dart pulls the tokens with
+  /// `getLiveActivityTokens`.
+  private func startLiveActivityBridge() {
+    guard #available(iOS 16.1, *) else { return }
+    let bridge = UptrackLiveActivityBridge { [weak self] method, payload in
+      DispatchQueue.main.async {
+        self?.eventsChannel?.invokeMethod(method, arguments: payload)
       }
     }
+    liveActivityBridge = bridge
+    bridge.start()
   }
 
   // MARK: - Helpers
 
   private static func triageCategory() -> UNNotificationCategory {
+    // `.foreground` (plan 4.6): the app uses UIScene. A background action in
+    // the killed state connects no scene, so the implicit Flutter engine never
+    // runs Dart and the action is lost. Opening the app also requires an
+    // unlock before any triage call runs.
     let ack = UNNotificationAction(
-      identifier: ackActionId, title: "Acknowledge")
+      identifier: ackActionId, title: "Acknowledge", options: [.foreground])
     let escalate = UNNotificationAction(
-      identifier: escalateActionId, title: "Escalate")
+      identifier: escalateActionId, title: "Escalate", options: [.foreground])
     let snooze = UNNotificationAction(
-      identifier: snoozeActionId, title: "Snooze 1h")
+      identifier: snoozeActionId, title: "Snooze 1h", options: [.foreground])
     return UNNotificationCategory(
       identifier: triageCategoryId,
       actions: [ack, escalate, snooze],
@@ -265,18 +308,14 @@ import AuthenticationServices
     #endif
   }
 
-  /// Forwards natively-received taps/actions to Dart, or buffers them as the
-  /// cold-start notification when the engine channel is not ready yet.
+  /// Forwards natively-received taps/actions to Dart once it is ready, or
+  /// buffers them (action included) for `getInitialNotification`.
   private func forwardOrBuffer(method: String, payload: [String: String]) {
-    initialNotification = tapOnly(payload)
-    eventsChannel?.invokeMethod(method, arguments: payload)
-  }
-
-  /// Strips the `action` key: the cold-start deep link only needs routing ids.
-  private func tapOnly(_ payload: [String: String]) -> [String: String] {
-    var tap = payload
-    tap.removeValue(forKey: "action")
-    return tap
+    guard dartReady, let channel = eventsChannel else {
+      initialNotification = payload
+      return
+    }
+    channel.invokeMethod(method, arguments: payload)
   }
 
   /// Foreground payload for `onForegroundMessage`. `collapse_key` mirrors the
@@ -301,9 +340,16 @@ import AuthenticationServices
     if let severity = userInfo["severity"] as? String, !severity.isEmpty {
       payload["severity"] = severity
     }
+    if let aps = userInfo["aps"] as? [AnyHashable: Any],
+      let level = aps["interruption-level"] as? String, !level.isEmpty
+    {
+      payload["interruption_level"] = level
+    }
     if let incidentId = payload["incident_id"] {
       payload["collapse_key"] = incidentId
     }
+    // `willPresent` presents it natively; Dart must not show a copy.
+    payload["presented_by_os"] = "true"
     return payload
   }
 

@@ -194,9 +194,10 @@ void main() {
         ]);
         expect(
           _showsUserInterface(details),
-          everyElement(isFalse),
+          everyElement(isTrue),
           reason:
-              'the renderer serves the foreground only and never pulls UI up',
+              'with false the plugin routes the tap to a background isolate '
+              'this app does not register, and the action is dropped (4.6)',
         );
       },
     );

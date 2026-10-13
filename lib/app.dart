@@ -21,6 +21,7 @@ import 'features/settings/checkout_return_screen.dart';
 import 'features/status/status_page_screen.dart';
 import 'push/push_providers.dart';
 import 'theme/app_theme.dart';
+import 'util/universal_links.dart';
 import 'design/adaptive_scaffold.dart';
 
 /// [checkoutReturnEnabled] keeps the browser-checkout return screen
@@ -43,7 +44,14 @@ GoRouter createRouter({
     observers: observers,
     refreshListenable: refreshListenable,
     redirect: (BuildContext context, GoRouterState state) {
-      if (!checkoutReturnEnabled && state.matchedLocation == '/billing/return') {
+      // A universal link (iOS) or app link (Android) arrives as the full
+      // https URL. Map it to an app screen. An unknown link lands on home;
+      // it must never match an app route by its path alone.
+      if (state.uri.scheme == 'https' || state.uri.scheme == 'http') {
+        return universalLinkLocation(state.uri) ?? '/';
+      }
+      if (!checkoutReturnEnabled &&
+          state.matchedLocation == '/billing/return') {
         return '/';
       }
       if (state.matchedLocation == '/demo' && !isDemoAvailable) {
@@ -235,12 +243,44 @@ class UptrackApp extends ConsumerStatefulWidget {
 }
 
 class _UptrackAppState extends ConsumerState<UptrackApp> {
+  AppLifecycleListener? _lifecycle;
+
   @override
   void initState() {
     super.initState();
     // Best-effort push plumbing (token registration, cold-start deep link,
     // foreground display); never blocks the first frame.
     unawaited(initializePush(ref));
+    // Home widget + Live Activity refresh: after every applied incident
+    // write and on every resume. Attached only once signed in, so a
+    // signed-out launch never opens the offline database for it.
+    ref.listenManual<AuthStatus>(
+      authControllerProvider.select((AuthState s) => s.status),
+      (AuthStatus? _, AuthStatus status) {
+        if (status == AuthStatus.signedIn) {
+          _attachLiveSurfaces();
+        }
+      },
+      fireImmediately: true,
+    );
+  }
+
+  void _attachLiveSurfaces() {
+    if (_lifecycle != null) {
+      return;
+    }
+    // Reading the provider attaches it to the cache's change stream; the
+    // first incident sync after sign-in then refreshes both surfaces.
+    ref.read(liveSurfaceSyncProvider);
+    _lifecycle = AppLifecycleListener(
+      onResume: () => unawaited(ref.read(liveSurfaceSyncProvider).run()),
+    );
+  }
+
+  @override
+  void dispose() {
+    _lifecycle?.dispose();
+    super.dispose();
   }
 
   @override

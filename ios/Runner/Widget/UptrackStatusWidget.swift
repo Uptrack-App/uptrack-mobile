@@ -80,15 +80,21 @@ extension View {
 /// best-effort background pushes — no background fetch is scheduled here.
 struct UptrackStatusProvider: TimelineProvider {
   func placeholder(in context: Context) -> UptrackStatusEntry {
-    UptrackStatusEntry(date: Date(), snapshot: nil)
+    UptrackStatusEntry(date: Date(), snapshot: nil, feedState: nil)
   }
 
   func getSnapshot(in context: Context, completion: @escaping (UptrackStatusEntry) -> Void) {
-    completion(UptrackStatusEntry(date: Date(), snapshot: UptrackWidgetData.load()))
+    completion(Self.current())
+  }
+
+  private static func current() -> UptrackStatusEntry {
+    UptrackStatusEntry(
+      date: Date(), snapshot: UptrackWidgetData.load(),
+      feedState: UptrackWidgetData.loadFeedState())
   }
 
   func getTimeline(in context: Context, completion: @escaping (Timeline<UptrackStatusEntry>) -> Void) {
-    let entry = UptrackStatusEntry(date: Date(), snapshot: UptrackWidgetData.load())
+    let entry = Self.current()
     // Dart drives refreshes via updateWidget; the hourly reload is only a
     // fallback so a stale widget eventually clears after a resolve and the
     // "Stale" wording can appear.
@@ -100,6 +106,8 @@ struct UptrackStatusProvider: TimelineProvider {
 struct UptrackStatusEntry: TimelineEntry {
   let date: Date
   let snapshot: UptrackWidgetData.Snapshot?
+  /// Dart's all-clear mark; decides the text when [snapshot] is nil.
+  let feedState: String?
 }
 
 struct UptrackStatusWidgetEntryView: View {
@@ -168,9 +176,11 @@ struct UptrackStatusWidgetEntryView: View {
   }
 
   private var empty: some View {
-    VStack(spacing: 4) {
-      Text("Uptrack").font(.headline)
-      Text("No ongoing incidents").font(.caption).foregroundStyle(UptrackInk.muted)
+    let text = UptrackWidgetData.emptyText(feedState: entry.feedState)
+    return VStack(spacing: 4) {
+      Text(text.title).font(.headline)
+      Text(text.detail).font(.caption).foregroundStyle(UptrackInk.muted)
+        .multilineTextAlignment(.center)
     }
   }
 }

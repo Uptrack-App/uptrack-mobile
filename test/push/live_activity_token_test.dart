@@ -37,13 +37,20 @@ class LiveActivityHarness {
         }
         registered.add(request);
       },
+      unregisterLiveActivity: (LiveActivityRemoveRequest request) async {
+        if (throwOnRegister) {
+          throw Exception('offline');
+        }
+        removed.add(request.token);
+      },
     );
   }
 
   late final PushService service;
   final List<LiveActivityRegisterRequest> registered =
       <LiveActivityRegisterRequest>[];
-  final bool throwOnRegister;
+  final List<String> removed = <String>[];
+  bool throwOnRegister;
 
   TestDefaultBinaryMessenger get messenger =>
       TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
@@ -223,5 +230,135 @@ void main() {
         'incident_id': 'inc-1',
       });
     });
+  });
+
+  group('Live Activity token lifecycle (I2.2)', () {
+    tearDown(() {
+      TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+          .setMockMethodCallHandler(
+            const MethodChannel(PushChannels.token),
+            null,
+          );
+    });
+
+    test('the per-activity update token registers with its TTL', () async {
+      final LiveActivityHarness h = LiveActivityHarness();
+      await h.service.initialize();
+
+      // Shape sent by UptrackLiveActivityBridge for every activity.
+      await h.sendEvent(PushEventMethods.onLiveActivityToken, <String, Object?>{
+        'token': 'upd-1',
+        'kind': 'update',
+        'incident_id': 'inc-1',
+        'expires_in_seconds': 43200,
+      });
+
+      final LiveActivityRegisterRequest request = h.registered.single;
+      expect(request.kind, 'update');
+      expect(request.incidentId, 'inc-1');
+      expect(request.expiresInSeconds, 43200);
+      expect(request.validate(), isEmpty);
+    });
+
+    test('the same token for the same incident posts once', () async {
+      final LiveActivityHarness h = LiveActivityHarness();
+      await h.service.initialize();
+      final Map<String, Object?> payload = <String, Object?>{
+        'token': 'upd-1',
+        'kind': 'update',
+        'incident_id': 'inc-1',
+      };
+
+      await h.sendEvent(PushEventMethods.onLiveActivityToken, payload);
+      await h.sendEvent(PushEventMethods.onLiveActivityToken, payload);
+
+      expect(h.registered, hasLength(1));
+    });
+
+    test('a failed registration is retried on the next delivery', () async {
+      final LiveActivityHarness h = LiveActivityHarness(throwOnRegister: true);
+      await h.service.initialize();
+      final Map<String, Object?> payload = <String, Object?>{
+        'token': 'upd-1',
+        'kind': 'update',
+        'incident_id': 'inc-1',
+      };
+
+      await h.sendEvent(PushEventMethods.onLiveActivityToken, payload);
+      h.throwOnRegister = false;
+      await h.sendEvent(PushEventMethods.onLiveActivityToken, payload);
+
+      expect(h.registered, hasLength(1));
+    });
+
+    test('an ended activity removes its token from the server', () async {
+      final LiveActivityHarness h = LiveActivityHarness();
+      await h.service.initialize();
+      await h.sendEvent(PushEventMethods.onLiveActivityToken, <String, Object?>{
+        'token': 'upd-1',
+        'kind': 'update',
+        'incident_id': 'inc-1',
+      });
+
+      await h.sendEvent(PushEventMethods.onLiveActivityEnded, <String, Object?>{
+        'token': 'upd-1',
+        'incident_id': 'inc-1',
+      });
+
+      expect(h.removed, <String>['upd-1']);
+    });
+
+    test('an ended activity without a token removes nothing', () async {
+      final LiveActivityHarness h = LiveActivityHarness();
+      await h.service.initialize();
+
+      await h.sendEvent(PushEventMethods.onLiveActivityEnded, <String, Object?>{
+        'incident_id': 'inc-1',
+      });
+      await h.sendEvent(PushEventMethods.onLiveActivityEnded);
+
+      expect(h.removed, isEmpty);
+    });
+
+    test('a failed removal never escapes', () async {
+      final LiveActivityHarness h = LiveActivityHarness(throwOnRegister: true);
+      await h.service.initialize();
+
+      await h.sendEvent(PushEventMethods.onLiveActivityEnded, <String, Object?>{
+        'token': 'upd-1',
+      });
+
+      expect(h.removed, isEmpty);
+    });
+
+    test(
+      'initialize pulls tokens the native host saw before Dart listened',
+      () async {
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger
+            .setMockMethodCallHandler(const MethodChannel(PushChannels.token), (
+              MethodCall call,
+            ) async {
+              if (call.method == PushTokenMethods.getLiveActivityTokens) {
+                return <Object?>[
+                  <Object?, Object?>{'token': 'pts-1', 'kind': 'push_to_start'},
+                  <Object?, Object?>{
+                    'token': 'upd-1',
+                    'kind': 'update',
+                    'incident_id': 'inc-1',
+                    'expires_in_seconds': 43200,
+                  },
+                  'garbage',
+                ];
+              }
+              return null;
+            });
+        final LiveActivityHarness h = LiveActivityHarness();
+
+        await h.service.initialize();
+
+        expect(h.registered.single.token, 'upd-1');
+        expect(h.service.pendingLiveActivityToken?.token, 'pts-1');
+      },
+    );
   });
 }
