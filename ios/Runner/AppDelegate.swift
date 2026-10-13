@@ -259,7 +259,8 @@ import AuthenticationServices
   /// `getLiveActivityTokens`.
   private func startLiveActivityBridge() {
     guard #available(iOS 16.1, *) else { return }
-    let bridge = UptrackLiveActivityBridge { [weak self] method, payload in
+    let bridge = UptrackLiveActivityBridge(environment: Self.apnsEnvironment()) {
+      [weak self] method, payload in
       DispatchQueue.main.async {
         self?.eventsChannel?.invokeMethod(method, arguments: payload)
       }
@@ -299,7 +300,8 @@ import AuthenticationServices
   }
 
   /// Debug builds talk to the sandbox APNs host; everything else is
-  /// production. Mirrors the backend `environment` column semantics.
+  /// production. Mirrors the backend `environment` column semantics. Used
+  /// for the push token and for the Live Activity tokens.
   private static func apnsEnvironment() -> String {
     #if DEBUG
       return "sandbox"

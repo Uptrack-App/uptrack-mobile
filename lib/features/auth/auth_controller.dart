@@ -10,6 +10,7 @@ import '../../api/uptrack_api.dart';
 import '../../data/local/database_providers.dart' show cacheRepositoryProvider;
 import '../../push/push_channels.dart' show PushChannels;
 import '../../push/push_registration.dart';
+import '../../widgets/live_activity.dart' show LiveActivityRemoveRequest;
 import '../../widgets/widget_store.dart' show clearWidgetData;
 import 'token_storage.dart';
 import 'social_login.dart';
@@ -528,6 +529,11 @@ class AuthController extends Notifier<AuthState> {
   /// the device-token bearer, and the server keys push devices by user, so a
   /// revoked device token alone keeps the old account's alerts coming. With
   /// no [pushToken], the token [PushRegistrationStore] recorded is used.
+  ///
+  /// Live Activity tokens: the server deletes this device's push-to-start
+  /// and update tokens on that unregister and on the device-token revoke.
+  /// Only when neither can run (no push device registered, no stored
+  /// device-token id) is the posted push-to-start token deleted by itself.
   Future<void> signOut({String? pushToken}) async {
     final UptrackApi api = ref.read(uptrackApiProvider);
     final PushRegistrationStore pushStore = ref.read(
@@ -536,15 +542,27 @@ class AuthController extends Notifier<AuthState> {
     final String? tokenToUnregister = pushToken != null && pushToken.isNotEmpty
         ? pushToken
         : pushStore.registered?.token;
+    final String? pushToStart = pushStore.registeredPushToStart;
     pushStore.clearRegistered();
+    bool deviceForgotten = false;
     if (tokenToUnregister != null && tokenToUnregister.isNotEmpty) {
       try {
         await api.unregisterPushDevice(tokenToUnregister);
+        deviceForgotten = true;
       } on DioException {
         // Best effort: the local wipe below still signs the user out.
       }
     }
     final String? deviceTokenId = state.deviceTokenId;
+    if (!deviceForgotten && deviceTokenId == null && pushToStart != null) {
+      try {
+        await api.unregisterLiveActivity(
+          LiveActivityRemoveRequest(token: pushToStart),
+        );
+      } on DioException {
+        // Best effort (see above).
+      }
+    }
     if (deviceTokenId != null) {
       try {
         await api.revokeDeviceToken(deviceTokenId);

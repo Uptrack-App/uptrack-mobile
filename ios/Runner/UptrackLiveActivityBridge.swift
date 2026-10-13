@@ -22,11 +22,15 @@ final class UptrackLiveActivityBridge {
   typealias Send = (_ method: String, _ payload: [String: Any]) -> Void
 
   private let send: Send
+  /// APNs environment of the build (`AppDelegate.apnsEnvironment()`), sent
+  /// with every token.
+  private let environment: String
   private var observed = Set<String>()
   private var updateTokens: [String: String] = [:]
   private var pushToStartToken: String?
 
-  init(send: @escaping Send) {
+  init(environment: String, send: @escaping Send) {
+    self.environment = environment
     self.send = send
   }
 
@@ -48,7 +52,8 @@ final class UptrackLiveActivityBridge {
           let hex = UptrackLiveActivityLogic.hex(data)
           self.pushToStartToken = hex
           self.send(
-            "onLiveActivityToken", UptrackLiveActivityLogic.pushToStartPayload(token: hex))
+            "onLiveActivityToken",
+            UptrackLiveActivityLogic.pushToStartPayload(token: hex, environment: self.environment))
         }
       }
     }
@@ -58,7 +63,8 @@ final class UptrackLiveActivityBridge {
   func currentTokens() -> [[String: Any]] {
     var tokens: [[String: Any]] = []
     if let token = pushToStartToken {
-      tokens.append(UptrackLiveActivityLogic.pushToStartPayload(token: token))
+      tokens.append(
+        UptrackLiveActivityLogic.pushToStartPayload(token: token, environment: environment))
     }
     for activity in Self.running() {
       let token = updateTokens[activity.id]
@@ -66,7 +72,8 @@ final class UptrackLiveActivityBridge {
       if let token {
         tokens.append(
           UptrackLiveActivityLogic.updateTokenPayload(
-            token: token, incidentId: activity.attributes.incidentId))
+            token: token, incidentId: activity.attributes.incidentId,
+            environment: environment))
       }
     }
     return tokens
@@ -157,7 +164,8 @@ final class UptrackLiveActivityBridge {
         self.updateTokens[id] = hex
         self.send(
           "onLiveActivityToken",
-          UptrackLiveActivityLogic.updateTokenPayload(token: hex, incidentId: incidentId))
+          UptrackLiveActivityLogic.updateTokenPayload(
+            token: hex, incidentId: incidentId, environment: self.environment))
       }
     }
     Task { @MainActor in

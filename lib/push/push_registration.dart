@@ -39,9 +39,14 @@ class PushRegistration {
 /// stop pushes, so sign-out must send `DELETE /api/push/devices` for this
 /// token while the device-token bearer is still valid. [PushService] writes
 /// here; `AuthController.signOut` reads and clears it.
+///
+/// It also records the Live Activity push-to-start token this session
+/// posted (`POST /api/push/live-activities`), so the token is posted once
+/// per token per session and sign-out knows it exists.
 class PushRegistrationStore {
   PushRegistration? _registered;
   PushRegistration? _latest;
+  String? _pushToStart;
 
   /// The token the server has for the current session, or null.
   PushRegistration? get registered => _registered;
@@ -60,10 +65,21 @@ class PushRegistrationStore {
     _registered = registration;
   }
 
-  /// Forgets the server registration (sign-out or 401). The latest native
-  /// token is kept so the next sign-in can register it again.
+  /// The push-to-start token the server has for the current session, or
+  /// null.
+  String? get registeredPushToStart => _pushToStart;
+
+  /// Records a successful push-to-start `POST /api/push/live-activities`.
+  void markPushToStartRegistered(String token) {
+    _pushToStart = token;
+  }
+
+  /// Forgets the server registrations (sign-out or 401): the push device and
+  /// the push-to-start token. The latest native token is kept so the next
+  /// sign-in can register it again.
   void clearRegistered() {
     _registered = null;
+    _pushToStart = null;
   }
 }
 

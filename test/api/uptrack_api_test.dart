@@ -387,9 +387,9 @@ void main() {
 
     await api.registerLiveActivity(
       const LiveActivityRegisterRequest(
-        incidentId: '44444444-4444-4444-8444-444444444444',
         token: 'activity-token',
         kind: 'push_to_start',
+        environment: 'sandbox',
       ),
     );
 
@@ -397,8 +397,11 @@ void main() {
     expect(seen?.method, 'POST');
     final Map<String, dynamic> body = (seen?.data as Map)
         .cast<String, dynamic>();
-    expect(body['kind'], 'push_to_start');
-    expect(body['token'], 'activity-token');
+    expect(body, <String, dynamic>{
+      'token': 'activity-token',
+      'kind': 'push_to_start',
+      'environment': 'sandbox',
+    });
   });
 
   test('unregisterLiveActivity DELETEs with the token body', () async {
