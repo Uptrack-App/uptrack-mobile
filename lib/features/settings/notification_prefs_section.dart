@@ -324,7 +324,10 @@ class _NotificationPrefsSectionState
                   controller.updateForm(form.copyWith(overrides: next));
                 },
               ),
-            const SizedBox(height: 8),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(16, 16, 16, 8),
+              child: Text('Quiet hours', style: theme.textTheme.titleSmall),
+            ),
             Row(
               children: <Widget>[
                 Expanded(
@@ -332,7 +335,8 @@ class _NotificationPrefsSectionState
                     controller: _startController,
                     key: const ValueKey<String>('prefs-quiet-start'),
                     decoration: const InputDecoration(
-                      labelText: 'Quiet from (HH:MM)',
+                      labelText: 'From',
+                      hintText: '22:00',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -347,7 +351,8 @@ class _NotificationPrefsSectionState
                     controller: _endController,
                     key: const ValueKey<String>('prefs-quiet-end'),
                     decoration: const InputDecoration(
-                      labelText: 'Quiet until (HH:MM)',
+                      labelText: 'Until',
+                      hintText: '07:00',
                       border: OutlineInputBorder(),
                       isDense: true,
                     ),
@@ -422,33 +427,54 @@ class _SeverityRow extends StatelessWidget {
       container: true,
       explicitChildNodes: true,
       child: ListTile(
-        title: Text('$severity${isDefault ? ' (default)' : ''}'),
-        trailing: DropdownButton<String>(
-          key: ValueKey<String>('prefs-severity-$severity'),
-          value: value,
-          items: <DropdownMenuItem<String>>[
-            DropdownMenuItem<String>(
-              value: kDefaultInterruption[severity],
-              child: const Text('Default'),
-            ),
-            for (final String level in kInterruptionLevels)
-              if (level != kDefaultInterruption[severity])
-                DropdownMenuItem<String>(value: level, child: Text(level)),
-          ],
-          onChanged: enabled
-              ? (String? selected) {
-                  if (selected == kDefaultInterruption[severity]) {
-                    onChanged(null);
-                  } else {
-                    onChanged(selected);
+        title: Text(severityLabel(severity)),
+        subtitle: Text(isDefault ? 'Default' : 'Custom'),
+        trailing: SizedBox(
+          width: 160,
+          child: DropdownButton<String>(
+            key: ValueKey<String>('prefs-severity-$severity'),
+            value: value,
+            isExpanded: true,
+            style: Theme.of(context).textTheme.bodyMedium,
+            items: <DropdownMenuItem<String>>[
+              DropdownMenuItem<String>(
+                value: kDefaultInterruption[severity],
+                child: Text(interruptionLabel(kDefaultInterruption[severity]!)),
+              ),
+              for (final String level in kInterruptionLevels)
+                if (level != kDefaultInterruption[severity])
+                  DropdownMenuItem<String>(
+                    value: level,
+                    child: Text(interruptionLabel(level)),
+                  ),
+            ],
+            onChanged: enabled
+                ? (String? selected) {
+                    if (selected == kDefaultInterruption[severity]) {
+                      onChanged(null);
+                    } else {
+                      onChanged(selected);
+                    }
                   }
-                }
-              : null,
+                : null,
+          ),
         ),
       ),
     );
   }
 }
+
+/// `p1` → `P1`, `info` → `Info`.
+String severityLabel(String severity) =>
+    severity == 'info' ? 'Info' : severity.toUpperCase();
+
+/// How an alert of this level interrupts on the phone.
+String interruptionLabel(String level) => switch (level) {
+  'passive' => 'Quiet',
+  'active' => 'Normal',
+  'time-sensitive' => 'Time-sensitive',
+  _ => level,
+};
 
 class _PrefsError extends StatelessWidget {
   const _PrefsError({required this.message, required this.onRetry});

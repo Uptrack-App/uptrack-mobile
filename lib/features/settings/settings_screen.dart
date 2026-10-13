@@ -7,6 +7,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/device_token.dart';
 import '../auth/auth_controller.dart';
+import '../../util/date_format.dart';
+import 'appearance_section.dart';
 import 'billing_section.dart';
 import 'danger_zone_section.dart';
 import 'device_tokens_controller.dart';
@@ -35,6 +37,7 @@ class SettingsScreen extends ConsumerWidget {
           key: const ValueKey<String>('settings-list'),
           children: const <Widget>[
             ProfileSection(),
+            AppearanceSection(),
             NotificationPrefsSection(),
             BillingSection(),
             _DevicesSection(),
@@ -147,10 +150,10 @@ class _DeviceRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final String signedIn = formatTimestamp(device.createdAt);
     final String label = isCurrent
-        ? 'Device ${device.displayName}, signed in ${device.createdAt}, '
-              'this device'
-        : 'Device ${device.displayName}, signed in ${device.createdAt}';
+        ? 'Device ${device.displayName}, signed in $signedIn, this device'
+        : 'Device ${device.displayName}, signed in $signedIn';
     return Semantics(
       label: label,
       container: true,
@@ -170,7 +173,7 @@ class _DeviceRow extends StatelessWidget {
                 ),
             ],
           ),
-          subtitle: Text('Signed in ${device.createdAt}'),
+          subtitle: Text('Signed in $signedIn'),
           trailing: isRevoking
               ? const SizedBox(
                   width: 24,

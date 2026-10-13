@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/semantics.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:uptrack_mobile/util/date_format.dart';
 import 'package:uptrack_mobile/api/models/check.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
 import 'package:uptrack_mobile/api/models/monitor.dart';
@@ -628,7 +629,7 @@ void main() {
 
       final Finder list = find.byKey(const ValueKey<String>('settings-list'));
       final Finder deviceRow = find.bySemanticsLabel(
-        'Device Pixel 9, signed in 2026-01-01T00:00:00',
+        'Device Pixel 9, signed in ${formatTimestamp('2026-01-01T00:00:00')}',
       );
       for (int i = 0; i < 15 && deviceRow.evaluate().isEmpty; i++) {
         await tester.drag(list, const Offset(0, -500));

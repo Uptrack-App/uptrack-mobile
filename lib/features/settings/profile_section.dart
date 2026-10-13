@@ -1,5 +1,3 @@
-import '../../design/uptrack_design.dart';
-
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -40,13 +38,24 @@ class ProfileSection extends ConsumerWidget {
             error: (Object err, StackTrace _) => _ProfileError(
               onRetry: () => ref.invalidate(settingsProfileProvider),
             ),
-            data: (CurrentUserResponse me) => Column(
-              children: <Widget>[
-                _ProfileRow(label: 'Name', value: me.user.name),
-                _ProfileRow(label: 'Email', value: me.user.email),
-                _ProfileRow(label: 'Organization', value: me.organization.name),
-                _ProfileRow(label: 'Plan', value: me.organization.plan),
-              ],
+            data: (CurrentUserResponse me) => Card(
+              child: Column(
+                children: <Widget>[
+                  _ProfileRow(label: 'Name', value: me.user.name),
+                  const Divider(height: 1),
+                  _ProfileRow(label: 'Email', value: me.user.email),
+                  const Divider(height: 1),
+                  _ProfileRow(
+                    label: 'Organization',
+                    value: me.organization.name,
+                  ),
+                  const Divider(height: 1),
+                  _ProfileRow(
+                    label: 'Plan',
+                    value: planLabel(me.organization.plan),
+                  ),
+                ],
+              ),
             ),
           ),
         ],
@@ -63,12 +72,32 @@ class _ProfileRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Card(
-      child: ListTile(
-        title: Text(label, style: Theme.of(context).textTheme.bodySmall),
-        subtitle: UptrackDataText(
-          value,
-          style: Theme.of(context).textTheme.bodyLarge,
+    final ThemeData theme = Theme.of(context);
+    return Semantics(
+      container: true,
+      label: '$label: $value',
+      excludeSemantics: true,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: <Widget>[
+            Text(
+              label,
+              style: theme.textTheme.bodyMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Text(
+                value,
+                textAlign: TextAlign.end,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium,
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -99,3 +128,7 @@ class _ProfileError extends StatelessWidget {
     );
   }
 }
+
+/// Display name for a plan id: `pro` → `Pro`.
+String planLabel(String plan) =>
+    plan.isEmpty ? plan : plan[0].toUpperCase() + plan.substring(1);

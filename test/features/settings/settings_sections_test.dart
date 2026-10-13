@@ -280,8 +280,9 @@ void main() {
 
       await scrollTo(tester, find.text('Notifications'));
       expect(find.text('Notifications'), findsOneWidget);
-      // Stored override renders without the "(default)" marker.
-      expect(find.text('info'), findsOneWidget);
+      // A stored override is marked Custom, not Default.
+      expect(find.text('Info'), findsOneWidget);
+      expect(find.text('Custom'), findsOneWidget);
 
       final SwitchListTile pushSwitch = tester.widget<SwitchListTile>(
         find.byKey(const ValueKey<String>('prefs-mobile-push')),
