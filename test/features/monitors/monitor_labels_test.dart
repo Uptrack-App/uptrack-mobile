@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/features/monitors/monitor_widgets.dart';
 import 'package:uptrack_mobile/features/settings/notification_prefs_section.dart';
 import 'package:uptrack_mobile/push/live_activity_support.dart';
+import 'package:uptrack_mobile/theme/status_colors.dart';
 
 void main() {
   test('displayUrl drops the scheme and a trailing slash', () {
@@ -17,6 +18,18 @@ void main() {
     expect(monitorTypeLabel('icmp'), 'Ping');
     expect(monitorTypeLabel('keyword'), 'Keyword');
     expect(monitorTypeLabel('heart_beat'), 'Heart beat');
+  });
+
+  test('an unknown monitor type and status render as words, never throw', () {
+    // OpenSpec 128: the server adds a third_party monitor type whose status
+    // values include major_outage and maintenance. An older app must still
+    // show them (a type added by the server after this app shipped is the
+    // same case).
+    expect(monitorTypeLabel('third_party'), 'Third party');
+    expect(monitorTypeLabel('something_new'), 'Something new');
+    expect(statusLabel('major_outage'), 'Major outage');
+    expect(statusLabel('maintenance'), 'Maintenance');
+    expect(statusLabel('some_new_status'), 'Some new status');
   });
 
   test('regionsLabel', () {
