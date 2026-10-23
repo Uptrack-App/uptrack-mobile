@@ -175,6 +175,28 @@ void main() {
     });
   }
 
+  for (final String provider in <String>['paddle', 'apple']) {
+    test('409 provider $provider: says how to stop paying twice', () {
+      // The Apple subscription of this Apple ID is live and renews, but it
+      // gives no plan (D7).
+      final String text = appleTransactionErrorMessage(
+        DioException(
+          requestOptions: RequestOptions(path: kAppleTransactionsPath),
+          response: Response<Object?>(
+            requestOptions: RequestOptions(path: kAppleTransactionsPath),
+            statusCode: 409,
+            data: <String, Object?>{
+              'error_code': 'subscription_exists',
+              'provider': provider,
+            },
+          ),
+        ),
+      );
+      expect(text, contains('cancel'));
+      expect(text, contains('tap your name, then tap Subscriptions'));
+    });
+  }
+
   test('a member cannot buy (D8): no App Store sheet', () async {
     final FakeAppStore store = FakeAppStore();
     final _Harness h = _Harness(store: store, role: 'member');

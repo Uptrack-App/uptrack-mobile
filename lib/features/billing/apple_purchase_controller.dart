@@ -441,11 +441,13 @@ String appleTransactionErrorMessage(DioException e) {
     case 'not_owner':
       return 'Only the organization owner can buy or restore a plan.';
     case 'subscription_exists':
+      // D7: the App Store subscription of this Apple ID stays live and
+      // renews, but it gives no plan. Tell the user how to stop it.
       final Object? provider = data is Map ? data['provider'] : null;
       if (provider == 'apple') {
-        return 'This organization already has an App Store subscription from another Apple ID. Manage it with that Apple ID.';
+        return 'This organization already has an App Store subscription from another Apple ID. To stop paying twice, cancel the subscription of this Apple ID: open the Settings app, tap your name, then tap Subscriptions.';
       }
-      return 'Your plan is managed on the web. This organization already has a subscription, so the App Store cannot add a second one.';
+      return 'Your plan is managed on the web. This organization already has a subscription, so the App Store cannot add a second one. To stop paying twice, cancel the App Store subscription: open the Settings app, tap your name, then tap Subscriptions.';
     case 'sandbox_not_allowed':
       // A Sandbox (TestFlight or test) purchase for an organization that
       // is not on the server's sandbox list. Like every 422, the
