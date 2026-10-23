@@ -364,10 +364,7 @@ CacheSession openSession(Directory dir, FakeTransport transport) {
 /// The cache keeps sync times at one-second resolution, so two writes inside
 /// the same second are indistinguishable on disk. "Newer" has to mean newer in
 /// the file, not merely later in the test. Bounded: at most [maxWait].
-Future<void> waitUntilStoredLater(
-  DateTime after, {
-  Duration maxWait = const Duration(seconds: 8),
-}) async {
+Future<void> waitUntilStoredLater(DateTime after, {Duration maxWait = const Duration(seconds: 8)}) async {
   int storedSecond(DateTime t) => t.toUtc().millisecondsSinceEpoch ~/ 1000;
   final int target = storedSecond(after) + 2;
   final DateTime deadline = DateTime.now().toUtc().add(maxWait);
@@ -535,10 +532,11 @@ void expectPhoneViewport(WidgetTester tester) {
 /// and a run that zeroed a real inset, or divided one by a ratio it chose
 /// itself, would then fail to notice.
 double screenTopInset(WidgetTester tester) {
-  final BuildContext above = tester.element(find.byType(IncidentDetailScreen));
+  final BuildContext above = tester.element(
+    find.byType(IncidentDetailScreen),
+  );
   final double consumed = MediaQuery.paddingOf(above).top;
-  final double reported =
-      tester.view.padding.top / tester.view.devicePixelRatio;
+  final double reported = tester.view.padding.top / tester.view.devicePixelRatio;
   expect(
     consumed,
     closeTo(reported, 1),
@@ -580,9 +578,7 @@ Future<void> pumpDetail(
 
 /// The container that resolved the services for the rendered screen.
 ProviderContainer detailContainer(WidgetTester tester) =>
-    ProviderScope.containerOf(
-      tester.element(find.byType(IncidentDetailScreen)),
-    );
+    ProviderScope.containerOf(tester.element(find.byType(IncidentDetailScreen)));
 
 /// Asserts the container that serves the rendered tree is this fixture's
 /// session, and that the detail repository inside it is a real
@@ -775,11 +771,7 @@ Future<void> expectResponseQueueIsDead(
   expectDisabledControl(tester, kEscalateLabel);
   expectDisabledControl(tester, kSnoozeLabel);
 
-  expectShownInFull(
-    tester,
-    find.text(reason),
-    'the reason a control is disabled',
-  );
+  expectShownInFull(tester, find.text(reason), 'the reason a control is disabled');
 
   // Attempts, in both directions: a disabled control stays a control a user can
   // find, scroll to and press, and pressing it must produce no request at all.
@@ -838,7 +830,9 @@ Future<void> ensureSurfaceConverted(
   }
   debugPrint('CAPTURE_STAGE $name converting ${describeViewport(tester)}');
   try {
-    await binding.convertFlutterSurfaceToImage().timeout(_captureStageTimeout);
+    await binding
+        .convertFlutterSurfaceToImage()
+        .timeout(_captureStageTimeout);
   } on TimeoutException catch (error) {
     fail(
       'converting the Flutter surface to an image for $name never returned '
@@ -860,11 +854,7 @@ Future<void> ensureSurfaceConverted(
 /// a device whose storage never answers would otherwise end the run as "did not
 /// complete", which says nothing about what was on screen. Bounded, they name
 /// the stage they stalled in instead.
-Future<T> withinCaptureStage<T>(
-  Future<T> stage,
-  String name,
-  String what,
-) async {
+Future<T> withinCaptureStage<T>(Future<T> stage, String name, String what) async {
   try {
     return await stage.timeout(_captureStageTimeout);
   } on TimeoutException catch (error) {
@@ -1039,7 +1029,10 @@ void main() {
       'only the allowlisted reads are answered; mutations, auth and push are refused',
       (WidgetTester tester) async {
         final FakeTransport transport = FakeTransport();
-        final CacheSession session = openSession(ownedTempDir(), transport);
+        final CacheSession session = openSession(
+          ownedTempDir(),
+          transport,
+        );
         final UptrackApi api = session.api;
 
         await expectLater(
@@ -1059,10 +1052,7 @@ void main() {
           throwsA(isA<DioException>()),
         );
         await expectLater(
-          api.registerPushDevice(
-            platform: 'android',
-            token: 'never-registered',
-          ),
+          api.registerPushDevice(platform: 'android', token: 'never-registered'),
           throwsA(isA<DioException>()),
           reason: 'an FCM token registration must never be attempted',
         );
@@ -1074,11 +1064,15 @@ void main() {
         expect(transport.answered, isEmpty, reason: 'nothing was ever served');
         expect(transport.transportFailures, isEmpty);
         expect(transport.requests, hasLength(6));
-        expect(transport.mutations, <String>[
-          'POST ${incidentAcknowledgePath(kIncidentId)}',
-          'POST $kPushDevicesPath',
-          'POST $kMagicLinkPath',
-        ], reason: 'every write this app knows is counted as a mutation');
+        expect(
+          transport.mutations,
+          <String>[
+            'POST ${incidentAcknowledgePath(kIncidentId)}',
+            'POST $kPushDevicesPath',
+            'POST $kMagicLinkPath',
+          ],
+          reason: 'every write this app knows is counted as a mutation',
+        );
         expect(
           transport.refused,
           hasLength(6),
@@ -1113,7 +1107,10 @@ void main() {
           online.allow(
             'GET',
             incidentDetailPath(kIncidentId),
-            _detailEnvelope(kIncidentId, updates: <Object?>[_updateJson()]),
+            _detailEnvelope(
+              kIncidentId,
+              updates: <Object?>[_updateJson()],
+            ),
           );
           final CacheSession first = openSession(dir, online);
           configureSurface(tester, brightness: brightness);
@@ -1270,7 +1267,11 @@ void main() {
             reason: 'the update is announced as one row of its own',
           );
 
-          await capture(tester, binding, 'r4-offline-detail-$name-200-updates');
+          await capture(
+            tester,
+            binding,
+            'r4-offline-detail-$name-200-updates',
+          );
 
           // -- nothing the screen did moved a stored timestamp ---------------
           final Stored after = await storedTimes(second.cache, kIncidentId);
@@ -1353,7 +1354,10 @@ void main() {
           online.allow(
             'GET',
             incidentDetailPath(kIncidentId),
-            _detailEnvelope(kIncidentId, updates: <Object?>[_updateJson()]),
+            _detailEnvelope(
+              kIncidentId,
+              updates: <Object?>[_updateJson()],
+            ),
           );
           final CacheSession first = openSession(dir, online);
           configureSurface(tester, brightness: brightness);
@@ -1385,7 +1389,10 @@ void main() {
             'GET',
             _listPath,
             _listEnvelope(<Object?>[
-              _incidentJson(kIncidentId, resolvedAt: '2026-10-04T21:09:00Z'),
+              _incidentJson(
+                kIncidentId,
+                resolvedAt: '2026-10-04T21:09:00Z',
+              ),
             ]),
           );
           relaunched.allow(
@@ -1415,10 +1422,7 @@ void main() {
           );
 
           // The replacement preserved the independent detail snapshot exactly.
-          final Stored afterListRead = await storedTimes(
-            second.cache,
-            kIncidentId,
-          );
+          final Stored afterListRead = await storedTimes(second.cache, kIncidentId);
           expect(
             afterListRead.updatesSyncedAt,
             afterDetailRead.updatesSyncedAt,
@@ -1426,12 +1430,7 @@ void main() {
                 'a list replacement is not a detail read: it must not touch the '
                 'updates or their sync time',
           );
-          expect(
-            afterListRead.summarySyncedAt.isAfter(
-              afterListRead.updatesSyncedAt,
-            ),
-            isTrue,
-          );
+          expect(afterListRead.summarySyncedAt.isAfter(afterListRead.updatesSyncedAt), isTrue);
           debugPrint(
             'PERSISTED resolved $kIncidentId '
             'updates=${afterListRead.updatesSyncedAt.toIso8601String()} '
@@ -1493,11 +1492,7 @@ void main() {
           expect(find.text(kUpdateDescription), findsOneWidget);
           final String updatesStamp =
               '$kUpdatesStampPrefix ${formatInstant(afterListRead.updatesSyncedAt)}';
-          expectShownInFull(
-            tester,
-            find.text(updatesStamp),
-            'the updates stamp',
-          );
+          expectShownInFull(tester, find.text(updatesStamp), 'the updates stamp');
           expect(
             updatesStamp,
             isNot(summaryStamp),
@@ -1512,10 +1507,7 @@ void main() {
           );
 
           // The failed detail read changed nothing either.
-          final Stored afterRender = await storedTimes(
-            second.cache,
-            kIncidentId,
-          );
+          final Stored afterRender = await storedTimes(second.cache, kIncidentId);
           expect(afterRender.updatesSyncedAt, afterListRead.updatesSyncedAt);
           expect(afterRender.summarySyncedAt, afterListRead.summarySyncedAt);
           expect(relaunched.transportFailures, hasLength(1));
@@ -1529,184 +1521,187 @@ void main() {
   });
 
   group('a missing snapshot and a saved empty one stay two different facts', () {
-    testWidgets('one id reads "no updates yet", the other "no saved updates", from real '
-        'stored state', (WidgetTester tester) async {
-      final SemanticsLease semantics = semanticsOn(tester);
-      final Directory dir = ownedTempDir();
+    testWidgets(
+      'one id reads "no updates yet", the other "no saved updates", from real '
+      'stored state',
+      (WidgetTester tester) async {
+        final SemanticsLease semantics = semanticsOn(tester);
+        final Directory dir = ownedTempDir();
 
-      // -- generation one: a successful read that carried no updates ------
-      final FakeTransport online = FakeTransport();
-      online.allow(
-        'GET',
-        incidentDetailPath(kSavedEmptyId),
-        _detailEnvelope(kSavedEmptyId, monitorName: kMonitorName),
-      );
-      final CacheSession first = openSession(dir, online);
-      configureSurface(tester, brightness: Brightness.light);
+        // -- generation one: a successful read that carried no updates ------
+        final FakeTransport online = FakeTransport();
+        online.allow(
+          'GET',
+          incidentDetailPath(kSavedEmptyId),
+          _detailEnvelope(kSavedEmptyId, monitorName: kMonitorName),
+        );
+        final CacheSession first = openSession(dir, online);
+        configureSurface(tester, brightness: Brightness.light);
 
-      await pumpDetail(
-        tester,
-        session: first,
-        incidentId: kSavedEmptyId,
-        brightness: Brightness.light,
-      );
-      await awaitDetailState(tester, find.text(kMonitorName));
-      await reveal(tester, find.text(kNoUpdatesSaved));
-      expect(
-        find.text(kNoUpdatesSaved),
-        findsOneWidget,
-        reason:
-            'a successful read that carried none is a saved snapshot, so the '
-            'screen may say there are none',
-      );
-      expect(
-        find.text(kNoSavedUpdates),
-        findsNothing,
-        reason: 'the two states must not blur into one another',
-      );
-      expect(find.text(kOfflineNotice), findsNothing);
-      final Stored emptyStored = await storedTimes(first.cache, kSavedEmptyId);
-      debugPrint(
-        'PERSISTED empty $kSavedEmptyId '
-        'updates=${emptyStored.updatesSyncedAt.toIso8601String()}',
-      );
+        await pumpDetail(
+          tester,
+          session: first,
+          incidentId: kSavedEmptyId,
+          brightness: Brightness.light,
+        );
+        await awaitDetailState(tester, find.text(kMonitorName));
+        await reveal(tester, find.text(kNoUpdatesSaved));
+        expect(
+          find.text(kNoUpdatesSaved),
+          findsOneWidget,
+          reason:
+              'a successful read that carried none is a saved snapshot, so the '
+              'screen may say there are none',
+        );
+        expect(
+          find.text(kNoSavedUpdates),
+          findsNothing,
+          reason: 'the two states must not blur into one another',
+        );
+        expect(find.text(kOfflineNotice), findsNothing);
+        final Stored emptyStored = await storedTimes(first.cache, kSavedEmptyId);
+        debugPrint(
+          'PERSISTED empty $kSavedEmptyId '
+          'updates=${emptyStored.updatesSyncedAt.toIso8601String()}',
+        );
 
-      await unmountDetail(tester);
-      await first.close();
+        await unmountDetail(tester);
+        await first.close();
 
-      // -- generation two: a list read adds a row that was never detailed ---
-      final FakeTransport relaunched = FakeTransport();
-      relaunched.allow(
-        'GET',
-        _listPath,
-        _listEnvelope(<Object?>[
-          _incidentJson(kSavedEmptyId),
-          _incidentJson(kSummaryOnlyId, monitorName: kOtherMonitorName),
-        ]),
-      );
-      for (final String id in <String>[kSavedEmptyId, kSummaryOnlyId]) {
-        relaunched.allow('GET', incidentDetailPath(id), <String, Object?>{
-          'never': 'served',
-        });
-        relaunched.goOffline('GET', incidentDetailPath(id));
-      }
-      final CacheSession second = openSession(dir, relaunched);
+        // -- generation two: a list read adds a row that was never detailed ---
+        final FakeTransport relaunched = FakeTransport();
+        relaunched.allow(
+          'GET',
+          _listPath,
+          _listEnvelope(<Object?>[
+            _incidentJson(kSavedEmptyId),
+            _incidentJson(kSummaryOnlyId, monitorName: kOtherMonitorName),
+          ]),
+        );
+        for (final String id in <String>[kSavedEmptyId, kSummaryOnlyId]) {
+          relaunched.allow(
+            'GET',
+            incidentDetailPath(id),
+            <String, Object?>{'never': 'served'},
+          );
+          relaunched.goOffline('GET', incidentDetailPath(id));
+        }
+        final CacheSession second = openSession(dir, relaunched);
 
-      await waitUntilStoredLater(emptyStored.updatesSyncedAt);
-      await ApiIncidentsRepository(api: second.api, cache: second.cache).load();
+        await waitUntilStoredLater(emptyStored.updatesSyncedAt);
+        await ApiIncidentsRepository(api: second.api, cache: second.cache).load();
 
-      expect(
-        await second.cache.countIncidentDetails(),
-        1,
-        reason:
-            'the list read wrote a summary row, not a detail snapshot: a list '
-            'read says nothing about an incident\'s updates',
-      );
-      expect(await second.cache.getIncidentDetail(kSummaryOnlyId), isNull);
-      final Stored afterList = await storedTimes(second.cache, kSavedEmptyId);
+        expect(
+          await second.cache.countIncidentDetails(),
+          1,
+          reason:
+              'the list read wrote a summary row, not a detail snapshot: a list '
+              'read says nothing about an incident\'s updates',
+        );
+        expect(await second.cache.getIncidentDetail(kSummaryOnlyId), isNull);
+        final Stored afterList = await storedTimes(second.cache, kSavedEmptyId);
 
-      // -- the id with the saved, genuinely empty snapshot -----------------
-      await pumpDetail(
-        tester,
-        session: second,
-        incidentId: kSavedEmptyId,
-        brightness: Brightness.light,
-      );
-      expectSessionUnderTest(tester, second, kSavedEmptyId);
-      await awaitDetailState(
-        tester,
-        find.text(kOtherMonitorNameOf(kSavedEmptyId)),
-      );
-      expect(
-        find.text(
-          '$kSummaryStampPrefix ${formatInstant(afterList.summarySyncedAt)}',
-        ),
-        findsOneWidget,
-      );
-      expect(tester.takeException(), isNull);
-      // Its real detail sync time is retained, and is now older than the
-      // summary's, so the screen states it as its own stamp. The section is
-      // below the fold, so it is reached by scrolling.
-      await reveal(tester, _updatesHeading);
-      expect(
-        find.text(
-          '$kUpdatesStampPrefix ${formatInstant(afterList.updatesSyncedAt)}',
-        ),
-        findsOneWidget,
-        reason:
-            'an empty snapshot still carries the instant it was actually read',
-      );
-      expect(
-        find.text(kNoUpdatesSaved),
-        findsOneWidget,
-        reason: 'the saved snapshot really is empty, and really was read',
-      );
-      expect(
-        find.text(kNoSavedUpdates),
-        findsNothing,
-        reason: 'the two states must not blur into one another',
-      );
-      expectReachable(tester, find.text(kNoUpdatesSaved), 'the empty state');
+        // -- the id with the saved, genuinely empty snapshot -----------------
+        await pumpDetail(
+          tester,
+          session: second,
+          incidentId: kSavedEmptyId,
+          brightness: Brightness.light,
+        );
+        expectSessionUnderTest(tester, second, kSavedEmptyId);
+        await awaitDetailState(tester, find.text(kOtherMonitorNameOf(kSavedEmptyId)));
+        expect(
+          find.text(
+            '$kSummaryStampPrefix ${formatInstant(afterList.summarySyncedAt)}',
+          ),
+          findsOneWidget,
+        );
+        expect(tester.takeException(), isNull);
+        // Its real detail sync time is retained, and is now older than the
+        // summary's, so the screen states it as its own stamp. The section is
+        // below the fold, so it is reached by scrolling.
+        await reveal(tester, _updatesHeading);
+        expect(
+          find.text(
+            '$kUpdatesStampPrefix ${formatInstant(afterList.updatesSyncedAt)}',
+          ),
+          findsOneWidget,
+          reason:
+              'an empty snapshot still carries the instant it was actually read',
+        );
+        expect(
+          find.text(kNoUpdatesSaved),
+          findsOneWidget,
+          reason: 'the saved snapshot really is empty, and really was read',
+        );
+        expect(
+          find.text(kNoSavedUpdates),
+          findsNothing,
+          reason: 'the two states must not blur into one another',
+        );
+        expectReachable(tester, find.text(kNoUpdatesSaved), 'the empty state');
 
-      // -- the id with no snapshot at all ----------------------------------
-      await pumpDetail(
-        tester,
-        session: second,
-        incidentId: kSummaryOnlyId,
-        brightness: Brightness.light,
-      );
-      expectSessionUnderTest(tester, second, kSummaryOnlyId);
-      await awaitDetailState(tester, find.text(kOtherMonitorName));
-      // The notice is at the top of the screen and is asserted there: the
-      // list is lazy, so scrolling to the updates section disposes it.
-      expect(
-        find.text(kOfflineNotice),
-        findsOneWidget,
-        reason: 'the summary row is served, so the screen still shows context',
-      );
-      expect(
-        find.textContaining(kUpdatesStampPrefix),
-        findsNothing,
-        reason: 'there is no updates snapshot to put a time on',
-      );
-      // The updates section is below the fold at 200%, so the state is read
-      // where a reader reaches it rather than assumed from the data.
-      await reveal(tester, find.text(kNoSavedUpdates));
-      expect(
-        find.text(kNoSavedUpdates),
-        findsOneWidget,
-        reason:
-            'nothing was ever saved for this incident, so the screen says the '
-            'updates are not available offline rather than that there are none',
-      );
-      expect(
-        find.text(kNoUpdatesSaved),
-        findsNothing,
-        reason:
-            'with nothing saved the screen cannot claim there are no updates; '
-            'it does not know',
-      );
-      expect(tester.takeException(), isNull);
-      expectReachable(
-        tester,
-        find.text(kNoSavedUpdates),
-        'the no-snapshot state',
-      );
+        // -- the id with no snapshot at all ----------------------------------
+        await pumpDetail(
+          tester,
+          session: second,
+          incidentId: kSummaryOnlyId,
+          brightness: Brightness.light,
+        );
+        expectSessionUnderTest(tester, second, kSummaryOnlyId);
+        await awaitDetailState(tester, find.text(kOtherMonitorName));
+        // The notice is at the top of the screen and is asserted there: the
+        // list is lazy, so scrolling to the updates section disposes it.
+        expect(
+          find.text(kOfflineNotice),
+          findsOneWidget,
+          reason: 'the summary row is served, so the screen still shows context',
+        );
+        expect(
+          find.textContaining(kUpdatesStampPrefix),
+          findsNothing,
+          reason: 'there is no updates snapshot to put a time on',
+        );
+        // The updates section is below the fold at 200%, so the state is read
+        // where a reader reaches it rather than assumed from the data.
+        await reveal(tester, find.text(kNoSavedUpdates));
+        expect(
+          find.text(kNoSavedUpdates),
+          findsOneWidget,
+          reason:
+              'nothing was ever saved for this incident, so the screen says the '
+              'updates are not available offline rather than that there are none',
+        );
+        expect(
+          find.text(kNoUpdatesSaved),
+          findsNothing,
+          reason:
+              'with nothing saved the screen cannot claim there are no updates; '
+              'it does not know',
+        );
+        expect(tester.takeException(), isNull);
+        expectReachable(
+          tester,
+          find.text(kNoSavedUpdates),
+          'the no-snapshot state',
+        );
 
-      expect(
-        relaunched.mutations,
-        isEmpty,
-        reason: 'reading cached context changes nothing on the server',
-      );
-      expect(
-        relaunched.answered,
-        everyElement(equals('GET $_listPath')),
-        reason: 'both detail reads failed; only the list read was served',
-      );
-      expect(relaunched.transportFailures, hasLength(2));
-      expect(relaunched.refused, isEmpty);
-      expect(online.mutations, isEmpty);
-      semantics.dispose();
-    }, timeout: const Timeout(Duration(minutes: 5)));
+        expect(
+          relaunched.mutations,
+          isEmpty,
+          reason: 'reading cached context changes nothing on the server',
+        );
+        expect(
+          relaunched.answered,
+          everyElement(equals('GET $_listPath')),
+          reason: 'both detail reads failed; only the list read was served',
+        );
+        expect(relaunched.transportFailures, hasLength(2));
+        expect(relaunched.refused, isEmpty);
+        expect(online.mutations, isEmpty);
+        semantics.dispose();
+      },
+      timeout: const Timeout(Duration(minutes: 5)),
+    );
   });
 }

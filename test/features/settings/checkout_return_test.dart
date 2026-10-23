@@ -172,36 +172,33 @@ void main() {
     expect(find.text('Your Pro plan is ready'), findsOneWidget);
   });
 
-  testWidgets(
-    'with the billing link off, a checkout link resolves to the home screen',
-    (WidgetTester tester) async {
-      final GoRouter router = createRouter(
-        authStatusOf: () => AuthStatus.signedIn,
-      );
-      addTearDown(router.dispose);
-      late BuildContext context;
-      await tester.pumpWidget(
-        Builder(
-          builder: (BuildContext c) {
-            context = c;
-            return const SizedBox();
-          },
-        ),
-      );
-      // Ask the router where the link leads without building any screen.
-      for (final String link in <String>[
-        'uptrack://app/billing/return?plan=pro',
-        '/billing/return',
-      ]) {
-        final matches = await router.routeInformationParser
-            .parseRouteInformationWithDependencies(
-              RouteInformation(uri: Uri.parse(link)),
-              context,
-            );
-        expect(matches.uri.path, '/', reason: link);
-      }
-    },
-  );
+  testWidgets('with the billing link off, a checkout link resolves to the home screen', (
+    WidgetTester tester,
+  ) async {
+    final GoRouter router = createRouter(authStatusOf: () => AuthStatus.signedIn);
+    addTearDown(router.dispose);
+    late BuildContext context;
+    await tester.pumpWidget(
+      Builder(
+        builder: (BuildContext c) {
+          context = c;
+          return const SizedBox();
+        },
+      ),
+    );
+    // Ask the router where the link leads without building any screen.
+    for (final String link in <String>[
+      'uptrack://app/billing/return?plan=pro',
+      '/billing/return',
+    ]) {
+      final matches = await router.routeInformationParser
+          .parseRouteInformationWithDependencies(
+            RouteInformation(uri: Uri.parse(link)),
+            context,
+          );
+      expect(matches.uri.path, '/', reason: link);
+    }
+  });
 
   testWidgets('preserves the checkout return through first-app sign-in', (
     WidgetTester tester,
