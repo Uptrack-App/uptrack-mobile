@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart' show visibleForTesting;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -89,6 +90,10 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   /// `Product.purchase()` or Restore Purchases answered.
   static const Duration kUpdateTimeout = Duration(seconds: 30);
 
+  /// The wait that the controller uses. Tests make it short.
+  @visibleForTesting
+  static Duration updateTimeout = kUpdateTimeout;
+
   StreamSubscription<List<StoreTransaction>>? _updates;
   final Set<String> _inFlight = <String>{};
 
@@ -98,6 +103,10 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   Completer<void>? _restoreBatch;
   int _restoredSeen = 0;
   Timer? _updateTimeout;
+
+  /// A purchase whose StoreKit update did not come in time. Its late update
+  /// still shows its result to the user.
+  String? _lateProductId;
 
   AppStoreClient? get _store => ref.read(appStoreClientProvider);
 
@@ -173,11 +182,18 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
           // Stay busy: the transaction arrives on the updates stream, then
           // goes to the server. Stop waiting if it never arrives.
           _updateTimeout?.cancel();
-          _updateTimeout = Timer(kUpdateTimeout, () {
+          _updateTimeout = Timer(updateTimeout, () {
             if (ref.mounted &&
                 state.busyProductId == productId &&
                 !_delivering.contains(productId)) {
-              state = ApplePurchaseState(notice: state.notice);
+              _lateProductId = productId;
+              _notice(
+                const PurchaseNotice(
+                  'The App Store has not confirmed the purchase yet. Your plan changes when it does. If it does not change, tap Restore Purchases.',
+                  PurchaseNoticeKind.info,
+                ),
+                endPurchaseOf: productId,
+              );
             }
           });
         case StorePurchaseResult.pending:
@@ -218,15 +234,24 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       await store.restore();
       // StoreKit sends the entitlements in one batch (also an empty one),
       // before or after `restore` returns.
-      await batch.future.timeout(kUpdateTimeout, onTimeout: () {});
+      bool answered = true;
+      await batch.future.timeout(
+        updateTimeout,
+        onTimeout: () => answered = false,
+      );
       await Future.wait(List<Future<void>>.of(_restoreDeliveries));
       if (!ref.mounted) return;
       if (_restoredSeen == 0) {
-        state = const ApplePurchaseState(
-          notice: PurchaseNotice(
-            'No App Store subscription to restore for this Apple ID.',
-            PurchaseNoticeKind.info,
-          ),
+        state = ApplePurchaseState(
+          notice: answered
+              ? const PurchaseNotice(
+                  'No App Store subscription to restore for this Apple ID.',
+                  PurchaseNoticeKind.info,
+                )
+              : const PurchaseNotice(
+                  'The App Store did not answer. Tap Restore Purchases again later.',
+                  PurchaseNoticeKind.error,
+                ),
         );
         return;
       }
@@ -235,6 +260,15 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       if (!ref.mounted) return;
       state = ApplePurchaseState(
         notice: PurchaseNotice(_storeError(e), PurchaseNoticeKind.error),
+      );
+    } on Object {
+      // Never stay in the restoring state.
+      if (!ref.mounted) return;
+      state = const ApplePurchaseState(
+        notice: PurchaseNotice(
+          'The App Store is not available right now. Try again later.',
+          PurchaseNoticeKind.error,
+        ),
       );
     } finally {
       if (identical(_restoreBatch, batch)) _restoreBatch = null;
@@ -261,6 +295,8 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
         case StoreTransactionState.purchased:
         case StoreTransactionState.restored:
           final bool restoring = state.restoring;
+          final bool late = _lateProductId == t.productId;
+          if (late) _lateProductId = null;
           if (t.state == StoreTransactionState.restored) _restoredSeen++;
           if (!t.hasTransaction) {
             if (mine) {
@@ -273,7 +309,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
           }
           final Future<void> delivery = _deliver(
             t,
-            userVisible: mine || restoring,
+            userVisible: mine || restoring || late,
           );
           if (restoring) _restoreDeliveries.add(delivery);
       }

@@ -441,6 +441,71 @@ void main() {
     });
   });
 
+  group('StoreKit sends no update in time', () {
+    setUp(
+      () => ApplePurchaseController.updateTimeout = const Duration(
+        milliseconds: 50,
+      ),
+    );
+    tearDown(
+      () => ApplePurchaseController.updateTimeout =
+          ApplePurchaseController.kUpdateTimeout,
+    );
+
+    test('purchase: the wait ends with a message, not in silence', () async {
+      // StoreKit answers success, but its update does not come.
+      final _SilentBuyStore silent = _SilentBuyStore();
+      final _Harness s = _Harness(store: silent);
+      addTearDown(s.container.dispose);
+      s.controller;
+      await s.settle();
+      await s.controller.buy(_proMonthly);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(s.state.busy, isFalse);
+      expect(s.state.notice?.kind, PurchaseNoticeKind.info);
+      expect(s.state.notice?.message, contains('Restore Purchases'));
+    });
+
+    test('purchase: a late update after the wait is shown', () async {
+      final _SilentBuyStore store = _SilentBuyStore();
+      final _Harness h = _Harness(
+        store: store,
+        transactionStatus: 409,
+        transactionBody: <String, Object?>{
+          'error_code': 'subscription_exists',
+          'provider': 'paddle',
+        },
+      );
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.buy(_proMonthly);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      expect(h.state.busy, isFalse);
+      store.emit(<StoreTransaction>[purchased(_proMonthly, 'tx-late')]);
+      await h.settle();
+      expect(h.posted, <String>['jws.tx-late']);
+      expect(store.finished, isEmpty);
+      expect(h.state.notice?.kind, PurchaseNoticeKind.error);
+      expect(h.state.notice?.message, contains('managed on the web'));
+    });
+
+    test('restore: no batch in time is not "nothing to restore"', () async {
+      final _SilentBuyStore store = _SilentBuyStore();
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.restore();
+      expect(h.state.restoring, isFalse);
+      expect(
+        h.state.notice?.message,
+        isNot(contains('No App Store subscription')),
+      );
+      expect(h.state.notice?.message, contains('Restore Purchases again'));
+    });
+  });
+
   group('a transaction of another organization (account switch)', () {
     const String otherOrg = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
 
@@ -508,4 +573,21 @@ void main() {
     expect(c.read(appleIapEnabledProvider), isFalse);
     debugDefaultTargetPlatformOverride = null;
   });
+}
+
+/// StoreKit answers `buy` and `restore`, but sends no update.
+class _SilentBuyStore extends FakeAppStore {
+  @override
+  Future<StorePurchaseResult> buy(
+    String productId, {
+    required String appAccountToken,
+  }) async {
+    buys.add((productId: productId, appAccountToken: appAccountToken));
+    return StorePurchaseResult.success;
+  }
+
+  @override
+  Future<void> restore() async {
+    restores++;
+  }
 }
