@@ -43,10 +43,21 @@ class _Harness {
     this.role = 'owner',
     this.transactionStatus = 200,
     this.transactionBody,
+    this.meStatus = 200,
   }) {
     final Dio dio = Dio(BaseOptions(baseUrl: 'http://localhost:4000'));
     dio.httpClientAdapter = FakeAdapter((RequestOptions o) async {
-      if (o.path == kGetMePath) return jsonResponse(_me(role: role));
+      if (o.path == kGetMePath) {
+        if (meStatus == -1) {
+          throw DioException.connectionError(
+            requestOptions: o,
+            reason: 'offline',
+          );
+        }
+        return meStatus == 200
+            ? jsonResponse(_me(role: role))
+            : jsonResponse(<String, Object?>{'error': 'down'}, meStatus);
+      }
       if (o.path == kAppleTransactionsPath) {
         if (gate != null) await gate!.future;
         posted.add(
@@ -75,6 +86,7 @@ class _Harness {
 
   final FakeAppStore store;
   final String role;
+  final int meStatus;
   int transactionStatus;
   Completer<void>? gate;
   Map<String, Object?>? transactionBody;
@@ -754,6 +766,39 @@ void main() {
       expect(store.buys.single.productId, _proMonthly);
       expect(h.state.notice?.kind, PurchaseNoticeKind.success);
     });
+  });
+
+  group('the account check before a purchase fails', () {
+    for (final ({int status, String text}) c in <({int status, String text})>[
+      (
+        status: 500,
+        text: 'Uptrack is not available right now. Try again later.',
+      ),
+      (
+        status: 503,
+        text: 'Uptrack is not available right now. Try again later.',
+      ),
+      (
+        status: -1,
+        text: 'Could not reach Uptrack. Check your connection and try again.',
+      ),
+    ]) {
+      test('getMe ${c.status}: no purchase, a true text', () async {
+        final FakeAppStore store = FakeAppStore();
+        final _Harness h = _Harness(store: store, meStatus: c.status);
+        addTearDown(h.container.dispose);
+        h.controller;
+        await h.settle();
+
+        await h.controller.buy(_proMonthly);
+        await h.settle();
+
+        expect(store.buys, isEmpty);
+        expect(h.state.busy, isFalse);
+        expect(h.state.notice?.kind, PurchaseNoticeKind.error);
+        expect(h.state.notice?.message, c.text);
+      });
+    }
   });
 
   test(

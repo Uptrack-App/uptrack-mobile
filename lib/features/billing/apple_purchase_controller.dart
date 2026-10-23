@@ -231,11 +231,15 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
         case StorePurchaseResult.userCancelled:
           state = ApplePurchaseState(notice: state.notice);
       }
-    } on DioException {
+    } on DioException catch (e) {
       if (!ref.mounted) return;
+      // Nothing was bought yet, so the text does not talk of a purchase.
+      final int? status = e.response?.statusCode;
       _fail(
         productId,
-        'Could not reach Uptrack. Check your connection and try again.',
+        status != null && status >= 500 && status < 600
+            ? 'Uptrack is not available right now. Try again later.'
+            : 'Could not reach Uptrack. Check your connection and try again.',
       );
     } on PlatformException catch (e) {
       if (!ref.mounted) return;
