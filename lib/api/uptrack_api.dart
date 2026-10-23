@@ -623,8 +623,9 @@ class UptrackApi {
   /// transaction (JWS) after a purchase, a restore or a renewal. Owner only.
   /// The server checks the JWS and that its `appAccountToken` equals the
   /// organization ID, then answers with the subscription body. Errors come
-  /// as [DioException]: 403 `not_owner`, 409 `subscription_exists`, 422
-  /// `invalid_transaction`, 404 when the server has IAP off.
+  /// as [DioException]: 403 `not_owner`, 409 `subscription_exists` (with
+  /// `provider` `paddle` or `apple`), 422 `invalid_transaction` or
+  /// `sandbox_not_allowed`, 404 when the server has IAP off.
   Future<BillingSubscriptionInfo> postAppleTransaction(
     String signedTransaction,
   ) async {

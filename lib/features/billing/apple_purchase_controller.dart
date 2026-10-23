@@ -365,6 +365,9 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       : 'The App Store is not available right now. Try again later.';
 }
 
+const String _invalidTransaction =
+    'Uptrack could not confirm this App Store purchase. Tap Restore Purchases to try again.';
+
 /// User text for a failed `POST /api/billing/apple/transactions` (D7, D8).
 String appleTransactionErrorMessage(DioException e) {
   final Object? data = e.response?.data;
@@ -373,11 +376,22 @@ String appleTransactionErrorMessage(DioException e) {
     case 'not_owner':
       return 'Only the organization owner can buy or restore a plan.';
     case 'subscription_exists':
+      final Object? provider = data is Map ? data['provider'] : null;
+      if (provider == 'apple') {
+        return 'This organization already has an App Store subscription from another Apple ID. Manage it with that Apple ID.';
+      }
       return 'Your plan is managed on the web. This organization already has a subscription, so the App Store cannot add a second one.';
+    case 'sandbox_not_allowed':
+      // A Sandbox (TestFlight or test) purchase for an organization that
+      // is not on the server's sandbox list. Like every 422, the
+      // transaction stays unfinished.
+      return 'Test purchases are not enabled for this account.';
     case 'invalid_transaction':
-      return 'Uptrack could not confirm this App Store purchase. Tap Restore Purchases to try again.';
+      return _invalidTransaction;
   }
   switch (e.response?.statusCode) {
+    case 422:
+      return _invalidTransaction;
     case 404:
       return 'Purchases in the app are not available yet. Try again later.';
     case 401:

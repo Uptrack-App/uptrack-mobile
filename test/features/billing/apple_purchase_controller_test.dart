@@ -125,6 +125,19 @@ void main() {
           text: 'Your plan is managed on the web.',
         ),
         (
+          status: 409,
+          body: <String, Object?>{
+            'error_code': 'subscription_exists',
+            'provider': 'apple',
+          },
+          text: 'already has an App Store subscription',
+        ),
+        (
+          status: 422,
+          body: <String, Object?>{'error_code': 'sandbox_not_allowed'},
+          text: 'Test purchases are not enabled for this account.',
+        ),
+        (
           status: 422,
           body: <String, Object?>{'error_code': 'invalid_transaction'},
           text: 'could not confirm this App Store purchase',

@@ -48,10 +48,16 @@ void main() {
           ),
         ),
       );
-      await tester.runAsync(() => precacheImage(
-        AssetImage(dark ? 'assets/brand/uptrack-wordmark-dark.png' : 'assets/brand/uptrack-wordmark-light.png'),
-        tester.element(find.byType(UptrackBrand)),
-      ));
+      await tester.runAsync(
+        () => precacheImage(
+          AssetImage(
+            dark
+                ? 'assets/brand/uptrack-wordmark-dark.png'
+                : 'assets/brand/uptrack-wordmark-light.png',
+          ),
+          tester.element(find.byType(UptrackBrand)),
+        ),
+      );
       // Busy/loading fixtures deliberately animate forever; capture a stable frame.
       await tester.pump(const Duration(milliseconds: 250));
       expect(tester.takeException(), isNull);

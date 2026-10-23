@@ -15,9 +15,10 @@ const String _widgetsBundleId = 'app.uptrack.mobile.widgets';
 String _read(String path) => File(path).readAsStringSync();
 
 Set<String> _bundleIds(String pbxproj) {
-  return RegExp(
-    r'PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);',
-  ).allMatches(pbxproj).map((RegExpMatch m) => m.group(1)!.trim()).toSet();
+  return RegExp(r'PRODUCT_BUNDLE_IDENTIFIER = ([^;]+);')
+      .allMatches(pbxproj)
+      .map((RegExpMatch m) => m.group(1)!.trim())
+      .toSet();
 }
 
 void main() {
@@ -36,9 +37,10 @@ void main() {
   });
 
   test('the minimum iOS version is 16.0 for every target', () {
-    final Set<String> targets = RegExp(
-      r'IPHONEOS_DEPLOYMENT_TARGET = ([^;]+);',
-    ).allMatches(pbxproj).map((RegExpMatch m) => m.group(1)!.trim()).toSet();
+    final Set<String> targets = RegExp(r'IPHONEOS_DEPLOYMENT_TARGET = ([^;]+);')
+        .allMatches(pbxproj)
+        .map((RegExpMatch m) => m.group(1)!.trim())
+        .toSet();
     expect(targets, <String>{'16.0'});
   });
 
@@ -54,7 +56,9 @@ void main() {
     expect(app, contains('<key>aps-environment</key>'));
     expect(
       app,
-      contains('<key>com.apple.developer.usernotifications.time-sensitive</key>'),
+      contains(
+        '<key>com.apple.developer.usernotifications.time-sensitive</key>',
+      ),
     );
   });
 
@@ -72,9 +76,10 @@ void main() {
   // v1 ships for iPhone only. An iPad target makes App Store Connect require
   // iPad screenshots and App Review test the iPad layout.
   test('every target builds for iPhone only', () {
-    final Set<String> families = RegExp(
-      r'TARGETED_DEVICE_FAMILY = ([^;]+);',
-    ).allMatches(pbxproj).map((RegExpMatch m) => m.group(1)!.trim()).toSet();
+    final Set<String> families = RegExp(r'TARGETED_DEVICE_FAMILY = ([^;]+);')
+        .allMatches(pbxproj)
+        .map((RegExpMatch m) => m.group(1)!.trim())
+        .toSet();
     expect(families, <String>{'1'});
   });
 
@@ -111,12 +116,15 @@ void main() {
     );
   });
 
-  test('every Runner build configuration signs with that entitlements file', () {
-    expect(
-      RegExp(
-        r'CODE_SIGN_ENTITLEMENTS = Runner/UptrackMobile\.entitlements;',
-      ).allMatches(pbxproj).length,
-      3,
-    );
-  });
+  test(
+    'every Runner build configuration signs with that entitlements file',
+    () {
+      expect(
+        RegExp(r'CODE_SIGN_ENTITLEMENTS = Runner/UptrackMobile\.entitlements;')
+            .allMatches(pbxproj)
+            .length,
+        3,
+      );
+    },
+  );
 }
