@@ -105,6 +105,9 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
+    // Android and iOS builds without In-App Purchase have no App Store
+    // client, so no "Manage subscription" button.
+    final bool hasStore = ref.watch(appStoreClientProvider) != null;
     return Padding(
       padding: const EdgeInsets.all(16),
       child: Column(
@@ -122,11 +125,11 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
             Text(
               'Your App Store subscription continues after you delete your '
               'account, and Apple keeps charging you until you cancel it. '
-              'Cancel it in Manage subscription first.',
+              '${hasStore ? 'Cancel it in Manage subscription first.' : 'Cancel it first on your iPhone or iPad: open the Settings app, tap your name, then tap Subscriptions.'}',
               key: const ValueKey<String>('delete-apple-subscription'),
               style: theme.textTheme.bodyMedium,
             ),
-            if (ref.watch(appStoreClientProvider) != null) ...<Widget>[
+            if (hasStore) ...<Widget>[
               const SizedBox(height: 8),
               UptrackButton(
                 key: const ValueKey<String>('delete-manage-apple'),

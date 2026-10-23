@@ -49,6 +49,7 @@ class _Setup {
     this.role = 'owner',
     BillingSubscriptionInfo? billing,
     this.iapEnabled = true,
+    this.noStore = false,
   }) : store = store ?? FakeAppStore(),
        billing = billing ?? _billing();
 
@@ -56,6 +57,9 @@ class _Setup {
   final String role;
   final BillingSubscriptionInfo billing;
   final bool iapEnabled;
+
+  /// Android, or an iOS build without the define: no App Store client.
+  final bool noStore;
   final List<String> posted = <String>[];
 
   ProviderScope wrap(Widget child) {
@@ -85,7 +89,7 @@ class _Setup {
     });
     return ProviderScope(
       overrides: [
-        appStoreClientProvider.overrideWithValue(store),
+        appStoreClientProvider.overrideWithValue(noStore ? null : store),
         appleIapEnabledProvider.overrideWithValue(iapEnabled),
         uptrackApiProvider.overrideWithValue(UptrackApi(dio: dio)),
         settingsProfileProvider.overrideWith(
@@ -369,6 +373,35 @@ void main() {
   });
 
   group('DangerZoneSection (5.9, D2)', () {
+    testWidgets('Apple subscription without an App Store client (Android)', (
+      WidgetTester tester,
+    ) async {
+      final _Setup s = _Setup(
+        noStore: true,
+        iapEnabled: false,
+        billing: _billing(
+          provider: 'apple',
+          plan: 'pro',
+          productId: 'app.uptrack.mobile.pro.monthly',
+        ),
+      );
+      await tester.pumpWidget(s.wrap(_settingsBody()));
+      await tester.pumpAndSettle();
+      final Finder text = find.byKey(
+        const ValueKey<String>('delete-apple-subscription'),
+      );
+      await _scrollTo(tester, text);
+      final String data = tester.widget<Text>(text).data!;
+      expect(data, contains('continues after you delete your account'));
+      // No button here, so the text must not point to one.
+      expect(data, isNot(contains('Manage subscription')));
+      expect(data, contains('Subscriptions'));
+      expect(
+        find.byKey(const ValueKey<String>('delete-manage-apple')),
+        findsNothing,
+      );
+    });
+
     testWidgets('Apple subscription: it continues; Manage subscription', (
       WidgetTester tester,
     ) async {
