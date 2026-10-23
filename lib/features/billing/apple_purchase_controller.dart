@@ -491,6 +491,14 @@ String appleTransactionErrorMessage(DioException e) {
       return 'Purchases in the app are not available yet. Try again later.';
     case 401:
       return 'Your session expired. Sign in again, then tap Restore Purchases.';
+    case 403:
+      // Not the D8 `not_owner` answer: the session or the account may not
+      // buy (for example a token without the billing right).
+      return 'This account cannot buy plans. Sign in again or ask the organization owner.';
+  }
+  final int? status = e.response?.statusCode;
+  if (status != null && status >= 500 && status < 600) {
+    return 'Uptrack could not confirm the purchase. Try Restore Purchases later.';
   }
   return 'Could not reach Uptrack. Your purchase is safe: the app sends it again the next time it opens. You can also tap Restore Purchases.';
 }

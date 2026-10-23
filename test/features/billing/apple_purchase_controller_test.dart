@@ -150,10 +150,25 @@ void main() {
           text: 'Only the organization owner',
         ),
         (status: 404, body: <String, Object?>{}, text: 'not available yet'),
-        (status: 500, body: <String, Object?>{}, text: 'Your purchase is safe'),
+        (
+          status: 403,
+          body: <String, Object?>{},
+          text: 'This account cannot buy plans. Sign in again or ask the organization owner.',
+        ),
+        (
+          status: 500,
+          body: <String, Object?>{},
+          text: 'Uptrack could not confirm the purchase. Try Restore Purchases later.',
+        ),
+        (
+          status: 503,
+          body: <String, Object?>{'error': 'unavailable'},
+          text: 'Uptrack could not confirm the purchase. Try Restore Purchases later.',
+        ),
         (status: -1, body: <String, Object?>{}, text: 'Your purchase is safe'),
       ]) {
-    test('server ${c.status}: the transaction stays unfinished', () async {
+    test('server ${c.status} ${c.body['error_code'] ?? 'no error_code'}: '
+        'the transaction stays unfinished', () async {
       final FakeAppStore store = FakeAppStore();
       final _Harness h = _Harness(
         store: store,
