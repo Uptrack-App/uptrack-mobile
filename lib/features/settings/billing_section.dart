@@ -11,9 +11,12 @@ import '../billing/app_store.dart';
 import '../billing/apple_purchase_controller.dart';
 import '../billing/plans_screen.dart';
 
-/// `GET /api/billing/subscription` for the settings billing section.
+/// `GET /api/billing/subscription` for the settings billing section. It
+/// loads again for each session, so the Plans screen never gates D7 on the
+/// billing of the account before a sign-out.
 final FutureProvider<BillingSubscriptionInfo> settingsBillingProvider =
     FutureProvider<BillingSubscriptionInfo>((Ref ref) async {
+      watchAuthSession(ref);
       return ref.read(uptrackApiProvider).getBillingSubscription();
     });
 

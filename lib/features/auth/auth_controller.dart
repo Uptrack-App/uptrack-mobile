@@ -203,6 +203,15 @@ final Provider<UptrackApi> uptrackApiProvider = Provider<UptrackApi>(
   (Ref ref) => UptrackApi(dio: ref.watch(dioProvider)),
 );
 
+/// Makes a provider load again when the session changes (sign-out, then a
+/// sign-in to the same or another account), so no data of the account
+/// before stays in it.
+void watchAuthSession(Ref ref) {
+  ref.watch(
+    authControllerProvider.select((AuthState s) => (s.status, s.deviceTokenId)),
+  );
+}
+
 final NotifierProvider<AuthController, AuthState> authControllerProvider =
     NotifierProvider<AuthController, AuthState>(AuthController.new);
 

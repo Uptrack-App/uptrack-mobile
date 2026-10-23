@@ -5,8 +5,11 @@ import '../../api/models/current_user.dart';
 import '../auth/auth_controller.dart';
 
 /// `GET /api/auth/me` for the settings profile section.
+/// It loads again for each session, so the screens (and the owner-only
+/// buy of D8) never use the user of the account before a sign-out.
 final FutureProvider<CurrentUserResponse> settingsProfileProvider =
     FutureProvider<CurrentUserResponse>((Ref ref) async {
+      watchAuthSession(ref);
       return ref.read(uptrackApiProvider).getMe();
     });
 
