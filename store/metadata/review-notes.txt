@@ -1,9 +1,12 @@
-Uptrack review notes (v1.0.0)
+Uptrack review notes (v1.0.0, build 2)
 
 SIGN-IN FOR REVIEW (iOS and Android)
 - Reviewer account: sign in with the email given in App Store Connect / Play Console "Sign-in information". Enter the email, tap "Email me a sign-in link", type the review code from the same field into "Sign-in link or code", then tap "Sign in". No inbox is needed. The code works only for that one account and is never stored in this repository.
+- Sign-in link in the email (any account with an inbox): tap the link in the email. It opens the Uptrack app and signs you in (universal link for uptrack.app). If the device opens it in Safari, the page offers "Copy sign-in link"; paste it into "Sign-in link or code" in the app.
+- iPhone and iPad: the app is built for iPhone and runs on iPad. We tested sign-in, the email link, purchases and account deletion on both. [CONFIRM IN PLAN STEP 7.4 BEFORE PASTING; REMOVE THIS MARK]
 - This account has three sample monitors. "Checkout API (sample outage)" is always down, so there is always an open incident to open, acknowledge, escalate or snooze, and allowing notifications on the device delivers its alerts.
-- Account deletion: Settings -> Danger zone. For safety, the app deletes an account only within 15 minutes of a sign-in; otherwise it asks you to sign in again. No password is needed for this account.
+- The reviewer account is the owner of its organization and has no subscription, so you can buy a plan with your sandbox Apple Account.
+- Account deletion: Settings -> Danger zone. For safety, the app deletes an account only within 15 minutes of a sign-in; otherwise it asks you to sign in again. No password is needed for this account. If the account has an App Store subscription, the app says that the subscription continues until it is cancelled and offers "Manage subscription".
 
 DEMO ACCESS (no account)
 - On the welcome screen, tap "Try demo". No account, password or payment is required.
@@ -16,7 +19,7 @@ WHAT TO EXERCISE
 - Monitors → search/filter list → detail (response-time chart, check history).
 - Incidents → detail → Acknowledge (optimistic update with rollback on error).
 - Status → open a public status page (password field appears only for protected pages).
-- Settings → profile, notification preferences (severity mapping, quiet hours), Devices (list + revoke), billing (read-only — no IAP).
+- Settings → profile, notification preferences (severity mapping, quiet hours), Devices (list + revoke), Billing (current plan, "See plans").
 
 DATA SAFETY SUMMARY
 - No advertising tracking. NSPrivacyTracking is false; no tracking domains (see ios/Runner/PrivacyInfo.xcprivacy).
@@ -26,5 +29,8 @@ DATA SAFETY SUMMARY
 - Push tokens (APNs/FCM) are registered only after login and unregistered on logout.
 - Required-reason APIs: file timestamps and system boot time via the Flutter engine only (mirrors the engine's own privacy manifest; reasons 0A2A.1, C617.1, 35F9.1). No UserDefaults/file-timestamp/disk-space/boot-time access in app code. The PostHog SDK ships its own manifest (UserDefaults CA92.1, analytics data types).
 
-BILLING
-- No in-app purchases anywhere in the binary (no StoreKit IAP code). Native checkout and external purchase links are disabled. The browser-checkout return screen is unreachable: a link to /billing/return opens the home screen. Settings shows the current plan, read-only. Decision D6 (2026-10-06): the external link stays off.
+IN-APP PURCHASE (auto-renewable subscriptions)
+- Settings → Billing → "See plans" opens the Plans screen. It lists Pro, Team and Business, monthly and yearly, with the App Store price, the period, what each plan includes, and links to the Terms of Use (https://uptrack.app/terms) and the Privacy Policy (https://uptrack.app/privacy).
+- All six products are auto-renewable subscriptions in one subscription group ("Uptrack"): app.uptrack.mobile.pro.monthly, .pro.yearly, .team.monthly, .team.yearly, .business.monthly, .business.yearly.
+- Tap "Subscribe to <plan>" to buy with In-App Purchase. The plan is active on the account at once, in the app and on the web. "Restore Purchases" is on the Plans screen. After a purchase, Billing shows "Manage subscription" (Apple's subscription sheet) and "Change plan".
+- Only the owner of an organization can buy. Customers who already pay on the web see "Your plan is managed on the web." and are not asked to pay again. The app has no links to buy outside the app.
