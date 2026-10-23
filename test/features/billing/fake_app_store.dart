@@ -120,12 +120,14 @@ StoreTransaction purchased(
   String productId,
   String id, {
   String? token = kFakeOrgId,
+  DateTime? expiresAt,
 }) => StoreTransaction(
   productId: productId,
   state: StoreTransactionState.purchased,
   transactionId: id,
   signedTransaction: 'jws.$id',
   appAccountToken: token,
+  expiresAt: expiresAt,
 );
 
 StoreTransaction restoredTx(

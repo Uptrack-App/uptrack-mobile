@@ -40,6 +40,7 @@ class StoreTransaction {
     this.signedTransaction = '',
     this.errorMessage,
     this.appAccountToken,
+    this.expiresAt,
   });
 
   final String productId;
@@ -57,6 +58,10 @@ class StoreTransaction {
   /// The `appAccountToken` of the purchase: the organization ID that the
   /// app set at purchase time. StoreKit gives it in upper case.
   final String? appAccountToken;
+
+  /// When the subscription period of this transaction ends (StoreKit
+  /// `expirationDate`). Null when StoreKit gives none.
+  final DateTime? expiresAt;
 
   bool get hasTransaction =>
       transactionId != null && signedTransaction.isNotEmpty;
@@ -156,7 +161,16 @@ class StoreKitAppStore implements AppStoreClient {
     signedTransaction: d.verificationData.serverVerificationData,
     errorMessage: d.error?.message,
     appAccountToken: d is SK2PurchaseDetails ? d.appAccountToken : null,
+    expiresAt: d is SK2PurchaseDetails ? _fromMillis(d.expirationDate) : null,
   );
+
+  /// The plugin gives dates as milliseconds since the epoch, in text.
+  static DateTime? _fromMillis(String? ms) {
+    final int? v = ms == null ? null : int.tryParse(ms);
+    return v == null
+        ? null
+        : DateTime.fromMillisecondsSinceEpoch(v, isUtc: true);
+  }
 
   @override
   Future<List<StoreTransaction>> unfinished() async {
@@ -170,6 +184,7 @@ class StoreKitAppStore implements AppStoreClient {
           transactionId: t.id,
           signedTransaction: t.receiptData ?? '',
           appAccountToken: t.appAccountToken,
+          expiresAt: _fromMillis(t.expirationDate),
         ),
     ];
   }

@@ -338,6 +338,14 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       final CurrentUserResponse me = await api.getMe();
       if (t.appAccountToken?.toLowerCase() !=
           me.organization.id.toLowerCase()) {
+        // An expired one grants nothing any more, and the server has its
+        // state from Apple's notifications. Finish it: left unfinished, it
+        // blocks every new purchase of this product on this device (the
+        // plugin refuses a product with an unfinished transaction).
+        final DateTime? expiresAt = t.expiresAt;
+        if (expiresAt != null && expiresAt.isBefore(DateTime.now())) {
+          await store?.finish(id);
+        }
         if (userVisible) {
           _notice(
             const PurchaseNotice(

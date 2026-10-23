@@ -542,6 +542,33 @@ void main() {
       expect(store.finished, <String>['tx-mine']);
     });
 
+    test('an expired leftover of another org is finished, not sent', () async {
+      // Left unfinished, it would block a new purchase of the product:
+      // the plugin refuses a product with an unfinished transaction.
+      final FakeAppStore store = FakeAppStore(
+        leftovers: <StoreTransaction>[
+          purchased(
+            _proMonthly,
+            'tx-old',
+            token: otherOrg,
+            expiresAt: DateTime.utc(2020),
+          ),
+          purchased(
+            _teamMonthly,
+            'tx-live',
+            token: otherOrg,
+            expiresAt: DateTime.now().toUtc().add(const Duration(days: 20)),
+          ),
+        ],
+      );
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      await h.controller.finishLeftovers();
+      await h.settle();
+      expect(h.posted, isEmpty);
+      expect(store.finished, <String>['tx-old']);
+    });
+
     test('restore of another org says so', () async {
       final FakeAppStore store = FakeAppStore(
         restored: <StoreTransaction>[
