@@ -26,6 +26,7 @@ const String kIncidentsPath = '/api/incidents';
 const String kNotificationPreferencesPath =
     '/api/users/me/notification-preferences';
 const String kBillingSubscriptionPath = '/api/billing/subscription';
+const String kAppleTransactionsPath = '/api/billing/apple/transactions';
 
 /// OpenAPI path template for the public status page (mirrored in the
 /// contract test). The runtime call interpolates the slug via
@@ -608,6 +609,31 @@ class UptrackApi {
     const String path = kBillingSubscriptionPath;
     final Response<Map<String, dynamic>> res = await _dio
         .get<Map<String, dynamic>>(path);
+    final Map<String, dynamic>? data = res.data;
+    if (data == null) {
+      throw DioException(
+        requestOptions: RequestOptions(path: path),
+        message: 'Empty response from $path',
+      );
+    }
+    return BillingSubscriptionInfo.fromJson(data.cast<String, Object?>());
+  }
+
+  /// `POST /api/billing/apple/transactions` — send a StoreKit 2 signed
+  /// transaction (JWS) after a purchase, a restore or a renewal. Owner only.
+  /// The server checks the JWS and that its `appAccountToken` equals the
+  /// organization ID, then answers with the subscription body. Errors come
+  /// as [DioException]: 403 `not_owner`, 409 `subscription_exists`, 422
+  /// `invalid_transaction`, 404 when the server has IAP off.
+  Future<BillingSubscriptionInfo> postAppleTransaction(
+    String signedTransaction,
+  ) async {
+    const String path = kAppleTransactionsPath;
+    final Response<Map<String, dynamic>> res = await _dio
+        .post<Map<String, dynamic>>(
+          path,
+          data: <String, Object?>{'signed_transaction': signedTransaction},
+        );
     final Map<String, dynamic>? data = res.data;
     if (data == null) {
       throw DioException(

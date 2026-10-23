@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:dio/dio.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:uptrack_mobile/api/client.dart';
+import 'package:uptrack_mobile/api/models/billing_subscription.dart';
 import 'package:uptrack_mobile/api/models/check.dart';
 import 'package:uptrack_mobile/api/models/current_user.dart';
 import 'package:uptrack_mobile/api/models/incident.dart';
@@ -447,5 +448,52 @@ void main() {
     final UptrackApi api = UptrackApi(dio: dio);
 
     expect(await api.deleteAccount(), isNull);
+  });
+
+  test('postAppleTransaction sends the JWS and parses the provider', () async {
+    final Dio dio = dioWithFake(
+      (RequestOptions options) async => jsonResponse(<String, Object?>{
+        'plan': 'team',
+        'data': <String, Object?>{
+          'id': 's1',
+          'plan': 'team',
+          'status': 'active',
+          'provider': 'apple',
+          'apple_product_id': 'app.uptrack.mobile.team.monthly',
+        },
+      }),
+    );
+    final FakeAdapter adapter = dio.httpClientAdapter as FakeAdapter;
+    final BillingSubscriptionInfo info = await UptrackApi(dio: dio)
+        .postAppleTransaction('header.payload.signature');
+
+    expect(adapter.lastOptions!.method, 'POST');
+    expect(adapter.lastOptions!.path, '/api/billing/apple/transactions');
+    expect(adapter.lastOptions!.data, <String, Object?>{
+      'signed_transaction': 'header.payload.signature',
+    });
+    expect(info.plan, 'team');
+    expect(info.subscription!.isApple, isTrue);
+    expect(
+      info.subscription!.appleProductId,
+      'app.uptrack.mobile.team.monthly',
+    );
+    expect(info.live, isNotNull);
+  });
+
+  test('a subscription without provider is Paddle; cancelled is not live', () {
+    final BillingSubscriptionInfo info = BillingSubscriptionInfo.fromJson(
+      <String, Object?>{
+        'plan': 'free',
+        'data': <String, Object?>{
+          'id': 's1',
+          'plan': 'pro',
+          'status': 'cancelled',
+        },
+      },
+    );
+    expect(info.subscription!.provider, kProviderPaddle);
+    expect(info.subscription!.appleProductId, isNull);
+    expect(info.live, isNull);
   });
 }

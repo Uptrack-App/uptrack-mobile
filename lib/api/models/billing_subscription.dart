@@ -1,8 +1,9 @@
-/// Read-only billing models for `GET /api/billing/subscription`.
+/// Billing models for `GET /api/billing/subscription` (and the same body from
+/// `POST /api/billing/apple/transactions`).
 ///
 /// Shape mirror: `SubscriptionResponse` / `SubscriptionOut` in
-/// `openapi-v2.json`. Display-only: plan upgrades/downgrades happen on the
-/// web (region-gated link, no IAP code anywhere in the app).
+/// `openapi-v2.json`, plus `provider` and `apple_product_id` (API contract in
+/// `uptrack-spec/docs/app-review/uptrack-ios-1.0.0-resubmit-plan.md`).
 class BillingSubscriptionInfo {
   const BillingSubscriptionInfo({required this.plan, this.subscription});
 
@@ -28,6 +29,8 @@ class BillingSubscription {
     this.currentPeriodStart,
     this.currentPeriodEnd,
     this.cancelledAt,
+    this.provider = kProviderPaddle,
+    this.appleProductId,
   });
 
   factory BillingSubscription.fromJson(Map<String, Object?> json) {
@@ -38,6 +41,9 @@ class BillingSubscription {
       currentPeriodStart: json['current_period_start'] as String?,
       currentPeriodEnd: json['current_period_end'] as String?,
       cancelledAt: json['cancelled_at'] as String?,
+      // A server without the field has only Paddle subscriptions.
+      provider: json['provider'] as String? ?? kProviderPaddle,
+      appleProductId: json['apple_product_id'] as String?,
     );
   }
 
@@ -47,13 +53,44 @@ class BillingSubscription {
   final String? currentPeriodStart;
   final String? currentPeriodEnd;
   final String? cancelledAt;
+
+  /// `paddle` or `apple`.
+  final String provider;
+  final String? appleProductId;
+
+  bool get isApple => provider == kProviderApple;
+
+  /// The subscription still blocks a second one (D7). The server treats
+  /// every status except `cancelled` as live.
+  bool get isLive => !const <String>{
+    'cancelled',
+    'canceled',
+    'expired',
+    'revoked',
+    'refunded',
+  }.contains(status);
 }
+
+const String kProviderPaddle = 'paddle';
+const String kProviderApple = 'apple';
+
+/// The org's live subscription, or null.
+extension LiveSubscription on BillingSubscriptionInfo {
+  BillingSubscription? get live =>
+      subscription != null && subscription!.isLive ? subscription : null;
+}
+
+/// In-App Purchase on iOS (plan step 5b). Off by default, so `main` builds the
+/// read-only billing section of build 1. Build with
+/// `--dart-define=UPTRACK_APPLE_IAP=true` to sell the plans in the app.
+/// Android never sells in the app (plan D9), whatever the define says.
+const bool kAppleIapEnabled = bool.fromEnvironment('UPTRACK_APPLE_IAP');
 
 /// Native purchase steering stays off until runtime storefront eligibility,
 /// store-program enrollment and its reporting obligations are implemented.
 /// A compile-time switch cannot establish any of those requirements.
 const bool kBillingExternalLinkEnabled = false;
 
-/// Web billing portal URL shown as read-only text (never opened from an
-/// in-app purchase flow — there is none).
+/// Web billing portal URL shown as read-only text while
+/// [kBillingExternalLinkEnabled] is on (never opened from the app).
 const String kBillingPortalUrl = 'https://uptrack.app/billing';
