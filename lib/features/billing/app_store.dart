@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:in_app_purchase_platform_interface/in_app_purchase_platform_interface.dart';
@@ -82,6 +83,11 @@ abstract class AppStoreClient {
   /// `Transaction.unfinished`: transactions that a crash or a failed server
   /// call left open in an earlier launch.
   Future<List<StoreTransaction>> unfinished();
+
+  /// The live subscriptions of this Apple ID: not expired, not revoked and
+  /// not replaced by an upgrade. Reads StoreKit's data on the device, so it
+  /// shows no App Store sign-in. The result is not sent on [updates].
+  Future<List<StoreTransaction>> currentEntitlements();
 
   /// Starts a purchase and returns StoreKit's purchase result. The
   /// transaction arrives on [updates], before or after this returns.
@@ -187,6 +193,55 @@ class StoreKitAppStore implements AppStoreClient {
           expiresAt: _fromMillis(t.expirationDate),
         ),
     ];
+  }
+
+  /// StoreKit `Transaction.all` through `SK2Transaction.transactions()`.
+  /// The plugin reads it on the device and never calls `AppStore.sync()`,
+  /// so there is no sign-in prompt. `restorePurchases()` reads
+  /// `Transaction.currentEntitlements` without a prompt too, but it sends
+  /// the result on the purchase stream, where each one would go to the
+  /// server.
+  @override
+  Future<List<StoreTransaction>> currentEntitlements() async =>
+      liveEntitlements(await sk2.SK2Transaction.transactions(), DateTime.now());
+
+  /// The transactions of [all] that still give access at [now]. The plugin
+  /// gives no revocation date or upgrade flag, so they come from the
+  /// transaction's JSON (`revocationDate`, `isUpgraded`).
+  @visibleForTesting
+  static List<StoreTransaction> liveEntitlements(
+    List<sk2.SK2Transaction> all,
+    DateTime now,
+  ) {
+    final List<StoreTransaction> live = <StoreTransaction>[];
+    for (final sk2.SK2Transaction t in all) {
+      final DateTime? expiresAt = _fromMillis(t.expirationDate);
+      if (expiresAt == null || !expiresAt.isAfter(now)) continue;
+      final Map<String, Object?> json = _json(t.jsonRepresentation);
+      if (json['revocationDate'] != null || json['isUpgraded'] == true) {
+        continue;
+      }
+      live.add(
+        StoreTransaction(
+          productId: t.productId,
+          state: StoreTransactionState.purchased,
+          transactionId: t.id,
+          appAccountToken: t.appAccountToken,
+          expiresAt: expiresAt,
+        ),
+      );
+    }
+    return live;
+  }
+
+  static Map<String, Object?> _json(String? text) {
+    if (text == null || text.isEmpty) return const <String, Object?>{};
+    try {
+      final Object? v = jsonDecode(text);
+      return v is Map<String, Object?> ? v : const <String, Object?>{};
+    } on FormatException {
+      return const <String, Object?>{};
+    }
   }
 
   @override

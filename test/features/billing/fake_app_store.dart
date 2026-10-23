@@ -11,6 +11,7 @@ class FakeAppStore implements AppStoreClient {
     this.onBuy,
     this.restored = const <StoreTransaction>[],
     this.leftovers = const <StoreTransaction>[],
+    this.entitlements = const <StoreTransaction>[],
   }) : catalog = products ?? fakeProducts();
 
   List<StoreProduct> catalog;
@@ -23,6 +24,11 @@ class FakeAppStore implements AppStoreClient {
   PlatformException? buyError;
   List<StoreTransaction> restored;
   List<StoreTransaction> leftovers;
+
+  /// The live entitlements of the Apple ID (read before a purchase).
+  List<StoreTransaction> entitlements;
+  Object? entitlementsError;
+  int entitlementReads = 0;
 
   final List<({String productId, String appAccountToken})> buys =
       <({String productId, String appAccountToken})>[];
@@ -65,6 +71,13 @@ class FakeAppStore implements AppStoreClient {
 
   @override
   Future<List<StoreTransaction>> unfinished() async => leftovers;
+
+  @override
+  Future<List<StoreTransaction>> currentEntitlements() async {
+    entitlementReads++;
+    if (entitlementsError != null) throw entitlementsError!;
+    return entitlements;
+  }
 
   @override
   Future<StorePurchaseResult> buy(

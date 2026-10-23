@@ -167,6 +167,15 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
         _fail(productId, 'Could not start the purchase. Try again later.');
         return;
       }
+      if (await _paysForAnotherOrg(store, token)) {
+        if (!ref.mounted) return;
+        _fail(
+          productId,
+          'This Apple ID already pays for another Uptrack organization. Manage it in the Settings app, or use another Apple ID.',
+        );
+        return;
+      }
+      if (!ref.mounted) return;
       final StorePurchaseResult result = await store.buy(
         productId,
         appAccountToken: token,
@@ -214,6 +223,25 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       if (!ref.mounted) return;
       _fail(productId, 'Could not start the purchase. Try again later.');
     }
+  }
+
+  /// Whether this Apple ID has a live Uptrack subscription for another
+  /// organization. A purchase would then change that subscription (one
+  /// subscription per group and Apple ID), not start one for [orgId].
+  /// When StoreKit cannot answer, the purchase goes on as before.
+  Future<bool> _paysForAnotherOrg(AppStoreClient store, String orgId) async {
+    final List<StoreTransaction> live;
+    try {
+      live = await store.currentEntitlements();
+    } on Object {
+      return false;
+    }
+    return live.any((StoreTransaction t) {
+      final String? owner = t.appAccountToken?.toLowerCase();
+      return kAppleProductIds.contains(t.productId) &&
+          owner != null &&
+          owner != orgId;
+    });
   }
 
   static const PurchaseNotice _pendingNotice = PurchaseNotice(

@@ -611,6 +611,89 @@ void main() {
     });
   });
 
+  group('the Apple ID already pays for an Uptrack organization', () {
+    const String otherOrg = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+    const String anotherOrgText =
+        'This Apple ID already pays for another Uptrack organization. Manage it in the Settings app, or use another Apple ID.';
+
+    StoreTransaction live(String productId, String? token) => StoreTransaction(
+      productId: productId,
+      state: StoreTransactionState.purchased,
+      transactionId: 'tx-live-$productId',
+      appAccountToken: token,
+      expiresAt: DateTime.now().toUtc().add(const Duration(days: 20)),
+    );
+
+    test('another organization: no purchase, the user is told', () async {
+      final FakeAppStore store = FakeAppStore(
+        entitlements: <StoreTransaction>[
+          live(_teamMonthly, otherOrg.toUpperCase()),
+        ],
+      );
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+
+      await h.controller.buy(_proMonthly);
+      await h.settle();
+
+      expect(store.entitlementReads, 1);
+      expect(store.buys, isEmpty);
+      expect(h.posted, isEmpty);
+      expect(h.state.busy, isFalse);
+      expect(h.state.notice?.kind, PurchaseNoticeKind.error);
+      expect(h.state.notice?.message, anotherOrgText);
+    });
+
+    for (final ({String name, List<StoreTransaction> list}) c
+        in <({String name, List<StoreTransaction> list})>[
+          (
+            name: 'the same organization (upgrade)',
+            list: <StoreTransaction>[live(_teamMonthly, _orgId)],
+          ),
+          (
+            name: 'an entitlement without a token',
+            list: <StoreTransaction>[live(_teamMonthly, null)],
+          ),
+          (
+            name: 'a product outside the Uptrack group',
+            list: <StoreTransaction>[live('app.other.product', otherOrg)],
+          ),
+        ]) {
+      test('${c.name}: buys as before', () async {
+        final FakeAppStore store = FakeAppStore(entitlements: c.list);
+        final _Harness h = _Harness(store: store);
+        addTearDown(h.container.dispose);
+        h.controller;
+        await h.settle();
+
+        await h.controller.buy(_proMonthly);
+        await h.settle();
+
+        expect(store.entitlementReads, 1);
+        expect(store.buys.single.productId, _proMonthly);
+        expect(store.finished, <String>['tx-$_proMonthly']);
+        expect(h.state.notice?.kind, PurchaseNoticeKind.success);
+      });
+    }
+
+    test('the entitlements cannot be read: buys as before', () async {
+      final FakeAppStore store = FakeAppStore()
+        ..entitlementsError = PlatformException(code: 'x');
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+
+      await h.controller.buy(_proMonthly);
+      await h.settle();
+
+      expect(store.buys.single.productId, _proMonthly);
+      expect(h.state.notice?.kind, PurchaseNoticeKind.success);
+    });
+  });
+
   testWidgets('define off on iOS: no StoreKit client at all', (
     WidgetTester tester,
   ) async {
