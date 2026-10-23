@@ -756,6 +756,35 @@ void main() {
     });
   });
 
+  test(
+    'StoreKit does not answer the entitlement read: buys after the wait',
+    () async {
+      ApplePurchaseController.entitlementsTimeout = const Duration(
+        milliseconds: 50,
+      );
+      addTearDown(
+        () => ApplePurchaseController.entitlementsTimeout =
+            ApplePurchaseController.kEntitlementsTimeout,
+      );
+      final FakeAppStore store = FakeAppStore()..entitlementsHang = true;
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+
+      final Future<void> buying = h.controller.buy(_proMonthly);
+      await h.settle();
+      expect(store.entitlementReads, 1);
+      expect(store.buys, isEmpty);
+      expect(h.state.busyProductId, _proMonthly);
+
+      await buying.timeout(const Duration(seconds: 2));
+      await h.settle();
+      expect(store.buys.single.productId, _proMonthly);
+      expect(h.state.notice?.kind, PurchaseNoticeKind.success);
+    },
+  );
+
   testWidgets('define off on iOS: no StoreKit client at all', (
     WidgetTester tester,
   ) async {

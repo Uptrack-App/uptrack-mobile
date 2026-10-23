@@ -30,6 +30,9 @@ class FakeAppStore implements AppStoreClient {
   Object? entitlementsError;
   int entitlementReads = 0;
 
+  /// StoreKit does not answer the entitlement read.
+  bool entitlementsHang = false;
+
   final List<({String productId, String appAccountToken})> buys =
       <({String productId, String appAccountToken})>[];
   final List<String> finished = <String>[];
@@ -75,6 +78,7 @@ class FakeAppStore implements AppStoreClient {
   @override
   Future<List<StoreTransaction>> currentEntitlements() async {
     entitlementReads++;
+    if (entitlementsHang) return Completer<List<StoreTransaction>>().future;
     if (entitlementsError != null) throw entitlementsError!;
     return entitlements;
   }

@@ -102,6 +102,14 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   @visibleForTesting
   static Duration lateUpdateWindow = kLateUpdateWindow;
 
+  /// How long a purchase waits for StoreKit's entitlements before it goes
+  /// on without the check (as when StoreKit cannot answer).
+  static const Duration kEntitlementsTimeout = Duration(seconds: 5);
+
+  /// The wait that the controller uses. Tests make it short.
+  @visibleForTesting
+  static Duration entitlementsTimeout = kEntitlementsTimeout;
+
   StreamSubscription<List<StoreTransaction>>? _updates;
   final Set<String> _inFlight = <String>{};
 
@@ -241,11 +249,12 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   /// Whether this Apple ID has a live Uptrack subscription for another
   /// organization. A purchase would then change that subscription (one
   /// subscription per group and Apple ID), not start one for [orgId].
-  /// When StoreKit cannot answer, the purchase goes on as before.
+  /// When StoreKit cannot answer, or does not answer in
+  /// [entitlementsTimeout], the purchase goes on as before.
   Future<bool> _paysForAnotherOrg(AppStoreClient store, String orgId) async {
     final List<StoreTransaction> live;
     try {
-      live = await store.currentEntitlements();
+      live = await store.currentEntitlements().timeout(entitlementsTimeout);
     } on Object {
       return false;
     }
