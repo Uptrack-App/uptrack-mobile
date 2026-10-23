@@ -484,10 +484,12 @@ void main() {
         milliseconds: 50,
       ),
     );
-    tearDown(
-      () => ApplePurchaseController.updateTimeout =
-          ApplePurchaseController.kUpdateTimeout,
-    );
+    tearDown(() {
+      ApplePurchaseController.updateTimeout =
+          ApplePurchaseController.kUpdateTimeout;
+      ApplePurchaseController.lateUpdateWindow =
+          ApplePurchaseController.kLateUpdateWindow;
+    });
 
     test('purchase: the wait ends with a message, not in silence', () async {
       // StoreKit answers success, but its update does not come.
@@ -525,6 +527,51 @@ void main() {
       expect(store.finished, isEmpty);
       expect(h.state.notice?.kind, PurchaseNoticeKind.error);
       expect(h.state.notice?.message, contains('managed on the web'));
+    });
+
+    test(
+      'a much later update of the product is not shown as the purchase',
+      () async {
+        // The update of the purchase never came (StoreKit gives it again at
+        // the next launch). A renewal of the product much later is not the
+        // answer to that purchase, so it is silent, as every renewal is.
+        ApplePurchaseController.lateUpdateWindow = const Duration(
+          milliseconds: 50,
+        );
+        final _SilentBuyStore store = _SilentBuyStore();
+        final _Harness h = _Harness(store: store);
+        addTearDown(h.container.dispose);
+        h.controller;
+        await h.settle();
+        await h.controller.buy(_proMonthly);
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        final PurchaseNotice? timedOut = h.state.notice;
+        expect(timedOut?.kind, PurchaseNoticeKind.info);
+        await Future<void>.delayed(const Duration(milliseconds: 80));
+        store.emit(<StoreTransaction>[purchased(_proMonthly, 'tx-renewal')]);
+        await h.settle();
+        expect(h.posted, <String>['jws.tx-renewal']);
+        expect(store.finished, <String>['tx-renewal']);
+        expect(h.state.notice?.message, timedOut?.message);
+      },
+    );
+
+    test('a new purchase ends the wait for the late update', () async {
+      final _SilentBuyStore store = _SilentBuyStore();
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.buy(_proMonthly);
+      await Future<void>.delayed(const Duration(milliseconds: 80));
+      // The user buys another plan; it waits for its own update.
+      await h.controller.buy(_teamMonthly);
+      expect(h.state.busyProductId, _teamMonthly);
+      store.emit(<StoreTransaction>[purchased(_proMonthly, 'tx-renewal')]);
+      await h.settle();
+      expect(h.posted, <String>['jws.tx-renewal']);
+      expect(h.state.busyProductId, _teamMonthly);
+      expect(h.state.notice?.kind, isNot(PurchaseNoticeKind.success));
     });
 
     test('restore: no batch in time is not "nothing to restore"', () async {

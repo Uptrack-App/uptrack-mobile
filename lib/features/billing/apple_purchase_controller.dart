@@ -94,6 +94,14 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   @visibleForTesting
   static Duration updateTimeout = kUpdateTimeout;
 
+  /// After the wait for a purchase's update ended, how long a late update
+  /// of that product still counts as the answer to the purchase.
+  static const Duration kLateUpdateWindow = Duration(minutes: 5);
+
+  /// The window that the controller uses. Tests make it short.
+  @visibleForTesting
+  static Duration lateUpdateWindow = kLateUpdateWindow;
+
   StreamSubscription<List<StoreTransaction>>? _updates;
   final Set<String> _inFlight = <String>{};
 
@@ -105,8 +113,11 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   Timer? _updateTimeout;
 
   /// A purchase whose StoreKit update did not come in time. Its late update
-  /// still shows its result to the user.
+  /// still shows its result to the user, until [_lateUntil] or the next
+  /// purchase or restore. After that, an update of the product is a renewal
+  /// or a leftover, and it is silent.
   String? _lateProductId;
+  DateTime? _lateUntil;
 
   AppStoreClient? get _store => ref.read(appStoreClientProvider);
 
@@ -154,6 +165,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   Future<void> buy(String productId) async {
     final AppStoreClient? store = _store;
     if (store == null || state.busy) return;
+    _lateProductId = null;
     state = ApplePurchaseState(busyProductId: productId);
     try {
       final CurrentUserResponse me = await ref.read(uptrackApiProvider).getMe();
@@ -196,6 +208,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
                 state.busyProductId == productId &&
                 !_delivering.contains(productId)) {
               _lateProductId = productId;
+              _lateUntil = DateTime.now().add(lateUpdateWindow);
               _notice(
                 const PurchaseNotice(
                   'The App Store has not confirmed the purchase yet. Your plan changes when it does. If it does not change, tap Restore Purchases.',
@@ -254,6 +267,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   Future<void> restore() async {
     final AppStoreClient? store = _store;
     if (store == null || state.busy) return;
+    _lateProductId = null;
     state = const ApplePurchaseState(restoring: true);
     _restoredSeen = 0;
     _restoreDeliveries = <Future<void>>[];
@@ -323,8 +337,10 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
         case StoreTransactionState.purchased:
         case StoreTransactionState.restored:
           final bool restoring = state.restoring;
-          final bool late = _lateProductId == t.productId;
-          if (late) _lateProductId = null;
+          final bool late =
+              _lateProductId == t.productId &&
+              DateTime.now().isBefore(_lateUntil!);
+          if (_lateProductId == t.productId) _lateProductId = null;
           if (t.state == StoreTransactionState.restored) _restoredSeen++;
           if (!t.hasTransaction) {
             if (mine) {
