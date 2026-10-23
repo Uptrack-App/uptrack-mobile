@@ -81,11 +81,19 @@ final RegExp _uuid = RegExp(
 /// Upgrade and downgrade are a [buy] of another product of the same
 /// subscription group: the App Store does the change.
 class ApplePurchaseController extends Notifier<ApplePurchaseState> {
+  /// How long the app waits for StoreKit's transaction update after
+  /// `Product.purchase()` or Restore Purchases answered.
+  static const Duration kUpdateTimeout = Duration(seconds: 30);
+
   StreamSubscription<List<StoreTransaction>>? _updates;
   final Set<String> _inFlight = <String>{};
-  final List<Future<void>> _deliveries = <Future<void>>[];
+
+  /// Products whose transaction is with the server now.
+  final List<String> _delivering = <String>[];
+  List<Future<void>> _restoreDeliveries = <Future<void>>[];
+  Completer<void>? _restoreBatch;
   int _restoredSeen = 0;
-  bool _sawBusyUpdate = false;
+  Timer? _updateTimeout;
 
   AppStoreClient? get _store => ref.read(appStoreClientProvider);
 
@@ -96,6 +104,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       _updates = store.updates.listen(_onUpdates);
       ref.onDispose(() => _updates?.cancel());
     }
+    ref.onDispose(() => _updateTimeout?.cancel());
     return const ApplePurchaseState();
   }
 
@@ -133,7 +142,6 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     final AppStoreClient? store = _store;
     if (store == null || state.busy) return;
     state = ApplePurchaseState(busyProductId: productId);
-    _sawBusyUpdate = false;
     try {
       final CurrentUserResponse me = await ref.read(uptrackApiProvider).getMe();
       if (!ref.mounted) return;
@@ -146,13 +154,32 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
         _fail(productId, 'Could not start the purchase. Try again later.');
         return;
       }
-      await store.buy(productId, appAccountToken: token);
-      // StoreKit sends the result on the updates stream before `buy`
-      // returns. Let that event arrive first.
-      await Future<void>.delayed(Duration.zero);
+      final StorePurchaseResult result = await store.buy(
+        productId,
+        appAccountToken: token,
+      );
       if (!ref.mounted) return;
-      if (!_sawBusyUpdate && state.busyProductId == productId) {
-        state = const ApplePurchaseState();
+      // StoreKit also sends the outcome on the updates stream, before or
+      // after `buy` returns. When that update came first, it already ended
+      // the purchase.
+      if (state.busyProductId != productId) return;
+      switch (result) {
+        case StorePurchaseResult.success:
+        case StorePurchaseResult.unverified:
+          // Stay busy: the transaction arrives on the updates stream, then
+          // goes to the server. Stop waiting if it never arrives.
+          _updateTimeout?.cancel();
+          _updateTimeout = Timer(kUpdateTimeout, () {
+            if (ref.mounted &&
+                state.busyProductId == productId &&
+                !_delivering.contains(productId)) {
+              state = ApplePurchaseState(notice: state.notice);
+            }
+          });
+        case StorePurchaseResult.pending:
+          state = const ApplePurchaseState(notice: _pendingNotice);
+        case StorePurchaseResult.userCancelled:
+          state = ApplePurchaseState(notice: state.notice);
       }
     } on DioException {
       if (!ref.mounted) return;
@@ -163,8 +190,16 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     } on PlatformException catch (e) {
       if (!ref.mounted) return;
       _fail(productId, _storeError(e));
+    } on Object {
+      if (!ref.mounted) return;
+      _fail(productId, 'Could not start the purchase. Try again later.');
     }
   }
+
+  static const PurchaseNotice _pendingNotice = PurchaseNotice(
+    'The purchase waits for approval. Your plan starts when it is approved.',
+    PurchaseNoticeKind.info,
+  );
 
   /// Restore Purchases: StoreKit sends the current entitlements, and each one
   /// goes to the server (the same call as a purchase).
@@ -173,11 +208,14 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     if (store == null || state.busy) return;
     state = const ApplePurchaseState(restoring: true);
     _restoredSeen = 0;
-    _deliveries.clear();
+    _restoreDeliveries = <Future<void>>[];
+    final Completer<void> batch = _restoreBatch = Completer<void>();
     try {
       await store.restore();
-      await Future<void>.delayed(Duration.zero);
-      await Future.wait(List<Future<void>>.of(_deliveries));
+      // StoreKit sends the entitlements in one batch (also an empty one),
+      // before or after `restore` returns.
+      await batch.future.timeout(kUpdateTimeout, onTimeout: () {});
+      await Future.wait(List<Future<void>>.of(_restoreDeliveries));
       if (!ref.mounted) return;
       if (_restoredSeen == 0) {
         state = const ApplePurchaseState(
@@ -194,25 +232,19 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       state = ApplePurchaseState(
         notice: PurchaseNotice(_storeError(e), PurchaseNoticeKind.error),
       );
+    } finally {
+      if (identical(_restoreBatch, batch)) _restoreBatch = null;
     }
   }
 
   void _onUpdates(List<StoreTransaction> updates) {
     for (final StoreTransaction t in updates) {
       final bool mine = state.busyProductId == t.productId;
-      if (mine) _sawBusyUpdate = true;
       switch (t.state) {
         case StoreTransactionState.pending:
-          if (mine) {
-            state = const ApplePurchaseState(
-              notice: PurchaseNotice(
-                'The purchase waits for approval. Your plan starts when it is approved.',
-                PurchaseNoticeKind.info,
-              ),
-            );
-          }
+          if (mine) state = const ApplePurchaseState(notice: _pendingNotice);
         case StoreTransactionState.canceled:
-          if (mine) state = const ApplePurchaseState();
+          if (mine) state = ApplePurchaseState(notice: state.notice);
         case StoreTransactionState.failed:
           if (mine) {
             _fail(
@@ -224,6 +256,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
           }
         case StoreTransactionState.purchased:
         case StoreTransactionState.restored:
+          final bool restoring = state.restoring;
           if (t.state == StoreTransactionState.restored) _restoredSeen++;
           if (!t.hasTransaction) {
             if (mine) {
@@ -234,15 +267,28 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
             }
             continue;
           }
-          _deliveries.add(_deliver(t, userVisible: mine || state.restoring));
+          final Future<void> delivery = _deliver(
+            t,
+            userVisible: mine || restoring,
+          );
+          if (restoring) _restoreDeliveries.add(delivery);
       }
+    }
+    final Completer<void>? batch = _restoreBatch;
+    if (batch != null &&
+        !batch.isCompleted &&
+        (updates.isEmpty ||
+            updates.any(
+              (StoreTransaction t) => t.state == StoreTransactionState.restored,
+            ))) {
+      batch.complete();
     }
   }
 
   Future<void> _deliver(StoreTransaction t, {required bool userVisible}) async {
     final String id = t.transactionId!;
     if (!_inFlight.add(id)) return;
-    // Read before any await: a sign-out disposes this controller.
+    _delivering.add(t.productId);
     final UptrackApi api = ref.read(uptrackApiProvider);
     final AppStoreClient? store = _store;
     try {
@@ -287,7 +333,9 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       }
     } finally {
       _inFlight.remove(id);
+      _delivering.remove(t.productId);
       if (ref.mounted && state.busyProductId == t.productId) {
+        _updateTimeout?.cancel();
         state = ApplePurchaseState(notice: state.notice);
       }
     }

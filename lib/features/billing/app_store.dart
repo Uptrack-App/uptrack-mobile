@@ -24,6 +24,11 @@ class StoreProduct {
 
 enum StoreTransactionState { purchased, restored, pending, canceled, failed }
 
+/// What `Product.purchase()` answered. The transaction itself (for
+/// [success] and [unverified]) arrives on [AppStoreClient.updates], and it
+/// can arrive after `buy` returns.
+enum StorePurchaseResult { success, unverified, pending, userCancelled }
+
 /// One update from StoreKit: a new purchase, a restored or renewed
 /// transaction, an unfinished transaction from an earlier launch, or a
 /// purchase that is pending (Ask to Buy) or canceled.
@@ -68,15 +73,21 @@ abstract class AppStoreClient {
   /// call left open in an earlier launch.
   Future<List<StoreTransaction>> unfinished();
 
-  /// Starts a purchase. The result arrives on [updates].
+  /// Starts a purchase and returns StoreKit's purchase result. The
+  /// transaction arrives on [updates], before or after this returns.
   /// [appAccountToken] is the organization ID (lowercase UUID).
-  Future<void> buy(String productId, {required String appAccountToken});
+  Future<StorePurchaseResult> buy(
+    String productId, {
+    required String appAccountToken,
+  });
 
   /// `Transaction.finish()`. Call it only after the server accepted the
   /// transaction.
   Future<void> finish(String transactionId);
 
-  /// Sends the current entitlements on [updates] as restored.
+  /// Sends the current entitlements on [updates] as restored, in one batch.
+  /// The batch is sent also when it is empty, and it can arrive after this
+  /// returns.
   Future<void> restore();
 
   /// Apple's "Manage Subscriptions" sheet.
@@ -157,13 +168,22 @@ class StoreKitAppStore implements AppStoreClient {
   }
 
   @override
-  Future<void> buy(String productId, {required String appAccountToken}) =>
-      sk2.SK2Product.purchase(
-        productId,
-        options: sk2.SK2ProductPurchaseOptions(
-          appAccountToken: appAccountToken,
-        ),
-      );
+  Future<StorePurchaseResult> buy(
+    String productId, {
+    required String appAccountToken,
+  }) async {
+    final sk2.SK2ProductPurchaseResult result = await sk2.SK2Product.purchase(
+      productId,
+      options: sk2.SK2ProductPurchaseOptions(appAccountToken: appAccountToken),
+    );
+    return switch (result) {
+      sk2.SK2ProductPurchaseResult.success => StorePurchaseResult.success,
+      sk2.SK2ProductPurchaseResult.unverified => StorePurchaseResult.unverified,
+      sk2.SK2ProductPurchaseResult.pending => StorePurchaseResult.pending,
+      sk2.SK2ProductPurchaseResult.userCancelled =>
+        StorePurchaseResult.userCancelled,
+    };
+  }
 
   @override
   Future<void> finish(String transactionId) =>

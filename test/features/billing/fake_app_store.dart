@@ -31,7 +31,25 @@ class FakeAppStore implements AppStoreClient {
   int manageSheets = 0;
   int restores = 0;
 
+  /// Like the plugin on a device: StoreKit's update reaches Dart after
+  /// `buy` and `restore` return (the native side sends it from its own
+  /// task, after it answers the call).
+  bool lateUpdates = false;
+
   void emit(List<StoreTransaction> updates) => _updates.add(updates);
+
+  void _send(List<StoreTransaction> updates) {
+    if (lateUpdates) {
+      unawaited(
+        Future<void>.delayed(
+          const Duration(milliseconds: 20),
+          () => _updates.add(updates),
+        ),
+      );
+    } else {
+      _updates.add(updates);
+    }
+  }
 
   @override
   Future<bool> isAvailable() async => true;
@@ -49,13 +67,22 @@ class FakeAppStore implements AppStoreClient {
   Future<List<StoreTransaction>> unfinished() async => leftovers;
 
   @override
-  Future<void> buy(String productId, {required String appAccountToken}) async {
+  Future<StorePurchaseResult> buy(
+    String productId, {
+    required String appAccountToken,
+  }) async {
     buys.add((productId: productId, appAccountToken: appAccountToken));
     if (buyError != null) throw buyError!;
     final StoreTransaction? result = onBuy == null
         ? purchased(productId, 'tx-$productId')
         : onBuy!(productId);
-    if (result != null) _updates.add(<StoreTransaction>[result]);
+    if (result != null) _send(<StoreTransaction>[result]);
+    return switch (result?.state) {
+      StoreTransactionState.pending => StorePurchaseResult.pending,
+      StoreTransactionState.canceled ||
+      null => StorePurchaseResult.userCancelled,
+      _ => StorePurchaseResult.success,
+    };
   }
 
   @override
@@ -66,7 +93,8 @@ class FakeAppStore implements AppStoreClient {
   @override
   Future<void> restore() async {
     restores++;
-    if (restored.isNotEmpty) _updates.add(restored);
+    // The plugin always sends one batch, also an empty one.
+    _send(restored);
   }
 
   @override

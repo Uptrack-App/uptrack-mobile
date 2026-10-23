@@ -353,4 +353,76 @@ void main() {
     expect(h.posted, <String>['jws.tx-1', 'jws.tx-1']);
     expect(store.finished, <String>['tx-1']);
   });
+
+  group('the StoreKit update arrives after buy/restore return', () {
+    Future<void> late() =>
+        Future<void>.delayed(const Duration(milliseconds: 60));
+
+    test('purchase: busy until the server answers, then thanks', () async {
+      final FakeAppStore store = FakeAppStore()..lateUpdates = true;
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+
+      await h.controller.buy(_proMonthly);
+      await h.settle();
+      // StoreKit has not sent the transaction yet: still busy.
+      expect(h.state.busyProductId, _proMonthly);
+
+      await late();
+      expect(store.finished, <String>['tx-$_proMonthly']);
+      expect(h.state.busy, isFalse);
+      expect(h.state.notice?.message, 'Thank you. Your plan is now Pro.');
+    });
+
+    test('purchase: a 409 after the charge is shown to the user', () async {
+      final FakeAppStore store = FakeAppStore()..lateUpdates = true;
+      final _Harness h = _Harness(
+        store: store,
+        transactionStatus: 409,
+        transactionBody: <String, Object?>{
+          'error_code': 'subscription_exists',
+          'provider': 'paddle',
+        },
+      );
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.buy(_proMonthly);
+      await late();
+      expect(store.finished, isEmpty);
+      expect(h.state.busy, isFalse);
+      expect(h.state.notice?.kind, PurchaseNoticeKind.error);
+    });
+
+    test('restore: the late entitlement is restored, with a message', () async {
+      final FakeAppStore store = FakeAppStore(
+        restored: <StoreTransaction>[restoredTx(_teamMonthly, 'tx-r')],
+      )..lateUpdates = true;
+      final _Harness h = _Harness(
+        store: store,
+        transactionBody: _subscriptionBody('team', _teamMonthly),
+      );
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.restore();
+      expect(h.posted, <String>['jws.tx-r']);
+      expect(store.finished, <String>['tx-r']);
+      expect(h.state.restoring, isFalse);
+      expect(h.state.notice?.message, 'Purchases restored. Your plan is Team.');
+    });
+
+    test('restore: nothing to restore, after the empty batch', () async {
+      final FakeAppStore store = FakeAppStore()..lateUpdates = true;
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.restore();
+      expect(h.state.restoring, isFalse);
+      expect(h.state.notice?.message, contains('No App Store subscription'));
+    });
+  });
 }
