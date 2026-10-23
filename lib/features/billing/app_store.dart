@@ -39,6 +39,7 @@ class StoreTransaction {
     this.transactionId,
     this.signedTransaction = '',
     this.errorMessage,
+    this.appAccountToken,
   });
 
   final String productId;
@@ -52,6 +53,10 @@ class StoreTransaction {
   /// server checks.
   final String signedTransaction;
   final String? errorMessage;
+
+  /// The `appAccountToken` of the purchase: the organization ID that the
+  /// app set at purchase time. StoreKit gives it in upper case.
+  final String? appAccountToken;
 
   bool get hasTransaction =>
       transactionId != null && signedTransaction.isNotEmpty;
@@ -150,6 +155,7 @@ class StoreKitAppStore implements AppStoreClient {
     transactionId: d.purchaseID,
     signedTransaction: d.verificationData.serverVerificationData,
     errorMessage: d.error?.message,
+    appAccountToken: d is SK2PurchaseDetails ? d.appAccountToken : null,
   );
 
   @override
@@ -163,6 +169,7 @@ class StoreKitAppStore implements AppStoreClient {
           state: StoreTransactionState.purchased,
           transactionId: t.id,
           signedTransaction: t.receiptData ?? '',
+          appAccountToken: t.appAccountToken,
         ),
     ];
   }

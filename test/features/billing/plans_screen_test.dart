@@ -165,7 +165,11 @@ void main() {
       final _Setup s = _Setup(
         store: FakeAppStore(
           restored: <StoreTransaction>[
-            restoredTx('app.uptrack.mobile.pro.monthly', 'tx-r'),
+            restoredTx(
+              'app.uptrack.mobile.pro.monthly',
+              'tx-r',
+              token: '22222222-2222-4222-8222-222222222222',
+            ),
           ],
         ),
       );

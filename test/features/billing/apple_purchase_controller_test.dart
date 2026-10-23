@@ -12,7 +12,7 @@ import 'package:uptrack_mobile/features/billing/apple_purchase_controller.dart';
 import '../auth/auth_test.dart' show FakeAdapter, jsonResponse, meFixture;
 import 'fake_app_store.dart';
 
-const String _orgId = '2C9F7B1E-4D3A-4F2B-9E8D-7A6B5C4D3E2F';
+const String _orgId = kFakeOrgId;
 const String _proMonthly = 'app.uptrack.mobile.pro.monthly';
 const String _teamMonthly = 'app.uptrack.mobile.team.monthly';
 
@@ -85,7 +85,7 @@ class _Harness {
       container.read(applePurchaseControllerProvider);
 
   Future<void> settle() async {
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 20; i++) {
       await Future<void>.delayed(Duration.zero);
     }
   }
@@ -436,6 +436,62 @@ void main() {
       await h.controller.restore();
       expect(h.state.restoring, isFalse);
       expect(h.state.notice?.message, contains('No App Store subscription'));
+    });
+  });
+
+  group('a transaction of another organization (account switch)', () {
+    const String otherOrg = '9a8b7c6d-5e4f-4a3b-8c2d-1e0f9a8b7c6d';
+
+    test(
+      'an update for another org is not sent and stays unfinished',
+      () async {
+        final FakeAppStore store = FakeAppStore();
+        final _Harness h = _Harness(store: store);
+        addTearDown(h.container.dispose);
+        h.controller;
+        await h.settle();
+        store.emit(<StoreTransaction>[
+          purchased(_proMonthly, 'tx-a', token: otherOrg.toUpperCase()),
+          purchased(_teamMonthly, 'tx-none', token: null),
+        ]);
+        await h.settle();
+        expect(h.posted, isEmpty);
+        expect(store.finished, isEmpty);
+      },
+    );
+
+    test('a leftover of another org is not sent at sign-in', () async {
+      final FakeAppStore store = FakeAppStore(
+        leftovers: <StoreTransaction>[
+          purchased(_proMonthly, 'tx-a', token: otherOrg),
+          purchased(_teamMonthly, 'tx-mine'),
+        ],
+      );
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      await h.controller.finishLeftovers();
+      await h.settle();
+      expect(h.posted, <String>['jws.tx-mine']);
+      expect(store.finished, <String>['tx-mine']);
+    });
+
+    test('restore of another org says so', () async {
+      final FakeAppStore store = FakeAppStore(
+        restored: <StoreTransaction>[
+          restoredTx(_teamMonthly, 'tx-r', token: otherOrg),
+        ],
+      );
+      final _Harness h = _Harness(store: store);
+      addTearDown(h.container.dispose);
+      h.controller;
+      await h.settle();
+      await h.controller.restore();
+      expect(h.posted, isEmpty);
+      expect(h.state.notice?.kind, PurchaseNoticeKind.error);
+      expect(
+        h.state.notice?.message,
+        contains('belongs to another Uptrack organization'),
+      );
     });
   });
 }

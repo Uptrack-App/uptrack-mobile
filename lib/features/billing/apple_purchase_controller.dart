@@ -292,6 +292,23 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     final UptrackApi api = ref.read(uptrackApiProvider);
     final AppStoreClient? store = _store;
     try {
+      // The controller outlives a sign-out, and the API sends the token of
+      // the account that is signed in now. Send a transaction only to its
+      // own organization; the server would refuse it anyway (422).
+      final CurrentUserResponse me = await api.getMe();
+      if (t.appAccountToken?.toLowerCase() !=
+          me.organization.id.toLowerCase()) {
+        if (userVisible) {
+          _notice(
+            const PurchaseNotice(
+              'This App Store subscription belongs to another Uptrack organization. Sign in to that organization to use it.',
+              PurchaseNoticeKind.error,
+            ),
+            endPurchaseOf: t.productId,
+          );
+        }
+        return;
+      }
       final BillingSubscriptionInfo info = await api.postAppleTransaction(
         t.signedTransaction,
       );

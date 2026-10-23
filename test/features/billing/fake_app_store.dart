@@ -74,7 +74,11 @@ class FakeAppStore implements AppStoreClient {
     buys.add((productId: productId, appAccountToken: appAccountToken));
     if (buyError != null) throw buyError!;
     final StoreTransaction? result = onBuy == null
-        ? purchased(productId, 'tx-$productId')
+        ? purchased(
+            productId,
+            'tx-$productId',
+            token: appAccountToken.toUpperCase(),
+          )
         : onBuy!(productId);
     if (result != null) _send(<StoreTransaction>[result]);
     return switch (result?.state) {
@@ -108,18 +112,32 @@ class FakeAppStore implements AppStoreClient {
   }
 }
 
-StoreTransaction purchased(String productId, String id) => StoreTransaction(
+/// The organization of the test owner. StoreKit gives the
+/// `appAccountToken` back in upper case (Swift `UUID.uuidString`).
+const String kFakeOrgId = '2C9F7B1E-4D3A-4F2B-9E8D-7A6B5C4D3E2F';
+
+StoreTransaction purchased(
+  String productId,
+  String id, {
+  String? token = kFakeOrgId,
+}) => StoreTransaction(
   productId: productId,
   state: StoreTransactionState.purchased,
   transactionId: id,
   signedTransaction: 'jws.$id',
+  appAccountToken: token,
 );
 
-StoreTransaction restoredTx(String productId, String id) => StoreTransaction(
+StoreTransaction restoredTx(
+  String productId,
+  String id, {
+  String? token = kFakeOrgId,
+}) => StoreTransaction(
   productId: productId,
   state: StoreTransactionState.restored,
   transactionId: id,
   signedTransaction: 'jws.$id',
+  appAccountToken: token,
 );
 
 /// Made-up storefront prices (not the D6 prices), so a test catches any
