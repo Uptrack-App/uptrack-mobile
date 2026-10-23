@@ -1,0 +1,230 @@
+{
+  "appPolicies": {
+    "eula": "",
+    "policies": [
+      {
+        "locale": "en_US",
+        "policyText": "",
+        "policyURL": "https://uptrack.app/privacy"
+      }
+    ]
+  },
+  "identifier": "9E1F42B7",
+  "nonRenewingSubscriptions": [],
+  "products": [],
+  "settings": {
+    "_failTransactionsEnabled": false,
+    "_locale": "en_US",
+    "_storefront": "USA",
+    "_storeKitErrors": [
+      {
+        "current": {
+          "index": 2,
+          "type": "generic"
+        },
+        "enabled": false,
+        "name": "Load Products"
+      },
+      {
+        "current": {
+          "index": 1,
+          "type": "purchase"
+        },
+        "enabled": false,
+        "name": "Purchase"
+      },
+      {
+        "current": {
+          "index": 0,
+          "type": "verification"
+        },
+        "enabled": false,
+        "name": "Verification"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "App Store Sync"
+      },
+      {
+        "current": {
+          "index": 2,
+          "type": "generic"
+        },
+        "enabled": false,
+        "name": "Subscription Status"
+      },
+      {
+        "current": {
+          "index": 3,
+          "type": "generic"
+        },
+        "enabled": false,
+        "name": "App Transaction"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Manage Subscriptions Sheet"
+      },
+      {
+        "current": null,
+        "enabled": false,
+        "name": "Refund Request Sheet"
+      },
+      {
+        "current": {
+          "index": 4,
+          "type": "generic"
+        },
+        "enabled": false,
+        "name": "Offer Code Redeem Sheet"
+      }
+    ]
+  },
+  "subscriptionGroups": [
+    {
+      "id": "7A3C1D20",
+      "localizations": [],
+      "name": "Uptrack",
+      "subscriptions": [
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "2.99",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "5A00C0DE",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "For serious monitoring on a budget.",
+              "displayName": "Uptrack Pro (monthly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.uptrack.mobile.pro.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "app.uptrack.mobile.pro.monthly",
+          "subscriptionGroupID": "7A3C1D20",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "29.99",
+          "familyShareable": false,
+          "groupNumber": 3,
+          "internalID": "5A01C0DE",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "For serious monitoring on a budget.",
+              "displayName": "Uptrack Pro (yearly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.uptrack.mobile.pro.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "app.uptrack.mobile.pro.yearly",
+          "subscriptionGroupID": "7A3C1D20",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "19.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "5A02C0DE",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "For teams that run critical infrastructure.",
+              "displayName": "Uptrack Team (monthly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.uptrack.mobile.team.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "app.uptrack.mobile.team.monthly",
+          "subscriptionGroupID": "7A3C1D20",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "179.99",
+          "familyShareable": false,
+          "groupNumber": 2,
+          "internalID": "5A03C0DE",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "For teams that run critical infrastructure.",
+              "displayName": "Uptrack Team (yearly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.uptrack.mobile.team.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "app.uptrack.mobile.team.yearly",
+          "subscriptionGroupID": "7A3C1D20",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "79.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "5A04C0DE",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "For organizations that need it all.",
+              "displayName": "Uptrack Business (monthly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.uptrack.mobile.business.monthly",
+          "recurringSubscriptionPeriod": "P1M",
+          "referenceName": "app.uptrack.mobile.business.monthly",
+          "subscriptionGroupID": "7A3C1D20",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        },
+        {
+          "adHocOffers": [],
+          "codeOffers": [],
+          "displayPrice": "589.99",
+          "familyShareable": false,
+          "groupNumber": 1,
+          "internalID": "5A05C0DE",
+          "introductoryOffer": null,
+          "localizations": [
+            {
+              "description": "For organizations that need it all.",
+              "displayName": "Uptrack Business (yearly)",
+              "locale": "en_US"
+            }
+          ],
+          "productID": "app.uptrack.mobile.business.yearly",
+          "recurringSubscriptionPeriod": "P1Y",
+          "referenceName": "app.uptrack.mobile.business.yearly",
+          "subscriptionGroupID": "7A3C1D20",
+          "type": "RecurringSubscription",
+          "winbackOffers": []
+        }
+      ]
+    }
+  ],
+  "version": {
+    "major": 4,
+    "minor": 0
+  }
+}
