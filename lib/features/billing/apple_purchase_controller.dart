@@ -6,6 +6,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../api/models/billing_subscription.dart';
 import '../../api/models/current_user.dart';
+import '../../api/uptrack_api.dart';
 import '../auth/auth_controller.dart';
 import '../settings/billing_section.dart' show settingsBillingProvider;
 import '../settings/profile_section.dart'
@@ -94,14 +95,13 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     if (store != null) {
       _updates = store.updates.listen(_onUpdates);
       ref.onDispose(() => _updates?.cancel());
-      // Transactions that an earlier launch left unfinished.
-      unawaited(Future<void>.microtask(finishLeftovers));
     }
     return const ApplePurchaseState();
   }
 
   /// Sends every unfinished transaction to the server again, and finishes
   /// each one that the server accepts. Silent: there is no user action.
+  /// The app calls it at each sign-in (so at each launch with a session).
   Future<void> finishLeftovers() async {
     final AppStoreClient? store = _store;
     if (store == null) return;
@@ -111,6 +111,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     } on Object {
       return;
     }
+    if (!ref.mounted) return;
     await Future.wait(<Future<void>>[
       for (final StoreTransaction t in leftovers)
         if (t.hasTransaction) _deliver(t, userVisible: false),
@@ -135,6 +136,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
     _sawBusyUpdate = false;
     try {
       final CurrentUserResponse me = await ref.read(uptrackApiProvider).getMe();
+      if (!ref.mounted) return;
       if (me.user.role != 'owner') {
         _fail(productId, 'Only the organization owner can buy a plan.');
         return;
@@ -148,15 +150,18 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       // StoreKit sends the result on the updates stream before `buy`
       // returns. Let that event arrive first.
       await Future<void>.delayed(Duration.zero);
+      if (!ref.mounted) return;
       if (!_sawBusyUpdate && state.busyProductId == productId) {
         state = const ApplePurchaseState();
       }
     } on DioException {
+      if (!ref.mounted) return;
       _fail(
         productId,
         'Could not reach Uptrack. Check your connection and try again.',
       );
     } on PlatformException catch (e) {
+      if (!ref.mounted) return;
       _fail(productId, _storeError(e));
     }
   }
@@ -173,6 +178,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       await store.restore();
       await Future<void>.delayed(Duration.zero);
       await Future.wait(List<Future<void>>.of(_deliveries));
+      if (!ref.mounted) return;
       if (_restoredSeen == 0) {
         state = const ApplePurchaseState(
           notice: PurchaseNotice(
@@ -184,6 +190,7 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       }
       state = ApplePurchaseState(notice: state.notice);
     } on PlatformException catch (e) {
+      if (!ref.mounted) return;
       state = ApplePurchaseState(
         notice: PurchaseNotice(_storeError(e), PurchaseNoticeKind.error),
       );
@@ -235,12 +242,16 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
   Future<void> _deliver(StoreTransaction t, {required bool userVisible}) async {
     final String id = t.transactionId!;
     if (!_inFlight.add(id)) return;
+    // Read before any await: a sign-out disposes this controller.
+    final UptrackApi api = ref.read(uptrackApiProvider);
+    final AppStoreClient? store = _store;
     try {
-      final BillingSubscriptionInfo info = await ref
-          .read(uptrackApiProvider)
-          .postAppleTransaction(t.signedTransaction);
+      final BillingSubscriptionInfo info = await api.postAppleTransaction(
+        t.signedTransaction,
+      );
       // Only now: the server has the subscription.
-      await _store?.finish(id);
+      await store?.finish(id);
+      if (!ref.mounted) return;
       ref.invalidate(settingsBillingProvider);
       ref.invalidate(settingsProfileProvider);
       if (userVisible) {
@@ -276,13 +287,14 @@ class ApplePurchaseController extends Notifier<ApplePurchaseState> {
       }
     } finally {
       _inFlight.remove(id);
-      if (state.busyProductId == t.productId) {
+      if (ref.mounted && state.busyProductId == t.productId) {
         state = ApplePurchaseState(notice: state.notice);
       }
     }
   }
 
   void _notice(PurchaseNotice notice, {required String endPurchaseOf}) {
+    if (!ref.mounted) return;
     state = ApplePurchaseState(
       busyProductId: state.busyProductId == endPurchaseOf
           ? null

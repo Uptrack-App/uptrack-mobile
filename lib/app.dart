@@ -268,17 +268,15 @@ class _UptrackAppState extends ConsumerState<UptrackApp> {
     );
   }
 
-  /// In-App Purchase (iOS, behind `UPTRACK_APPLE_IAP`): once signed in,
-  /// listen to StoreKit and send the transactions that an earlier launch
-  /// left unfinished. Signing out drops the listener, so the next account
-  /// starts clean.
+  /// In-App Purchase (iOS, behind `UPTRACK_APPLE_IAP`): at each sign-in
+  /// (so at each launch with a stored session), listen to StoreKit and send
+  /// the transactions that an earlier launch left unfinished.
   void _syncApplePurchases(AuthStatus status) {
+    if (status != AuthStatus.signedIn) return;
     if (!ref.read(appleIapEnabledProvider)) return;
-    if (status == AuthStatus.signedIn) {
-      ref.read(applePurchaseControllerProvider);
-    } else {
-      ref.invalidate(applePurchaseControllerProvider);
-    }
+    unawaited(
+      ref.read(applePurchaseControllerProvider.notifier).finishLeftovers(),
+    );
   }
 
   void _attachLiveSurfaces() {

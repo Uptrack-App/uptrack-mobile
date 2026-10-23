@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:dio/dio.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -44,6 +46,7 @@ class _Harness {
     dio.httpClientAdapter = FakeAdapter((RequestOptions o) async {
       if (o.path == kGetMePath) return jsonResponse(_me(role: role));
       if (o.path == kAppleTransactionsPath) {
+        if (gate != null) await gate!.future;
         posted.add(
           (o.data as Map<dynamic, dynamic>)['signed_transaction'] as String,
         );
@@ -71,6 +74,7 @@ class _Harness {
   final FakeAppStore store;
   final String role;
   int transactionStatus;
+  Completer<void>? gate;
   Map<String, Object?>? transactionBody;
   final List<String> posted = <String>[];
   late final ProviderContainer container;
@@ -231,7 +235,7 @@ void main() {
         transactionBody: _subscriptionBody('team', _teamMonthly),
       );
       addTearDown(h.container.dispose);
-      h.controller;
+      await h.controller.finishLeftovers();
       await h.settle();
       expect(h.posted, <String>['jws.tx-old']);
       expect(store.finished, <String>['tx-old']);
@@ -248,7 +252,7 @@ void main() {
       );
       final _Harness h = _Harness(store: store, transactionStatus: 503);
       addTearDown(h.container.dispose);
-      h.controller;
+      await h.controller.finishLeftovers();
       await h.settle();
       expect(h.posted, <String>['jws.tx-old']);
       expect(store.finished, isEmpty);
@@ -261,9 +265,10 @@ void main() {
     );
     final _Harness h = _Harness(store: store);
     addTearDown(h.container.dispose);
-    h.controller;
+    final Future<void> leftovers = h.controller.finishLeftovers();
     // Transaction.updates also gives the unfinished one at launch.
     store.emit(<StoreTransaction>[purchased(_proMonthly, 'tx-1')]);
+    await leftovers;
     await h.settle();
     expect(h.posted, hasLength(1));
   });
@@ -333,5 +338,19 @@ void main() {
     );
     addTearDown(c.dispose);
     expect(c.read(appleIapEnabledProvider), isFalse);
+  });
+
+  test('a second sign-in sends a still unfinished transaction again', () async {
+    final FakeAppStore store = FakeAppStore(
+      leftovers: <StoreTransaction>[purchased(_proMonthly, 'tx-1')],
+    );
+    final _Harness h = _Harness(store: store, transactionStatus: 503);
+    addTearDown(h.container.dispose);
+    await h.controller.finishLeftovers();
+    expect(store.finished, isEmpty);
+    h.transactionStatus = 200;
+    await h.controller.finishLeftovers();
+    expect(h.posted, <String>['jws.tx-1', 'jws.tx-1']);
+    expect(store.finished, <String>['tx-1']);
   });
 }
