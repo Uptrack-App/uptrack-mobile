@@ -1,6 +1,8 @@
 import 'dart:async';
 
 import 'package:dio/dio.dart';
+import 'package:flutter/foundation.dart'
+    show TargetPlatform, debugDefaultTargetPlatformOverride;
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -493,5 +495,17 @@ void main() {
         contains('belongs to another Uptrack organization'),
       );
     });
+  });
+
+  testWidgets('define off on iOS: no StoreKit client at all', (
+    WidgetTester tester,
+  ) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.iOS;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    final ProviderContainer c = ProviderContainer();
+    addTearDown(c.dispose);
+    expect(c.read(appStoreClientProvider), isNull);
+    expect(c.read(appleIapEnabledProvider), isFalse);
+    debugDefaultTargetPlatformOverride = null;
   });
 }

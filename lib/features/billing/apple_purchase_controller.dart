@@ -14,9 +14,13 @@ import '../settings/profile_section.dart'
 import 'app_store.dart';
 import 'apple_plans.dart';
 
-/// The App Store on iOS; null on Android and web. Tests override it.
+/// The App Store on iOS when the build turns on [kAppleIapEnabled]; null on
+/// Android, web and builds without the define, so they never register the
+/// StoreKit plugin. Tests override it.
 final Provider<AppStoreClient?> appStoreClientProvider =
-    Provider<AppStoreClient?>((Ref ref) => createPlatformAppStore());
+    Provider<AppStoreClient?>(
+      (Ref ref) => kAppleIapEnabled ? createPlatformAppStore() : null,
+    );
 
 /// The app sells plans with In-App Purchase: iOS only, and only when the
 /// build turns on [kAppleIapEnabled]. Tests override it.
