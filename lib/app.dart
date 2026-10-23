@@ -9,6 +9,7 @@ import 'obs/observability.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
 import 'features/auth/demo_session.dart';
+import 'features/billing/apple_purchase_controller.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/incidents/incident_detail_screen.dart';
 import 'features/incidents/incidents_controller.dart'
@@ -261,9 +262,23 @@ class _UptrackAppState extends ConsumerState<UptrackApp> {
         if (status == AuthStatus.signedIn) {
           _attachLiveSurfaces();
         }
+        _syncApplePurchases(status);
       },
       fireImmediately: true,
     );
+  }
+
+  /// In-App Purchase (iOS, behind `UPTRACK_APPLE_IAP`): once signed in,
+  /// listen to StoreKit and send the transactions that an earlier launch
+  /// left unfinished. Signing out drops the listener, so the next account
+  /// starts clean.
+  void _syncApplePurchases(AuthStatus status) {
+    if (!ref.read(appleIapEnabledProvider)) return;
+    if (status == AuthStatus.signedIn) {
+      ref.read(applePurchaseControllerProvider);
+    } else {
+      ref.invalidate(applePurchaseControllerProvider);
+    }
   }
 
   void _attachLiveSurfaces() {

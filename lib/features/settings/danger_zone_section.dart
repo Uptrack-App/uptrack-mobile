@@ -4,11 +4,17 @@ import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../api/models/billing_subscription.dart';
 import '../auth/auth_controller.dart';
+import '../billing/apple_purchase_controller.dart' show appStoreClientProvider;
+import 'billing_section.dart'
+    show settingsBillingProvider, showAppleManageSubscriptions;
 
 /// Account deletion (R2.6): owner-only, password re-authentication for
-/// accounts that have a password, subscription must already be cancelled
-/// (the server answers 409 until then). From the app, the server accepts a
+/// accounts that have a password. A Paddle subscription is cancelled by the
+/// server, then the account is deleted (D2). The server cannot cancel an App
+/// Store subscription, so with one the section says that it continues until
+/// the user cancels it, and offers Apple's "Manage subscription" sheet. From the app, the server accepts a
 /// device token only within 15 minutes of a sign-in (D11); otherwise it
 /// answers 403 `reauth_required` and the user signs in again here. On success the full local wipe runs through
 /// [AuthController.signOut] (tokens, widget data, offline cache,
@@ -70,7 +76,7 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
       case 409:
         return serverMessage is String && serverMessage.isNotEmpty
             ? serverMessage
-            : 'Cancel your subscription first (Settings → Billing), so you are not charged after deletion.';
+            : 'Could not delete the account while the subscription is active. Try again later.';
       case 422:
         return 'That password is incorrect. Try again.';
       case 403:
@@ -88,6 +94,14 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
     }
   }
 
+  static bool _appleSubscription(WidgetRef ref) {
+    final BillingSubscriptionInfo? info = ref
+        .watch(settingsBillingProvider)
+        .value;
+    final BillingSubscription? live = info?.live;
+    return live != null && live.isApple;
+  }
+
   @override
   Widget build(BuildContext context) {
     final ThemeData theme = Theme.of(context);
@@ -103,6 +117,26 @@ class _DangerZoneSectionState extends ConsumerState<DangerZoneSection> {
             'Data is purged after 30 days. This cannot be undone.',
             style: theme.textTheme.bodyMedium,
           ),
+          if (_appleSubscription(ref)) ...<Widget>[
+            const SizedBox(height: 8),
+            Text(
+              'Your App Store subscription continues after you delete your '
+              'account, and Apple keeps charging you until you cancel it. '
+              'Cancel it in Manage subscription first.',
+              key: const ValueKey<String>('delete-apple-subscription'),
+              style: theme.textTheme.bodyMedium,
+            ),
+            if (ref.watch(appStoreClientProvider) != null) ...<Widget>[
+              const SizedBox(height: 8),
+              UptrackButton(
+                key: const ValueKey<String>('delete-manage-apple'),
+                label: 'Manage subscription',
+                kind: UptrackButtonKind.secondary,
+                icon: Icons.open_in_new,
+                onPressed: () => showAppleManageSubscriptions(context, ref),
+              ),
+            ],
+          ],
           const SizedBox(height: 12),
           TextField(
             key: const ValueKey<String>('delete-password'),
