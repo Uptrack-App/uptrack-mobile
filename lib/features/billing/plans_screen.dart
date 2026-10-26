@@ -127,11 +127,17 @@ class _PlansScreenState extends ConsumerState<PlansScreen> {
                 storeProduct: products
                     .value?[appleProductFor(plan.plan, _period).productId],
                 loadingPrice: products.isLoading,
+                // A grant-only org already has the grant's plan, so buying
+                // it would charge for nothing; a higher plan stays on sale
+                // (OpenSpec 136 D13).
                 isCurrent:
-                    live != null &&
-                    live.isApple &&
-                    live.appleProductId ==
-                        appleProductFor(plan.plan, _period).productId,
+                    (live != null &&
+                        live.isApple &&
+                        live.appleProductId ==
+                            appleProductFor(plan.plan, _period).productId) ||
+                    (live == null &&
+                        billing?.grant != null &&
+                        currentPlan == plan.plan),
                 isCurrentPlan: currentPlan == plan.plan,
                 hasAppleSubscription: live != null && live.isApple,
                 canBuy: canBuy,

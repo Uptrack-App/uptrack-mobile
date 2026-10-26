@@ -162,6 +162,41 @@ void main() {
 
       expect(info.plan, 'free');
       expect(info.subscription, isNull);
+      expect(info.grant, isNull);
+    });
+
+    test('billing parses a nonprofit grant (OpenSpec 136)', () async {
+      final Dio dio = dioWithFake(
+        (RequestOptions options) async => jsonResponse(<String, Object?>{
+          'data': null,
+          'plan': 'pro',
+          'grant': <String, Object?>{
+            'ends_at': '2027-10-24T10:00:00Z',
+            'source': 'uk_charity_commission',
+            'domain': 'example-charity.org.uk',
+          },
+        }),
+      );
+
+      final BillingSubscriptionInfo info = await UptrackApi(dio: dio)
+          .getBillingSubscription();
+
+      expect(info.plan, 'pro');
+      expect(info.subscription, isNull);
+      expect(info.grant?.endsAt, '2027-10-24T10:00:00Z');
+      expect(info.grant?.source, 'uk_charity_commission');
+      expect(info.grant?.domain, 'example-charity.org.uk');
+    });
+
+    test('the sponsored line uses the UTC day, as on the web', () {
+      expect(
+        sponsoredUntil('2027-10-24T23:30:00Z'),
+        'Sponsored for nonprofits until October 24, 2027.',
+      );
+      expect(
+        sponsoredUntil('not a date'),
+        'Sponsored for nonprofits until not a date.',
+      );
     });
   });
 

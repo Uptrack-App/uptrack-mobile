@@ -1,24 +1,74 @@
+import 'package:intl/intl.dart';
+
 /// Billing models for `GET /api/billing/subscription` (and the same body from
 /// `POST /api/billing/apple/transactions`).
 ///
 /// Shape mirror: `SubscriptionResponse` / `SubscriptionOut` in
 /// `openapi-v2.json`, plus `provider` and `apple_product_id` (API contract in
-/// `uptrack-spec/docs/app-review/uptrack-ios-1.0.0-resubmit-plan.md`).
+/// `uptrack-spec/docs/app-review/uptrack-ios-1.0.0-resubmit-plan.md`), and
+/// `grant` (OpenSpec 136).
 class BillingSubscriptionInfo {
-  const BillingSubscriptionInfo({required this.plan, this.subscription});
+  const BillingSubscriptionInfo({
+    required this.plan,
+    this.subscription,
+    this.grant,
+  });
 
   factory BillingSubscriptionInfo.fromJson(Map<String, Object?> json) {
     final Object? raw = json['data'];
+    final Object? rawGrant = json['grant'];
     return BillingSubscriptionInfo(
       plan: json['plan']! as String,
       subscription: raw is Map<String, Object?>
           ? BillingSubscription.fromJson(raw)
+          : null,
+      // A server before OpenSpec 136 sends no `grant`.
+      grant: rawGrant is Map<String, Object?>
+          ? BillingGrant.fromJson(rawGrant)
           : null,
     );
   }
 
   final String plan;
   final BillingSubscription? subscription;
+
+  /// The live nonprofit grant (free Pro), or null. [subscription] stays the
+  /// paid subscription.
+  final BillingGrant? grant;
+}
+
+/// A live nonprofit grant: `GrantOut` in `openapi-v2.json` (OpenSpec 136).
+class BillingGrant {
+  const BillingGrant({
+    required this.endsAt,
+    required this.source,
+    required this.domain,
+  });
+
+  factory BillingGrant.fromJson(Map<String, Object?> json) {
+    return BillingGrant(
+      endsAt: json['ends_at']! as String,
+      source: json['source']! as String,
+      domain: json['domain']! as String,
+    );
+  }
+
+  final String endsAt;
+
+  /// `tld`, `curated`, `uk_charity_commission`, `acnc`, `manual` or `admin`.
+  final String source;
+  final String domain;
+}
+
+/// The Current plan line for an org with a live grant, worded as on the web
+/// (`uptrack-web` `src/lib/nonprofit.ts` `sponsoredUntil`): "Sponsored for
+/// nonprofits until October 24, 2027." The date is the UTC day, as on the web.
+String sponsoredUntil(String endsAt) {
+  final DateTime? parsed = DateTime.tryParse(endsAt);
+  final String day = parsed == null
+      ? endsAt
+      : DateFormat('MMMM d, y').format(parsed.toUtc());
+  return 'Sponsored for nonprofits until $day.';
 }
 
 class BillingSubscription {

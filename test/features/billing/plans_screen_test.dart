@@ -29,8 +29,16 @@ BillingSubscriptionInfo _billing({
   String plan = 'free',
   String status = 'active',
   String? productId,
+  String? grantEndsAt,
 }) => BillingSubscriptionInfo.fromJson(<String, Object?>{
   'plan': plan,
+  'grant': grantEndsAt == null
+      ? null
+      : <String, Object?>{
+          'ends_at': grantEndsAt,
+          'source': 'tld',
+          'domain': 'helpers.ngo',
+        },
   'data': provider == null
       ? null
       : <String, Object?>{
@@ -237,6 +245,25 @@ void main() {
       expect(find.text('Switch to Team'), findsOneWidget);
     });
 
+    testWidgets('a grant-only org cannot buy Pro again, but can buy Team', (
+      WidgetTester tester,
+    ) async {
+      final _Setup s = _Setup(
+        billing: _billing(plan: 'pro', grantEndsAt: '2027-10-24T10:00:00Z'),
+      );
+      await tester.pumpWidget(s.wrap(const PlansScreen()));
+      await tester.pumpAndSettle();
+      expect(find.text('Subscribe to Pro'), findsNothing);
+      await tester.tap(find.text('Current plan'));
+      await tester.pumpAndSettle();
+      expect(s.store.buys, isEmpty);
+
+      await _scrollTo(tester, find.text('Subscribe to Team'));
+      await tester.tap(find.text('Subscribe to Team'));
+      await tester.pumpAndSettle();
+      expect(s.store.buys.single.productId, 'app.uptrack.mobile.team.monthly');
+    });
+
     testWidgets('a member sees the plans read-only (D8)', (
       WidgetTester tester,
     ) async {
@@ -429,6 +456,42 @@ void main() {
       await tester.tap(manage);
       await tester.pumpAndSettle();
       expect(s.store.manageSheets, 1);
+    });
+
+    testWidgets('a nonprofit grant shows the sponsored line (OpenSpec 136)', (
+      WidgetTester tester,
+    ) async {
+      final _Setup s = _Setup(
+        billing: _billing(plan: 'pro', grantEndsAt: '2027-10-24T10:00:00Z'),
+      );
+      await tester.pumpWidget(s.wrap(_settingsBody()));
+      await tester.pumpAndSettle();
+      expect(
+        tester
+            .widget<Text>(
+              find.byKey(const ValueKey<String>('billing-sponsored')),
+            )
+            .data,
+        'Sponsored for nonprofits until October 24, 2027.',
+      );
+      // A grant is not a subscription; the owner can still open the plans.
+      expect(find.text('No active subscription.'), findsOneWidget);
+      expect(
+        find.byKey(const ValueKey<String>('billing-see-plans')),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('no sponsored line without a grant', (
+      WidgetTester tester,
+    ) async {
+      final _Setup s = _Setup(billing: _billing(provider: 'paddle'));
+      await tester.pumpWidget(s.wrap(_settingsBody()));
+      await tester.pumpAndSettle();
+      expect(
+        find.byKey(const ValueKey<String>('billing-sponsored')),
+        findsNothing,
+      );
     });
 
     testWidgets('no "Settings → Billing" text is left', (

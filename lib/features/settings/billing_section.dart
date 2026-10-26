@@ -92,7 +92,20 @@ class BillingSection extends ConsumerWidget {
                 Card(
                   child: ListTile(
                     title: const Text('Current plan'),
-                    subtitle: Text(planLabel(info.plan)),
+                    subtitle: info.grant == null
+                        ? Text(planLabel(info.plan))
+                        : Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: <Widget>[
+                              Text(planLabel(info.plan)),
+                              Text(
+                                sponsoredUntil(info.grant!.endsAt),
+                                key: const ValueKey<String>(
+                                  'billing-sponsored',
+                                ),
+                              ),
+                            ],
+                          ),
                   ),
                 ),
                 if (info.subscription != null)
