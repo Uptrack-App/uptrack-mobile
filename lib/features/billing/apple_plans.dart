@@ -107,7 +107,7 @@ const List<PlanFacts> kPaidPlans = <PlanFacts>[
     description: 'For serious monitoring on a budget.',
     features: <PlanFeature>[
       PlanFeature('50 monitors — all at 30s'),
-      PlanFeature('12 check locations (you pick)'),
+      PlanFeature('6 check areas (you pick)'),
       PlanFeature('Email, Slack, Discord, Telegram, webhook alerts'),
       PlanFeature('5 status pages'),
       PlanFeature('3 team members'),
@@ -122,7 +122,7 @@ const List<PlanFacts> kPaidPlans = <PlanFacts>[
     description: 'For teams that run critical infrastructure.',
     features: <PlanFeature>[
       PlanFeature('200 monitors — all at 30s'),
-      PlanFeature('All 22 check locations'),
+      PlanFeature('All 24 check locations'),
       PlanFeature('Unlimited alert channels'),
       PlanFeature('Unlimited status pages'),
       PlanFeature('5 team members'),
@@ -138,7 +138,7 @@ const List<PlanFacts> kPaidPlans = <PlanFacts>[
     description: 'For organizations that need it all.',
     features: <PlanFeature>[
       PlanFeature('1,000 monitors — all at 30s'),
-      PlanFeature('All 22 check locations'),
+      PlanFeature('All 24 check locations'),
       PlanFeature('Unlimited alert channels'),
       PlanFeature('Unlimited status pages'),
       PlanFeature('15 team members'),
