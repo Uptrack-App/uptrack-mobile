@@ -6,7 +6,6 @@ import 'package:go_router/go_router.dart';
 
 import 'auth_controller.dart';
 import 'social_login.dart';
-import 'demo_session.dart' show isDemoAvailable;
 
 /// Passwordless sign-up/sign-in, with social login and optional 2FA.
 class LoginScreen extends ConsumerStatefulWidget {
@@ -261,36 +260,6 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
                         ),
                       ),
                     ),
-                    if (isDemoAvailable &&
-                        auth.status != AuthStatus.needsTwoFactor) ...[
-                      const SizedBox(height: 24),
-                      _LoginEntrance(
-                        reduceMotion: reduceMotion,
-                        start: .38,
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.stretch,
-                          children: [
-                            OutlinedButton.icon(
-                              key: const ValueKey<String>('try-demo'),
-                              onPressed: auth.isLoading
-                                  ? null
-                                  : () => context.go('/demo'),
-                              icon: const Icon(
-                                Icons.explore_outlined,
-                                size: 20,
-                              ),
-                              label: const Text('Try demo'),
-                            ),
-                            const SizedBox(height: 8),
-                            Text(
-                              'Explore sample monitors and incidents. No account needed.',
-                              textAlign: TextAlign.center,
-                              style: theme.textTheme.bodySmall,
-                            ),
-                          ],
-                        ),
-                      ),
-                    ],
                   ],
                 ),
               ),
