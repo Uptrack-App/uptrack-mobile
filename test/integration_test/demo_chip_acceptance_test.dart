@@ -1088,36 +1088,6 @@ void main() {
       );
       expect(run.adapter.requests, everyElement(startsWith('GET ')));
     }, timeout: const Timeout(Duration(minutes: 5)));
-
-    testWidgets(
-      'the production demo entry point keeps the default push service',
-      (WidgetTester tester) async {
-        await tester.pumpWidget(DemoSessionScreen(onExit: () {}));
-        await awaitLoaded(tester, find.byKey(kNeedsAckSection));
-
-        expect(
-          tester
-              .widget<UptrackDemoApp>(find.byType(UptrackDemoApp))
-              .pushService,
-          isNull,
-          reason: 'the shipping demo must not need the fixture seam at all',
-        );
-        final PushService service = demoContainer(tester)
-            .read(pushServiceProvider);
-        expect(
-          service,
-          isNot(isA<UnavailablePushService>()),
-          reason:
-              'the seam is for tests only; production keeps its own provider',
-        );
-        expect(
-          service.isInitialized,
-          isFalse,
-          reason: 'a demo session must not initialize push either',
-        );
-      },
-      timeout: const Timeout(Duration(minutes: 5)),
-    );
   });
 
   group('demo banner on a phone', () {

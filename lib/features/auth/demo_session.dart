@@ -19,12 +19,11 @@ import '../../theme/app_theme.dart';
 import '../../theme/appearance.dart';
 import 'auth_controller.dart';
 
-/// The sample workspace on the phone apps. iOS needs it too: App Review
-/// must reach the app without an account (see store/metadata/review-notes.txt).
-bool get isDemoAvailable =>
-    !kIsWeb &&
-    (defaultTargetPlatform == TargetPlatform.android ||
-        defaultTargetPlatform == TargetPlatform.iOS);
+// The sample workspace. The shipped apps have no way in: there is no "Try demo"
+// button and no `/demo` route (removed 2026-11-13; App Review signs in with the
+// reviewer account in store/metadata/review-notes.txt). It stays for the
+// App Store screenshots (integration_test/app_store_screenshots_test.dart), the
+// screen tour and the acceptance tests, which render the real screens on sample data.
 
 /// A disposable workspace. Its adapter never forwards a request to a server.
 class DemoAdapter implements HttpClientAdapter {
@@ -362,8 +361,7 @@ class _DemoAuthController extends AuthController {
 /// acceptance fixture drives this exact widget — the real router, the real
 /// screens, the real [DemoAdapter] — instead of re-pumping screens against
 /// stand-in repositories. [initialLocation] and [adapter] exist so a test can
-/// open a route directly and observe every request the journey makes; the
-/// production entry point ([DemoSessionScreen]) leaves both at their defaults.
+/// open a route directly and observe every request the journey makes.
 class UptrackDemoApp extends StatefulWidget {
   const UptrackDemoApp({
     required this.onExit,
@@ -626,14 +624,4 @@ class _DemoBanner extends StatelessWidget {
     painter.dispose();
     return width;
   }
-}
-
-/// The routed `/demo` entry point: the demo app with its production defaults.
-class DemoSessionScreen extends StatelessWidget {
-  const DemoSessionScreen({super.key, required this.onExit});
-
-  final VoidCallback onExit;
-
-  @override
-  Widget build(BuildContext context) => UptrackDemoApp(onExit: onExit);
 }

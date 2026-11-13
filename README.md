@@ -27,7 +27,7 @@ When shared colors change, update `uptrack-web/design/tokens.json`, copy it to `
 flutter run -t lib/design/gallery/main.dart
 ```
 
-This separate developer entrypoint uses production components, supports light/dark and 200% text, and needs no account or backend. It is separate from the Android tester demo and is not a production route.
+This separate developer entrypoint uses production components, supports light/dark and 200% text, and needs no account or backend. It is not a production route.
 
 ```sh
 flutter analyze

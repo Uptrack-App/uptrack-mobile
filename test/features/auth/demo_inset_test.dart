@@ -35,7 +35,7 @@ void main() {
     ) async {
       _phoneWithInsets(tester);
 
-      await tester.pumpWidget(DemoSessionScreen(onExit: () {}));
+      await tester.pumpWidget(UptrackDemoApp(onExit: () {}));
       await settleData(tester);
 
       // The sample-data banner keeps its own status-bar inset.
@@ -76,7 +76,7 @@ void main() {
     ) async {
       _phoneWithInsets(tester);
 
-      await tester.pumpWidget(DemoSessionScreen(onExit: () {}));
+      await tester.pumpWidget(UptrackDemoApp(onExit: () {}));
       await settleData(tester);
 
       final Iterable<MediaQueryData> paddings = tester

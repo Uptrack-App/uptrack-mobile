@@ -8,7 +8,6 @@ import 'api/models/billing_subscription.dart' show kBillingExternalLinkEnabled;
 import 'obs/observability.dart';
 import 'features/auth/auth_controller.dart';
 import 'features/auth/login_screen.dart';
-import 'features/auth/demo_session.dart';
 import 'features/billing/apple_purchase_controller.dart';
 import 'features/dashboard/dashboard_screen.dart';
 import 'features/incidents/incident_detail_screen.dart';
@@ -56,17 +55,13 @@ GoRouter createRouter({
           state.matchedLocation == '/billing/return') {
         return '/';
       }
-      if (state.matchedLocation == '/demo' && !isDemoAvailable) {
-        return '/login';
-      }
       final AuthStatus Function()? statusOf = authStatusOf;
       if (statusOf == null) {
         return null;
       }
       final AuthStatus status = statusOf();
       final bool loggingIn = state.matchedLocation == '/login';
-      if (state.matchedLocation == '/demo' ||
-          state.matchedLocation == '/magic') {
+      if (state.matchedLocation == '/magic') {
         return null;
       }
       if (status != AuthStatus.signedIn && !loggingIn) {
@@ -98,11 +93,6 @@ GoRouter createRouter({
             queryParameters: state.uri.queryParameters,
           ),
         ),
-      ),
-      GoRoute(
-        path: '/demo',
-        builder: (context, state) =>
-            DemoSessionScreen(onExit: () => context.go('/login')),
       ),
       GoRoute(
         path: '/login',

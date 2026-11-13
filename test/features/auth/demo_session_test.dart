@@ -22,7 +22,7 @@ void main() {
     testWidgets('keeps one compact row where the text and action fit', (
       tester,
     ) async {
-      await tester.pumpWidget(DemoSessionScreen(onExit: () {}));
+      await tester.pumpWidget(UptrackDemoApp(onExit: () {}));
       await tester.pumpAndSettle();
 
       final Rect message = tester.getRect(find.text('Demo · sample data'));
@@ -91,7 +91,7 @@ void main() {
       addTearDown(tester.view.resetDevicePixelRatio);
       addTearDown(tester.platformDispatcher.clearTextScaleFactorTestValue);
 
-      await tester.pumpWidget(DemoSessionScreen(onExit: () {}));
+      await tester.pumpWidget(UptrackDemoApp(onExit: () {}));
       await tester.pumpAndSettle();
 
       final Rect message = tester.getRect(find.text('Demo · sample data'));
@@ -315,104 +315,31 @@ void main() {
   );
 
   testWidgets(
-    'signed-out tester can enter sample dashboard and exit to login',
+    'the phone apps have no demo: no Try demo button, and /demo goes to sign-in',
     (tester) async {
-      tester.view.physicalSize = const Size(390, 844);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.resetPhysicalSize);
-      addTearDown(tester.view.resetDevicePixelRatio);
-      final store = MemoryTokenStore();
-      final container = ProviderContainer(
-        overrides: [
-          tokenStoreProvider.overrideWithValue(store),
-          socialProvidersProvider.overrideWith((ref) async => <String>{}),
-        ],
-      );
-      addTearDown(container.dispose);
       final router = createRouter(
         authStatusOf: () => AuthStatus.signedOut,
-        initialLocation: '/login',
+        initialLocation: '/demo',
       );
       addTearDown(router.dispose);
       await tester.pumpWidget(
-        UncontrolledProviderScope(
-          container: container,
+        ProviderScope(
+          overrides: [
+            tokenStoreProvider.overrideWithValue(MemoryTokenStore()),
+            socialProvidersProvider.overrideWith((ref) async => <String>{}),
+          ],
           child: MaterialApp.router(routerConfig: router),
         ),
       );
       await tester.pumpAndSettle();
-      await tester.ensureVisible(
-        find.byKey(const ValueKey<String>('try-demo')),
-      );
-      await tester.tap(find.byKey(const ValueKey<String>('try-demo')));
-      await tester.pumpAndSettle();
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      });
-      await tester.pumpAndSettle();
-      final semantics = tester.ensureSemantics();
-      await tester.pump();
-      expect(find.bySemanticsLabel('Exit demo'), findsOneWidget);
-      expect(find.bySemanticsLabel('Demo · sample data'), findsOneWidget);
-      semantics.dispose();
-      expect(find.text('Demo · sample data'), findsOneWidget);
-      expect(find.text('Public API'), findsOneWidget);
-      expect(
-        container.read(authControllerProvider).status,
-        AuthStatus.signedOut,
-      );
-      expect(await store.readDeviceToken(), isNull);
-      await tester.tap(find.text('Monitors').last);
-      await tester.pumpAndSettle();
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      });
-      await tester.pumpAndSettle();
-      expect(find.text('Marketing website'), findsOneWidget);
-      await tester.tap(find.text('Marketing website'));
-      await tester.pumpAndSettle();
-      await tester.runAsync(() async {
-        await Future<void>.delayed(const Duration(milliseconds: 100));
-      });
-      await tester.pumpAndSettle();
-      expect(find.text('Response time'), findsOneWidget);
-      await tester.tap(find.text('Settings').last);
-      await tester.pumpAndSettle();
-      expect(find.text('Uptrack Demo'), findsOneWidget);
-      expect(tester.takeException(), isNull);
-      await tester.tap(find.text('Exit demo'));
-      await tester.pumpAndSettle();
       expect(find.text('Welcome to Uptrack'), findsOneWidget);
+      expect(find.text('Try demo'), findsNothing);
       expect(find.text('Demo · sample data'), findsNothing);
-      expect(await store.readDeviceToken(), isNull);
+      expect(router.routeInformationProvider.value.uri.path, '/login');
     },
-    // App Review needs a no-account way in on iOS too (store review notes).
     variant: TargetPlatformVariant(<TargetPlatform>{
       TargetPlatform.android,
       TargetPlatform.iOS,
     }),
   );
-  testWidgets('desktop builds have normal login and cannot enter demo', (
-    tester,
-  ) async {
-    final router = createRouter(
-      authStatusOf: () => AuthStatus.signedOut,
-      initialLocation: '/demo',
-    );
-    addTearDown(router.dispose);
-    await tester.pumpWidget(
-      ProviderScope(
-        overrides: [
-          tokenStoreProvider.overrideWithValue(MemoryTokenStore()),
-          socialProvidersProvider.overrideWith((ref) async => <String>{}),
-        ],
-        child: MaterialApp.router(routerConfig: router),
-      ),
-    );
-    await tester.pumpAndSettle();
-    expect(find.text('Welcome to Uptrack'), findsOneWidget);
-    expect(find.byKey(const ValueKey<String>('try-demo')), findsNothing);
-    expect(find.text('Demo · sample data'), findsNothing);
-    expect(router.routeInformationProvider.value.uri.path, '/login');
-  }, variant: TargetPlatformVariant.only(TargetPlatform.macOS));
 }

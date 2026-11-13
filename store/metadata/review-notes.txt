@@ -8,12 +8,6 @@ SIGN-IN FOR REVIEW (iOS and Android)
 - The reviewer account is the owner of its organization and has no subscription, so you can buy a plan with your sandbox Apple Account.
 - Account deletion: Settings -> Danger zone. For safety, the app deletes an account only within 15 minutes of a sign-in; otherwise it asks you to sign in again. No password is needed for this account. If the account has an App Store subscription, the app says that the subscription continues until it is cancelled and offers "Manage subscription".
 
-DEMO ACCESS (no account)
-- On the welcome screen, tap "Try demo". No account, password or payment is required.
-- The demo contains sample monitors, check history, charts and incidents. Acknowledgement and notification-preference edits apply only to the current sample session.
-- The "Demo · sample data" banner remains visible. Tap "Exit demo" to return to normal sign-in.
-- Demo data stays on the device and never reaches a server, so push, device revoke and account deletion need the reviewer account above.
-
 WHAT TO EXERCISE
 - Log in → dashboard (status counts, uptime summary, recent incidents).
 - Monitors → search/filter list → detail (response-time chart, check history).
